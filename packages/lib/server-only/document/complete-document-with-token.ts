@@ -14,7 +14,11 @@ import {
   RECIPIENT_DIFF_TYPE,
 } from '@documenso/lib/types/document-audit-logs';
 import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import { fieldsContainUnsignedRequiredField } from '@documenso/lib/utils/advanced-fields-helpers';
+import {
+  evaluateAllVisibility,
+  summarizeUnmetRules,
+} from '@documenso/lib/universal/field-visibility';
+import { fieldsContainUnsignedRequiredVisibleField } from '@documenso/lib/utils/advanced-fields-helpers';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 
@@ -127,8 +131,69 @@ export const completeDocumentWithToken = async ({
     },
   });
 
-  if (fieldsContainUnsignedRequiredField(fields)) {
+  if (fieldsContainUnsignedRequiredVisibleField(fields)) {
     throw new Error(`Recipient ${recipient.id} has unsigned fields`);
+  }
+
+  // Sweep: clear hidden fields and emit audit entries before marking completion.
+  const visibilityMap = evaluateAllVisibility(
+    fields.map((f) => ({
+      id: f.id,
+      type: f.type,
+      customText: f.customText,
+      inserted: f.inserted,
+      fieldMeta: f.fieldMeta,
+    })),
+  );
+
+  const hiddenFields = fields.filter((f) => visibilityMap.get(f.id) === false);
+
+  if (hiddenFields.length > 0) {
+    // Build stableId → label map once for the recipient's fields.
+    const stableIdToLabel = new Map<string, string>();
+    for (const f of fields) {
+      const meta = f.fieldMeta as { stableId?: string; label?: string } | null;
+      if (meta?.stableId) {
+        stableIdToLabel.set(meta.stableId, meta.label ?? f.type);
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.field.updateMany({
+        where: { id: { in: hiddenFields.map((f) => f.id) } },
+        data: { customText: '', inserted: false },
+      });
+
+      await tx.documentAuditLog.createMany({
+        data: hiddenFields.map((f) => {
+          const meta = f.fieldMeta as {
+            stableId?: string;
+            label?: string;
+            visibility?: { match: 'all' | 'any'; rules: unknown[] };
+          } | null;
+
+          const summary =
+            meta?.visibility && Array.isArray(meta.visibility.rules)
+              ? summarizeUnmetRules(
+                  meta.visibility as Parameters<typeof summarizeUnmetRules>[0],
+                  stableIdToLabel,
+                )
+              : '';
+
+          return createDocumentAuditLogData({
+            type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_SKIPPED_CONDITIONAL,
+            envelopeId: envelope.id,
+            requestMetadata,
+            data: {
+              fieldId: f.secondaryId,
+              stableId: meta?.stableId ?? '',
+              fieldLabel: meta?.label ?? '',
+              unmetRuleSummary: summary,
+            },
+          });
+        }),
+      });
+    });
   }
 
   let recipientName = recipient.name;
@@ -290,7 +355,7 @@ export const completeDocumentWithToken = async ({
 
   const envelopeWithRelations = await prisma.envelope.findUniqueOrThrow({
     where: { id: envelope.id },
-    include: { documentMeta: true, recipients: true },
+    include: { documentMeta: true, recipients: true, fields: true },
   });
 
   await triggerWebhook({
@@ -424,6 +489,7 @@ export const completeDocumentWithToken = async ({
     include: {
       documentMeta: true,
       recipients: true,
+      fields: true,
     },
   });
 

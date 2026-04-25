@@ -1,4 +1,5 @@
 import { EnvelopeType, type FieldType } from '@prisma/client';
+import { isDeepEqual } from 'remeda';
 
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
@@ -13,7 +14,13 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import { type EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
+import { assignFieldStableIds } from '../envelope/assign-field-stable-ids';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { mergeFieldsForValidation } from '../envelope/merge-fields-for-validation';
+import {
+  type ValidatableField,
+  validateFieldVisibility,
+} from '../envelope/validate-field-visibility';
 
 export interface UpdateEnvelopeFieldsOptions {
   userId: number;
@@ -128,6 +135,42 @@ export const updateEnvelopeFields = async ({
     };
   });
 
+  // Build the post-update field set for visibility validation. Each incoming
+  // field replaces the matching existing row; fields not being updated are
+  // carried through unchanged via mergeFieldsForValidation.
+  const incomingForStableIds = fieldsToUpdate.map(({ originalField, updateData }) => ({
+    id: updateData.id,
+    type: updateData.type ?? originalField.type,
+    recipientId: originalField.recipientId,
+    fieldMeta: (updateData.fieldMeta ?? originalField.fieldMeta) as Record<string, unknown> | null,
+  }));
+
+  const assignedIncoming = assignFieldStableIds(incomingForStableIds);
+
+  const mergedForValidation = mergeFieldsForValidation(
+    envelope.fields.map((f) => ({
+      id: f.id,
+      type: f.type,
+      recipientId: f.recipientId,
+      fieldMeta: f.fieldMeta as unknown,
+    })),
+    assignedIncoming.map((ai) => ({
+      id: ai.id,
+      type: ai.type,
+      recipientId: ai.recipientId,
+      fieldMeta: ai.fieldMeta as unknown,
+    })),
+  );
+
+  const validation = validateFieldVisibility({ fields: mergedForValidation as ValidatableField[] });
+  if (!validation.ok) {
+    const firstError = validation.errors[0];
+    throw new AppError(AppErrorCode[firstError.code as keyof typeof AppErrorCode], {
+      message: firstError.message,
+      userMessage: firstError.message,
+    });
+  }
+
   const updatedFields = await prisma.$transaction(async (tx) => {
     return await Promise.all(
       fieldsToUpdate.map(async ({ originalField, updateData, recipientEmail }) => {
@@ -164,6 +207,43 @@ export const updateEnvelopeFields = async ({
                   fieldType: updatedField.type,
                   changes,
                 },
+              }),
+            });
+          }
+
+          // Handle visibility rule add/remove/modify audit logs.
+          const prevMeta = originalField.fieldMeta as { visibility?: unknown } | null;
+          const nextMeta = updatedField.fieldMeta as { visibility?: unknown } | null;
+          const prevVis = prevMeta?.visibility ?? null;
+          const nextVis = nextMeta?.visibility ?? null;
+
+          if (!isDeepEqual(prevVis, nextVis)) {
+            const visType =
+              prevVis === null
+                ? DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_ADDED
+                : nextVis === null
+                  ? DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_REMOVED
+                  : DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_MODIFIED;
+
+            await tx.documentAuditLog.create({
+              data: createDocumentAuditLogData({
+                type: visType,
+                envelopeId: envelope.id,
+                metadata: requestMetadata,
+                data:
+                  visType === DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_MODIFIED
+                    ? {
+                        fieldId: updatedField.secondaryId,
+                        before: prevVis as Record<string, unknown>,
+                        after: nextVis as Record<string, unknown>,
+                      }
+                    : {
+                        fieldId: updatedField.secondaryId,
+                        ruleSnapshot: (visType ===
+                        DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_ADDED
+                          ? nextVis
+                          : prevVis) as Record<string, unknown>,
+                      },
               }),
             });
           }

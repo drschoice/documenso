@@ -13,7 +13,13 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
+import { assignFieldStableIds } from '../envelope/assign-field-stable-ids';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { mergeFieldsForValidation } from '../envelope/merge-fields-for-validation';
+import {
+  type ValidatableField,
+  validateFieldVisibility,
+} from '../envelope/validate-field-visibility';
 import { type BoundingBox, whiteoutRegions } from '../pdf/auto-place-fields';
 
 type CoordinatePosition = {
@@ -243,9 +249,48 @@ export const createEnvelopeFields = async ({
     };
   });
 
+  // Auto-assign stableIds on incoming fields that need one (i.e. those that own
+  // a visibility block). Preserves any stableId that was already set.
+  const assignedIncoming = assignFieldStableIds(
+    validatedFields.map((vf, idx) => ({
+      id: -(idx + 1),
+      type: vf.type,
+      recipientId: vf.recipientId,
+      fieldMeta: vf.fieldMeta as Record<string, unknown> | null,
+    })),
+  );
+
+  // Merge existing envelope fields with the incoming fields so that cross-field
+  // visibility rules (e.g. a new field referencing an existing trigger) can be
+  // validated in one pass. Incoming fields receive negative sentinel IDs to
+  // avoid collisions with real database IDs.
+  const mergedForValidation = mergeFieldsForValidation(
+    envelope.fields.map((f) => ({
+      id: f.id,
+      type: f.type,
+      recipientId: f.recipientId,
+      fieldMeta: f.fieldMeta as unknown,
+    })),
+    assignedIncoming.map((ai) => ({
+      id: ai.id,
+      type: ai.type,
+      recipientId: ai.recipientId,
+      fieldMeta: ai.fieldMeta as unknown,
+    })),
+  );
+
+  const validation = validateFieldVisibility({ fields: mergedForValidation as ValidatableField[] });
+  if (!validation.ok) {
+    const firstError = validation.errors[0];
+    throw new AppError(AppErrorCode[firstError.code as keyof typeof AppErrorCode], {
+      message: firstError.message,
+      userMessage: firstError.message,
+    });
+  }
+
   const createdFields = await prisma.$transaction(async (tx) => {
     const newlyCreatedFields = await tx.field.createManyAndReturn({
-      data: validatedFields.map((field) => ({
+      data: validatedFields.map((field, idx) => ({
         type: field.type,
         page: field.page,
         positionX: field.positionX,
@@ -254,7 +299,7 @@ export const createEnvelopeFields = async ({
         height: field.height,
         customText: '',
         inserted: false,
-        fieldMeta: field.fieldMeta,
+        fieldMeta: assignedIncoming[idx].fieldMeta as typeof field.fieldMeta,
         envelopeId: envelope.id,
         envelopeItemId: field.envelopeItemId,
         recipientId: field.recipientId,
