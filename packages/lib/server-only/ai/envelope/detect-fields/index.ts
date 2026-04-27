@@ -30,6 +30,7 @@ export type DetectFieldsFromEnvelopeOptions = {
   envelopeId: string;
   userId: number;
   teamId: number;
+  excludeEnvelopeItemIds?: string[];
   onProgress?: (progress: DetectFieldsProgress) => void;
 };
 
@@ -38,6 +39,7 @@ export const detectFieldsFromEnvelope = async ({
   envelopeId,
   userId,
   teamId,
+  excludeEnvelopeItemIds,
   onProgress,
 }: DetectFieldsFromEnvelopeOptions) => {
   const envelope = await getEnvelopeById({
@@ -64,8 +66,12 @@ export const detectFieldsFromEnvelope = async ({
   }));
 
   const allFields: NormalizedFieldWithContext[] = [];
+  const excluded = new Set(excludeEnvelopeItemIds ?? []);
 
   for (const item of envelope.envelopeItems) {
+    if (excluded.has(item.id)) {
+      continue;
+    }
     const existingFields = await prisma.field.findMany({
       where: {
         envelopeItemId: item.id,
