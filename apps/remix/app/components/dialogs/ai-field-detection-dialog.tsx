@@ -34,6 +34,7 @@ type AiFieldDetectionDialogProps = {
   onComplete: (fields: NormalizedFieldWithContext[]) => void;
   envelopeId: string;
   teamId: number;
+  envelopeItems: { id: string; title: string; order: number }[];
 };
 
 const PROCESSING_MESSAGES = [
@@ -64,6 +65,7 @@ export const AiFieldDetectionDialog = ({
   onComplete,
   envelopeId,
   teamId,
+  envelopeItems,
 }: AiFieldDetectionDialogProps) => {
   const { _ } = useLingui();
 
@@ -73,6 +75,12 @@ export const AiFieldDetectionDialog = ({
   const [error, setError] = useState<string | null>(null);
   const [context, setContext] = useState('');
   const [progress, setProgress] = useState<DetectFieldsProgressEvent | null>(null);
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(() => new Set());
+
+  const sortedItems = useMemo(
+    () => [...envelopeItems].sort((a, b) => a.order - b.order),
+    [envelopeItems],
+  );
 
   const onDetectClick = useCallback(async () => {
     setState('PROCESSING');
@@ -125,6 +133,7 @@ export const AiFieldDetectionDialog = ({
     setState('PROMPT');
     setDetectedFields([]);
     setContext('');
+    setExcludedItemIds(new Set());
   };
 
   const onClose = () => {
@@ -134,6 +143,7 @@ export const AiFieldDetectionDialog = ({
     setError(null);
     setContext('');
     setProgress(null);
+    setExcludedItemIds(new Set());
   };
 
   // Group fields by type for summary display
