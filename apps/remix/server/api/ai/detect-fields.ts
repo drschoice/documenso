@@ -20,7 +20,7 @@ export const detectFieldsRoute = new Hono<HonoEnv>().post(
     const logger = c.get('logger');
 
     try {
-      const { envelopeId, teamId, context } = c.req.valid('json');
+      const { envelopeId, teamId, context, excludeEnvelopeItemIds } = c.req.valid('json');
 
       const session = await getSession(c);
 
@@ -78,6 +78,7 @@ export const detectFieldsRoute = new Hono<HonoEnv>().post(
             envelopeId,
             userId: session.user.id,
             teamId: team.id,
+            excludeEnvelopeItemIds,
             onProgress: (progress) => {
               void stream.writeln(
                 JSON.stringify({
