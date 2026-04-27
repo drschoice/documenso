@@ -9,6 +9,7 @@ import { CheckIcon, FormInputIcon, ShieldCheckIcon } from 'lucide-react';
 import type { NormalizedFieldWithContext } from '@documenso/lib/server-only/ai/envelope/detect-fields/types';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
+import { Checkbox } from '@documenso/ui/primitives/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -94,6 +95,7 @@ export const AiFieldDetectionDialog = ({
           envelopeId,
           teamId,
           context: context || undefined,
+          excludeEnvelopeItemIds: excludedItemIds.size > 0 ? [...excludedItemIds] : undefined,
         },
         onProgress: (progressEvent) => {
           setProgress(progressEvent);
@@ -125,7 +127,7 @@ export const AiFieldDetectionDialog = ({
       setError(err instanceof Error ? err.message : 'Failed to detect fields');
       setState('ERROR');
     }
-  }, [envelopeId, teamId, context]);
+  }, [envelopeId, teamId, context, excludedItemIds]);
 
   const onAddFields = () => {
     onComplete(detectedFields);
@@ -197,6 +199,45 @@ export const AiFieldDetectionDialog = ({
                   </Trans>
                 </AlertDescription>
               </Alert>
+
+              {sortedItems.length >= 2 && (
+                <fieldset className="space-y-1.5">
+                  <legend className="text-sm font-medium">
+                    <Trans>Analyze these documents</Trans>
+                  </legend>
+                  <ul className="divide-y rounded-md border">
+                    {sortedItems.map((item) => {
+                      const checkboxId = `ai-detect-include-${item.id}`;
+                      const isIncluded = !excludedItemIds.has(item.id);
+                      return (
+                        <li key={item.id} className="flex items-center gap-3 px-3 py-2">
+                          <Checkbox
+                            id={checkboxId}
+                            checked={isIncluded}
+                            onCheckedChange={(checked) => {
+                              setExcludedItemIds((prev) => {
+                                const next = new Set(prev);
+                                if (checked) {
+                                  next.delete(item.id);
+                                } else {
+                                  next.add(item.id);
+                                }
+                                return next;
+                              });
+                            }}
+                          />
+                          <Label
+                            htmlFor={checkboxId}
+                            className="flex-1 cursor-pointer text-sm font-normal"
+                          >
+                            {item.title}
+                          </Label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </fieldset>
+              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="context">
