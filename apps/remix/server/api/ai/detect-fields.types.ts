@@ -14,6 +14,12 @@ export const ZDetectFieldsRequestSchema = z.object({
     .describe(
       'Optional context about recipients to help map fields (e.g., "David is the Employee, Lucas is the Manager").',
     ),
+  excludeEnvelopeItemIds: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Optional list of envelope item IDs to exclude from AI detection. Items with these IDs are skipped entirely.',
+    ),
 });
 
 export type TDetectFieldsRequest = z.infer<typeof ZDetectFieldsRequestSchema>;
