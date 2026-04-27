@@ -327,6 +327,11 @@ export const EnvelopeEditorFieldsPage = () => {
                   onComplete={onFieldDetectionComplete}
                   envelopeId={envelope.id}
                   teamId={envelope.teamId}
+                  envelopeItems={envelope.envelopeItems.map((item) => ({
+                    id: item.id,
+                    title: item.title,
+                    order: item.order,
+                  }))}
                 />
 
                 <AiFeaturesEnableDialog
