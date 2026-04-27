@@ -83,6 +83,9 @@ export const AiFieldDetectionDialog = ({
     [envelopeItems],
   );
 
+  const allExcluded = sortedItems.length > 0 && excludedItemIds.size === sortedItems.length;
+  const showSelectAllToggle = sortedItems.length >= 3;
+
   const onDetectClick = useCallback(async () => {
     setState('PROCESSING');
     setMessageIndex(0);
@@ -202,9 +205,33 @@ export const AiFieldDetectionDialog = ({
 
               {sortedItems.length >= 2 && (
                 <fieldset className="space-y-1.5">
-                  <legend className="text-sm font-medium">
-                    <Trans>Analyze these documents</Trans>
-                  </legend>
+                  <div className="flex items-center justify-between">
+                    <legend className="text-sm font-medium">
+                      <Trans>Analyze these documents</Trans>
+                    </legend>
+                    {showSelectAllToggle && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-2 py-1 text-xs"
+                        onClick={() => {
+                          setExcludedItemIds((prev) => {
+                            if (prev.size === 0) {
+                              return new Set(sortedItems.map((i) => i.id));
+                            }
+                            return new Set();
+                          });
+                        }}
+                      >
+                        {excludedItemIds.size === 0 ? (
+                          <Trans>Deselect all</Trans>
+                        ) : (
+                          <Trans>Select all</Trans>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <ul className="divide-y rounded-md border">
                     {sortedItems.map((item) => {
                       const checkboxId = `ai-detect-include-${item.id}`;
@@ -261,7 +288,12 @@ export const AiFieldDetectionDialog = ({
               <Button type="button" variant="ghost" onClick={onClose}>
                 <Trans>Skip</Trans>
               </Button>
-              <Button type="button" onClick={onDetectClick}>
+              <Button
+                type="button"
+                onClick={onDetectClick}
+                disabled={allExcluded}
+                title={allExcluded ? _(msg`Select at least one document to analyze`) : undefined}
+              >
                 <Trans>Detect</Trans>
               </Button>
             </DialogFooter>
