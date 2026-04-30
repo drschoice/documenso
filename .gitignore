@@ -73,3 +73,6 @@ scripts/bench-*
 tmp/
 .superpowers/
 .worktrees/
+
+# superpowers working docs (specs, plans, handoff notes)
+docs/superpowers/
