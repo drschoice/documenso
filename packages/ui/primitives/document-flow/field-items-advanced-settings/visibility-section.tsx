@@ -191,7 +191,10 @@ export const VisibilitySection = ({
           const operators: AnyOperator[] = trigger ? (OPERATORS_BY_TYPE[trigger.type] ?? []) : [];
           const needsValue = isValueOperator(rule.operator);
           const isTextTrigger = trigger?.type === FieldType.TEXT;
-          const enumOptions = needsValue && !isTextTrigger ? (trigger?.values ?? []) : null;
+          const rawEnumOptions = needsValue && !isTextTrigger ? (trigger?.values ?? []) : null;
+          const enumOptions = rawEnumOptions
+            ? rawEnumOptions.filter((o) => o.value.trim().length > 0)
+            : null;
 
           return (
             <div
@@ -235,7 +238,7 @@ export const VisibilitySection = ({
                 </SelectContent>
               </Select>
 
-              {needsValue && enumOptions && (
+              {needsValue && enumOptions && enumOptions.length > 0 && (
                 <Select
                   value={getRuleValue(rule)}
                   onValueChange={(v) => updateRule(index, { value: v })}
@@ -253,13 +256,14 @@ export const VisibilitySection = ({
                 </Select>
               )}
 
-              {needsValue && isTextTrigger && (
-                <Input
-                  className="w-40"
-                  value={getRuleValue(rule)}
-                  onChange={(e) => updateRule(index, { value: e.target.value })}
-                />
-              )}
+              {needsValue &&
+                (isTextTrigger || (enumOptions !== null && enumOptions.length === 0)) && (
+                  <Input
+                    className="w-40"
+                    value={getRuleValue(rule)}
+                    onChange={(e) => updateRule(index, { value: e.target.value })}
+                  />
+                )}
 
               <Button
                 variant="ghost"

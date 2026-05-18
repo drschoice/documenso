@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { msg } from '@lingui/core/macro';
+import { useLingui as useLinguiReact } from '@lingui/react';
 import { useLingui } from '@lingui/react/macro';
 import type { FieldType } from '@prisma/client';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Transformer } from 'konva/lib/shapes/Transformer';
-import { CopyPlusIcon, SquareStackIcon, TrashIcon, UserCircleIcon } from 'lucide-react';
+import {
+  CopyPlusIcon,
+  Settings2Icon,
+  SquareStackIcon,
+  TrashIcon,
+  UserCircleIcon,
+} from 'lucide-react';
 
 import type { TLocalField } from '@documenso/lib/client-only/hooks/use-editor-fields';
 import { usePageRenderer } from '@documenso/lib/client-only/hooks/use-page-renderer';
@@ -15,6 +23,7 @@ import {
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { FIELD_META_DEFAULT_VALUES } from '@documenso/lib/types/field-meta';
+import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
   MIN_FIELD_HEIGHT_PX,
   MIN_FIELD_WIDTH_PX,
@@ -22,11 +31,28 @@ import {
 } from '@documenso/lib/universal/field-renderer/field-renderer';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
+import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
 import { CommandDialog } from '@documenso/ui/primitives/command';
+import type { FieldFormType } from '@documenso/ui/primitives/document-flow/add-fields';
+import { FieldAdvancedSettings } from '@documenso/ui/primitives/document-flow/field-item-advanced-settings';
+import { FRIENDLY_FIELD_TYPE } from '@documenso/ui/primitives/document-flow/types';
+import { Sheet, SheetContent, SheetTitle } from '@documenso/ui/primitives/sheet';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
 import { EnvelopeRecipientSelectorCommand } from './envelope-recipient-selector';
+
+const ADVANCED_FIELD_TYPES = new Set([
+  'NUMBER',
+  'RADIO',
+  'CHECKBOX',
+  'DROPDOWN',
+  'TEXT',
+  'INITIALS',
+  'EMAIL',
+  'DATE',
+  'NAME',
+]);
 
 export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
   const { t, i18n } = useLingui();
@@ -648,8 +674,10 @@ const FieldActionButtons = ({
   ...props
 }: FieldActionButtonsProps) => {
   const { t } = useLingui();
+  const { _ } = useLinguiReact();
 
   const [showRecipientSelector, setShowRecipientSelector] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   const { editorFields, envelope } = useCurrentEnvelopeEditor();
 
@@ -690,9 +718,63 @@ const FieldActionButtons = ({
     return null;
   }, [editorFields.localFields, envelope.recipients, selectedFieldFormId]);
 
+  const singleSelectedLocalField = useMemo(() => {
+    if (selectedFieldFormId.length !== 1) {
+      return null;
+    }
+
+    return editorFields.localFields.find((f) => f.formId === selectedFieldFormId[0]) ?? null;
+  }, [editorFields.localFields, selectedFieldFormId]);
+
+  const isAdvancedField =
+    singleSelectedLocalField !== null && ADVANCED_FIELD_TYPES.has(singleSelectedLocalField.type);
+
+  const toFieldFormType = (localField: TLocalField): FieldFormType => {
+    const recipient = envelope.recipients.find((r) => r.id === localField.recipientId);
+
+    return {
+      nativeId: localField.id,
+      formId: localField.formId,
+      pageNumber: localField.page,
+      type: localField.type,
+      pageX: localField.positionX,
+      pageY: localField.positionY,
+      pageWidth: localField.width,
+      pageHeight: localField.height,
+      recipientId: localField.recipientId,
+      signerEmail: recipient?.email ?? '',
+      fieldMeta: localField.fieldMeta,
+    };
+  };
+
+  const advancedSettingsField = singleSelectedLocalField
+    ? toFieldFormType(singleSelectedLocalField)
+    : null;
+
+  const advancedSettingsFields = useMemo(() => {
+    if (!singleSelectedLocalField) {
+      return [];
+    }
+
+    return editorFields.localFields
+      .filter((f) => f.recipientId === singleSelectedLocalField.recipientId)
+      .map(toFieldFormType);
+  }, [editorFields.localFields, singleSelectedLocalField]);
+
   return (
     <div className="flex flex-col items-center" {...props}>
       <div className="group flex w-fit items-center justify-evenly gap-x-1 rounded-md border bg-gray-900 p-0.5">
+        {isAdvancedField && (
+          <button
+            title={t`Advanced settings`}
+            className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+            onClick={() => setShowAdvancedSettings(true)}
+            onTouchEnd={() => setShowAdvancedSettings(true)}
+          >
+            <Settings2Icon className="h-3 w-3" />
+          </button>
+        )}
+
         <button
           title={t`Change Recipient`}
           className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
@@ -747,6 +829,35 @@ const FieldActionButtons = ({
           fields={envelope.fields}
         />
       </CommandDialog>
+
+      {advancedSettingsField && (
+        <Sheet open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+          <SheetContent position="right" size="lg" className="w-9/12 max-w-sm overflow-y-auto">
+            <SheetTitle className="sr-only">
+              {parseMessageDescriptor(
+                _,
+                msg`Configure ${parseMessageDescriptor(_, FRIENDLY_FIELD_TYPE[advancedSettingsField.type])} Field`,
+              )}
+            </SheetTitle>
+
+            <FieldAdvancedSettings
+              title={msg`Advanced settings`}
+              description={msg`Configure the ${parseMessageDescriptor(
+                _,
+                FRIENDLY_FIELD_TYPE[advancedSettingsField.type],
+              )} field`}
+              field={advancedSettingsField}
+              fields={advancedSettingsFields}
+              isDocumentPdfLoaded={false}
+              onAdvancedSettings={() => setShowAdvancedSettings(false)}
+              onSave={(fieldMeta: TFieldMetaSchema) => {
+                editorFields.updateFieldByFormId(advancedSettingsField.formId, { fieldMeta });
+                setShowAdvancedSettings(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 };

@@ -52,7 +52,7 @@ export const DocumentSigningPageViewV2 = () => {
     isDirectTemplate,
     envelope,
     recipient,
-    recipientFields,
+    visibleRecipientFields,
     recipientFieldsRemaining,
     requiredRecipientFields,
     selectedAssistantRecipientFields,
@@ -78,8 +78,8 @@ export const DocumentSigningPageViewV2 = () => {
       return selectedAssistantRecipientFields.filter((field) => !field.inserted);
     }
 
-    return recipientFields.filter((field) => !field.inserted);
-  }, [recipientFieldsRemaining, selectedAssistantRecipientFields, currentEnvelopeItem]);
+    return visibleRecipientFields.filter((field) => !field.inserted);
+  }, [visibleRecipientFields, selectedAssistantRecipientFields, currentEnvelopeItem]);
 
   return (
     <div className="min-h-screen w-screen bg-gray-50 dark:bg-background">

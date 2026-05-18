@@ -80,7 +80,7 @@ export const TextFieldAdvancedSettings = ({
           id="label"
           className="mt-2 bg-background"
           placeholder={t`Field label`}
-          value={fieldState.label}
+          value={fieldState.label ?? ''}
           onChange={(e) => handleFieldChange('label', e.target.value)}
         />
       </div>
