@@ -109,13 +109,13 @@ export const EnvelopeEditorFieldsPage = () => {
     const existingMeta = selectedField.fieldMeta as Record<string, unknown> | undefined;
     const mergedMeta: TFieldMetaSchema =
       fieldMeta && existingMeta
-        ? {
-            ...(fieldMeta as Record<string, unknown>),
+        ? ({
             ...(existingMeta.stableId !== undefined ? { stableId: existingMeta.stableId } : {}),
             ...(existingMeta.visibility !== undefined
               ? { visibility: existingMeta.visibility }
               : {}),
-          }
+            ...(fieldMeta as Record<string, unknown>),
+          } as TFieldMetaSchema)
         : fieldMeta;
 
     const isMetaSame = isDeepEqual(selectedField.fieldMeta, mergedMeta);
