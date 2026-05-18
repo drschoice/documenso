@@ -375,7 +375,12 @@ const injectFormValuesIntoDocument = async (
 export const extractFieldAutoInsertValues = (
   unknownField: Field,
 ): { fieldId: number; customText: string } | null => {
-  const parsedField = ZFieldAndMetaSchema.safeParse(unknownField);
+  // Prisma JSON columns return null for unset fields; ZFieldAndMetaSchema uses
+  // z.undefined() / z.optional() which reject null — normalise before parsing.
+  const parsedField = ZFieldAndMetaSchema.safeParse({
+    ...unknownField,
+    fieldMeta: unknownField.fieldMeta ?? undefined,
+  });
 
   if (parsedField.error) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {

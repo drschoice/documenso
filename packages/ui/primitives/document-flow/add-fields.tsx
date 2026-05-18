@@ -692,7 +692,10 @@ export const AddFieldsFormPartial = ({
                       }}
                       hasErrors={!!hasFieldError}
                       active={activeFieldId === field.formId}
-                      onFieldActivate={() => setActiveFieldId(field.formId)}
+                      onFieldActivate={() => {
+                        setActiveFieldId(field.formId);
+                        setCurrentField(field);
+                      }}
                       onFieldDeactivate={() => setActiveFieldId(null)}
                     />
                   );

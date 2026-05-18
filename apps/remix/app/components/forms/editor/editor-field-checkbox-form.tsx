@@ -182,24 +182,24 @@ export const EditorFieldCheckboxForm = ({
                 <FormLabel>
                   <Trans>Direction</Trans>
                 </FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
                     <SelectTrigger
                       data-testid="field-form-direction"
                       className="w-full bg-background text-muted-foreground"
                     >
                       <SelectValue placeholder={t`Select direction`} />
                     </SelectTrigger>
-                    <SelectContent position="popper">
-                      <SelectItem value="vertical">
-                        <Trans>Vertical</Trans>
-                      </SelectItem>
-                      <SelectItem value="horizontal">
-                        <Trans>Horizontal</Trans>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    <SelectItem value="vertical">
+                      <Trans>Vertical</Trans>
+                    </SelectItem>
+                    <SelectItem value="horizontal">
+                      <Trans>Horizontal</Trans>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -215,23 +215,23 @@ export const EditorFieldCheckboxForm = ({
                     <FormLabel>
                       <Trans>Validation</Trans>
                     </FormLabel>
-                    <FormControl>
-                      <Select {...field} onValueChange={field.onChange}>
+                    <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                      <FormControl>
                         <SelectTrigger
                           data-testid="field-form-validationRule"
                           className="w-full bg-background text-muted-foreground"
                         >
                           <SelectValue placeholder={t`Select at least`} />
                         </SelectTrigger>
-                        <SelectContent position="popper">
-                          {checkboxValidationRules.map((item, index) => (
-                            <SelectItem key={index} value={item}>
-                              {item}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {checkboxValidationRules.map((item, index) => (
+                          <SelectItem key={index} value={item}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -243,44 +243,44 @@ export const EditorFieldCheckboxForm = ({
                 name="validationLength"
                 render={({ field }) => (
                   <FormItem>
-                    <FormControl>
-                      <Select
-                        value={field.value ? String(field.value) : ''}
-                        onValueChange={(value) => {
-                          const validationNumber = Number(value);
+                    <Select
+                      value={field.value ? String(field.value) : ''}
+                      onValueChange={(value) => {
+                        const validationNumber = Number(value);
 
-                          const currentValues = formValues.values || [];
+                        const currentValues = formValues.values || [];
 
-                          const minimumNumberOfValuesRequired =
-                            validationNumber - currentValues.length;
+                        const minimumNumberOfValuesRequired =
+                          validationNumber - currentValues.length;
 
-                          if (!formValues.validationRule) {
-                            form.setValue('validationRule', checkboxValidationRules[0]);
-                          }
+                        if (!formValues.validationRule) {
+                          form.setValue('validationRule', checkboxValidationRules[0]);
+                        }
 
-                          if (minimumNumberOfValuesRequired > 0) {
-                            addValue(minimumNumberOfValuesRequired);
-                          }
+                        if (minimumNumberOfValuesRequired > 0) {
+                          addValue(minimumNumberOfValuesRequired);
+                        }
 
-                          field.onChange(validationNumber);
-                          void form.trigger();
-                        }}
-                      >
+                        field.onChange(validationNumber);
+                        void form.trigger();
+                      }}
+                    >
+                      <FormControl>
                         <SelectTrigger
                           data-testid="field-form-validationLength"
                           className="mt-5 w-full bg-background text-muted-foreground"
                         >
                           <SelectValue placeholder={t`Pick a number`} />
                         </SelectTrigger>
-                        <SelectContent position="popper">
-                          {checkboxValidationLength.map((item, index) => (
-                            <SelectItem key={index} value={String(item)}>
-                              {item}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {checkboxValidationLength.map((item, index) => (
+                          <SelectItem key={index} value={String(item)}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -103,11 +103,26 @@ export const EnvelopeEditorFieldsPage = () => {
       return;
     }
 
-    const isMetaSame = isDeepEqual(selectedField.fieldMeta, fieldMeta);
+    // Preserve stableId and visibility from the existing meta — the editor
+    // form schemas use .pick() and don't include these keys, so they would
+    // otherwise be silently dropped on every sidebar edit.
+    const existingMeta = selectedField.fieldMeta as Record<string, unknown> | undefined;
+    const mergedMeta: TFieldMetaSchema =
+      fieldMeta && existingMeta
+        ? {
+            ...(fieldMeta as Record<string, unknown>),
+            ...(existingMeta.stableId !== undefined ? { stableId: existingMeta.stableId } : {}),
+            ...(existingMeta.visibility !== undefined
+              ? { visibility: existingMeta.visibility }
+              : {}),
+          }
+        : fieldMeta;
+
+    const isMetaSame = isDeepEqual(selectedField.fieldMeta, mergedMeta);
 
     if (!isMetaSame) {
       editorFields.updateFieldByFormId(selectedField.formId, {
-        fieldMeta,
+        fieldMeta: mergedMeta,
       });
     }
   };

@@ -170,33 +170,32 @@ export const EditorFieldDropdownForm = ({
                 <FormLabel>
                   <Trans>Select default option</Trans>
                 </FormLabel>
-                <FormControl>
-                  <Select
-                    {...field}
-                    value={field.value ?? '-1'}
-                    onValueChange={(value) => field.onChange(value === '-1' ? undefined : value)}
-                  >
+                <Select
+                  value={field.value ?? '-1'}
+                  onValueChange={(value) => field.onChange(value === '-1' ? undefined : value)}
+                >
+                  <FormControl>
                     <SelectTrigger
                       data-testid="field-form-defaultValue"
                       className="w-full bg-background text-muted-foreground"
                     >
                       <SelectValue placeholder={t`Default Value`} />
                     </SelectTrigger>
-                    <SelectContent position="popper">
-                      {(formValues.values || [])
-                        .filter((item) => item.value)
-                        .map((item, index) => (
-                          <SelectItem key={index} value={item.value || ''}>
-                            {item.value}
-                          </SelectItem>
-                        ))}
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {(formValues.values || [])
+                      .filter((item) => item.value)
+                      .map((item, index) => (
+                        <SelectItem key={index} value={item.value || ''}>
+                          {item.value}
+                        </SelectItem>
+                      ))}
 
-                      <SelectItem value={'-1'}>
-                        <Trans>Default Value</Trans>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                    <SelectItem value={'-1'}>
+                      <Trans>Default Value</Trans>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
