@@ -20,9 +20,6 @@
  *       sidebar require interactive selector discovery against a running dev
  *       server. See the FIXME block at the bottom of this file for guidance.
  */
-import { expect, test } from '@playwright/test';
-import { DocumentStatus, FieldType, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
-import { nanoid } from 'nanoid';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increment-id';
@@ -32,6 +29,9 @@ import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
 import { DocumentDataType, DocumentSource, EnvelopeType, Prisma } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
+import { expect, test } from '@playwright/test';
+import { DocumentStatus, FieldType, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
+import { nanoid } from 'nanoid';
 
 import { apiSignin } from '../fixtures/authentication';
 
@@ -52,9 +52,7 @@ async function seedConditionalDocument(ownerUserId: number, teamId: number, sign
   // Use the example.pdf (already used by all other e2e seeds)
   const fs = await import('node:fs');
   const path = await import('node:path');
-  const examplePdf = fs
-    .readFileSync(path.join(__dirname, '../../../../assets/example.pdf'))
-    .toString('base64');
+  const examplePdf = fs.readFileSync(path.join(__dirname, '../../../../assets/example.pdf')).toString('base64');
 
   const documentData = await prisma.documentData.create({
     data: { type: DocumentDataType.BYTES_64, data: examplePdf, initialData: examplePdf },
@@ -193,17 +191,11 @@ test.describe('Conditional field visibility', () => {
    * Scenario A: radio = "Single" → spouse_name field must NOT be in the DOM.
    *             Document must complete successfully (spouse_name is skipped).
    */
-  test('[CONDITIONAL]: hidden field is absent from DOM when condition is not met (Single)', async ({
-    page,
-  }) => {
+  test('[CONDITIONAL]: hidden field is absent from DOM when condition is not met (Single)', async ({ page }) => {
     const { user, team } = await seedUser();
     const signerEmail = `signer-single-${nanoid(6)}@example.com`;
 
-    const { recipient, radioField, textField } = await seedConditionalDocument(
-      user.id,
-      team.id,
-      signerEmail,
-    );
+    const { recipient, radioField, textField } = await seedConditionalDocument(user.id, team.id, signerEmail);
 
     // Navigate to the signing URL
     await page.goto(`${WEBAPP}/sign/${recipient.token}`);
@@ -226,10 +218,7 @@ test.describe('Conditional field visibility', () => {
 
     // The radio field should now be inserted (auto-signs when a value is selected)
     await expect(async () => {
-      await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute(
-        'data-inserted',
-        'true',
-      );
+      await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute('data-inserted', 'true');
     }).toPass({ timeout: 10_000 });
 
     // Complete the document — spouse_name will be skipped as it is hidden
@@ -267,17 +256,11 @@ test.describe('Conditional field visibility', () => {
    *             Signing without filling it should not complete.
    *             After filling it the document should complete.
    */
-  test('[CONDITIONAL]: required field IS visible when condition is met (Married)', async ({
-    page,
-  }) => {
+  test('[CONDITIONAL]: required field IS visible when condition is met (Married)', async ({ page }) => {
     const { user, team } = await seedUser();
     const signerEmail = `signer-married-${nanoid(6)}@example.com`;
 
-    const { recipient, radioField, textField } = await seedConditionalDocument(
-      user.id,
-      team.id,
-      signerEmail,
-    );
+    const { recipient, radioField, textField } = await seedConditionalDocument(user.id, team.id, signerEmail);
 
     await page.goto(`${WEBAPP}/sign/${recipient.token}`);
 
@@ -296,10 +279,7 @@ test.describe('Conditional field visibility', () => {
 
     // Wait for radio to be inserted
     await expect(async () => {
-      await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute(
-        'data-inserted',
-        'true',
-      );
+      await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute('data-inserted', 'true');
     }).toPass({ timeout: 10_000 });
 
     // Fill in the text field (click to activate, then type)
@@ -349,11 +329,7 @@ test.describe('Conditional field visibility', () => {
     // Seed the doc, then manually "sign" the radio as Single and call
     // complete-document-with-token via the server function directly.
     const signerEmail = `signer-complete-${nanoid(6)}@example.com`;
-    const { recipient, radioField, textField, envelope } = await seedConditionalDocument(
-      user.id,
-      team.id,
-      signerEmail,
-    );
+    const { recipient, radioField, textField, envelope } = await seedConditionalDocument(user.id, team.id, signerEmail);
 
     // Simulate radio field signed with "Single"
     await prisma.field.update({
@@ -399,99 +375,96 @@ test.describe('Conditional field visibility', () => {
   // FIXME: Template creation via the UI (Task 21 full happy path)
   // ---------------------------------------------------------------------------
 
-  test.fixme(
-    '[CONDITIONAL][UI]: create template with conditional fields via the editor',
-    async ({ page }) => {
-      /**
-       * TODO: Un-skip once the following selector gaps are resolved.
-       *
-       * 1. PLACING FIELDS ON THE PDF CANVAS
-       *    The field placement widget works via drag-and-drop onto a virtualised
-       *    PDF canvas rendered inside `[data-pdf-content]`. The exact interaction
-       *    pattern used by other tests is:
-       *
-       *      await page.getByRole('button', { name: 'Radio' }).click();
-       *      await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
-       *
-       *    See `packages/app-tests/e2e/document-flow/autosave-fields-step.spec.ts`
-       *    for the full pattern.  The radio-field button may be labelled differently
-       *    from "Radio" — check with:
-       *      page.getByTestId('field-type-radio') or page.getByRole('button', { name: /radio/i })
-       *
-       * 2. OPENING ADVANCED SETTINGS FOR A FIELD
-       *    After placing a field a sidebar opens automatically.  The footer of that
-       *    sidebar has a test-id `field-advanced-settings-footer`.  The
-       *    VisibilitySection is rendered at the bottom of the advanced-settings
-       *    panel.  The "Add rule" button is:
-       *      page.getByRole('button', { name: 'Add rule' })
-       *
-       * 3. SELECTING THE TRIGGER FIELD IN THE VISIBILITY SECTION
-       *    After clicking "Add rule" a row appears with two Selects:
-       *      - Select 1: trigger field  (SelectTrigger w-48)
-       *      - Select 2: operator       (SelectTrigger w-40)
-       *      - Select 3 (conditional): value  (SelectTrigger w-40)
-       *    Use page.locator('button[role="combobox"]').nth(N) to identify them by
-       *    position, or add data-testid attributes to the VisibilitySection selects.
-       *
-       * 4. SAVING AND USING THE TEMPLATE
-       *    Follows the existing pattern in `create-document-from-template.spec.ts`:
-       *      await page.getByRole('button', { name: 'Save template' }).click();
-       *      await page.waitForURL(`/t/${team.url}/templates`);
-       *      await page.getByRole('button', { name: 'Use Template' }).click();
-       *      await page.getByRole('button', { name: 'Create as draft' }).click();
-       *
-       * 5. COMPLETING THE SIGNING FLOW
-       *    Follow the same pattern used in the database-seeded tests above.
-       */
+  test.fixme('[CONDITIONAL][UI]: create template with conditional fields via the editor', async ({ page }) => {
+    /**
+     * TODO: Un-skip once the following selector gaps are resolved.
+     *
+     * 1. PLACING FIELDS ON THE PDF CANVAS
+     *    The field placement widget works via drag-and-drop onto a virtualised
+     *    PDF canvas rendered inside `[data-pdf-content]`. The exact interaction
+     *    pattern used by other tests is:
+     *
+     *      await page.getByRole('button', { name: 'Radio' }).click();
+     *      await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
+     *
+     *    See `packages/app-tests/e2e/document-flow/autosave-fields-step.spec.ts`
+     *    for the full pattern.  The radio-field button may be labelled differently
+     *    from "Radio" — check with:
+     *      page.getByTestId('field-type-radio') or page.getByRole('button', { name: /radio/i })
+     *
+     * 2. OPENING ADVANCED SETTINGS FOR A FIELD
+     *    After placing a field a sidebar opens automatically.  The footer of that
+     *    sidebar has a test-id `field-advanced-settings-footer`.  The
+     *    VisibilitySection is rendered at the bottom of the advanced-settings
+     *    panel.  The "Add rule" button is:
+     *      page.getByRole('button', { name: 'Add rule' })
+     *
+     * 3. SELECTING THE TRIGGER FIELD IN THE VISIBILITY SECTION
+     *    After clicking "Add rule" a row appears with two Selects:
+     *      - Select 1: trigger field  (SelectTrigger w-48)
+     *      - Select 2: operator       (SelectTrigger w-40)
+     *      - Select 3 (conditional): value  (SelectTrigger w-40)
+     *    Use page.locator('button[role="combobox"]').nth(N) to identify them by
+     *    position, or add data-testid attributes to the VisibilitySection selects.
+     *
+     * 4. SAVING AND USING THE TEMPLATE
+     *    Follows the existing pattern in `create-document-from-template.spec.ts`:
+     *      await page.getByRole('button', { name: 'Save template' }).click();
+     *      await page.waitForURL(`/t/${team.url}/templates`);
+     *      await page.getByRole('button', { name: 'Use Template' }).click();
+     *      await page.getByRole('button', { name: 'Create as draft' }).click();
+     *
+     * 5. COMPLETING THE SIGNING FLOW
+     *    Follow the same pattern used in the database-seeded tests above.
+     */
 
-      const { user, team } = await seedUser();
-      const template = await import('@documenso/prisma/seed/templates').then(async (m) =>
-        m.seedBlankTemplate(user, team.id),
-      );
+    const { user, team } = await seedUser();
+    const template = await import('@documenso/prisma/seed/templates').then(async (m) =>
+      m.seedBlankTemplate(user, team.id),
+    );
 
-      await apiSignin({
-        page,
-        email: user.email,
-        redirectPath: `/t/${team.url}/templates/${template.id}/edit`,
-      });
+    await apiSignin({
+      page,
+      email: user.email,
+      redirectPath: `/t/${team.url}/templates/${template.id}/edit`,
+    });
 
-      // TODO: Set title
-      await page.getByLabel('Title').fill('Conditional visibility e2e');
+    // TODO: Set title
+    await page.getByLabel('Title').fill('Conditional visibility e2e');
 
-      // TODO: Add signer
-      await page.getByRole('button', { name: 'Continue' }).click();
-      await page.getByPlaceholder('Email').fill('signer@example.com');
-      await page.getByPlaceholder('Name').fill('Test Signer');
-      await page.getByRole('button', { name: 'Continue' }).click();
+    // TODO: Add signer
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByPlaceholder('Email').fill('signer@example.com');
+    await page.getByPlaceholder('Name').fill('Test Signer');
+    await page.getByRole('button', { name: 'Continue' }).click();
 
-      // TODO: Add radio field "Marital Status" at (100, 100)
-      // await page.getByRole('button', { name: /radio/i }).click();
-      // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
+    // TODO: Add radio field "Marital Status" at (100, 100)
+    // await page.getByRole('button', { name: /radio/i }).click();
+    // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
 
-      // TODO: Configure radio options (Married, Single) in the sidebar
-      // TODO: Set the label to "marital_status"
+    // TODO: Configure radio options (Married, Single) in the sidebar
+    // TODO: Set the label to "marital_status"
 
-      // TODO: Close advanced settings
-      // await page.getByTestId('field-advanced-settings-footer').getByRole('button', { name: 'Save' }).click();
+    // TODO: Close advanced settings
+    // await page.getByTestId('field-advanced-settings-footer').getByRole('button', { name: 'Save' }).click();
 
-      // TODO: Add text field "Spouse Name" at (100, 200)
-      // await page.getByRole('button', { name: /text/i }).click();
-      // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 200 } });
+    // TODO: Add text field "Spouse Name" at (100, 200)
+    // await page.getByRole('button', { name: /text/i }).click();
+    // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 200 } });
 
-      // TODO: Configure visibility rule in advanced settings:
-      //   - Click "Add rule"
-      //   - Select "marital_status · radio · p.1" as trigger
-      //   - Select "equals" as operator
-      //   - Select "Married" as value
-      // await page.getByRole('button', { name: 'Add rule' }).click();
-      // ...
+    // TODO: Configure visibility rule in advanced settings:
+    //   - Click "Add rule"
+    //   - Select "marital_status · radio · p.1" as trigger
+    //   - Select "equals" as operator
+    //   - Select "Married" as value
+    // await page.getByRole('button', { name: 'Add rule' }).click();
+    // ...
 
-      // TODO: Save template and create document
-      // await page.getByRole('button', { name: 'Save template' }).click();
-      // ...
+    // TODO: Save template and create document
+    // await page.getByRole('button', { name: 'Save template' }).click();
+    // ...
 
-      // TODO: Sign as signer with Single → assert spouse_name absent
-      // TODO: Sign as signer with Married → assert spouse_name visible and required
-    },
-  );
+    // TODO: Sign as signer with Single → assert spouse_name absent
+    // TODO: Sign as signer with Married → assert spouse_name visible and required
+  });
 });

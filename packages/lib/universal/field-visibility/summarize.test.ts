@@ -67,9 +67,7 @@ describe('summarizeUnmetRules', () => {
       ['field-2', 'Category'],
     ]);
 
-    expect(summarizeUnmetRules(block, map)).toBe(
-      'Priority did not contain "urgent" or Category contained "low"',
-    );
+    expect(summarizeUnmetRules(block, map)).toBe('Priority did not contain "urgent" or Category contained "low"');
   });
 
   it('unknown trigger stableId falls back to "a required field"', () => {

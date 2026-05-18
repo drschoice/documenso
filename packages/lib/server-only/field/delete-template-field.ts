@@ -1,6 +1,5 @@
-import { EnvelopeType } from '@prisma/client';
-
 import { prisma } from '@documenso/prisma';
+import { EnvelopeType } from '@prisma/client';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { buildTeamWhereQuery } from '../../utils/teams';
@@ -65,15 +64,12 @@ export const deleteTemplateField = async ({
       const meta = f.fieldMeta as {
         visibility?: { rules: Array<{ triggerFieldStableId: string }> };
       } | null;
-      return (
-        meta?.visibility?.rules.some((r) => r.triggerFieldStableId === deletingStableId) ?? false
-      );
+      return meta?.visibility?.rules.some((r) => r.triggerFieldStableId === deletingStableId) ?? false;
     });
 
     if (danglingRefs.length > 0 && !force) {
       throw new AppError(AppErrorCode.INVALID_REQUEST, {
-        message:
-          'Field is used as a visibility trigger by other fields. Pass force=true to strip those rules.',
+        message: 'Field is used as a visibility trigger by other fields. Pass force=true to strip those rules.',
       });
     }
   }
@@ -89,9 +85,7 @@ export const deleteTemplateField = async ({
           };
         } & Record<string, unknown>;
 
-        const remaining = meta.visibility.rules.filter(
-          (r) => r.triggerFieldStableId !== deletingStableId,
-        );
+        const remaining = meta.visibility.rules.filter((r) => r.triggerFieldStableId !== deletingStableId);
 
         const newMeta = { ...meta };
 

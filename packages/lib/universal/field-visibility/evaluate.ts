@@ -26,7 +26,9 @@ const normalize = (s: string): string => s.trim().toLowerCase();
 // Returns [] on malformed JSON — safe for contains/isEmpty (fail-closed)
 // but note that notContains will treat corrupt state as "does not contain X" → true.
 const parseCheckboxCustomText = (customText: string): string[] => {
-  if (!customText) return [];
+  if (!customText) {
+    return [];
+  }
   try {
     const parsed = JSON.parse(customText);
     return Array.isArray(parsed) ? parsed.map(String) : [];
@@ -40,10 +42,10 @@ const parseCheckboxCustomText = (customText: string): string[] => {
  * - For checkbox: list of checked option VALUES (not ids).
  * - For everything else: trigger.customText (empty string if not inserted).
  */
-const triggerValueFor = (
-  trigger: EvaluatableField,
-): { isEmpty: boolean; scalar: string; list: string[] } => {
-  if (!trigger.inserted) return { isEmpty: true, scalar: '', list: [] };
+const triggerValueFor = (trigger: EvaluatableField): { isEmpty: boolean; scalar: string; list: string[] } => {
+  if (!trigger.inserted) {
+    return { isEmpty: true, scalar: '', list: [] };
+  }
 
   if (trigger.type === FieldType.CHECKBOX) {
     const selectedIds = parseCheckboxCustomText(trigger.customText);
@@ -58,7 +60,9 @@ const triggerValueFor = (
 };
 
 const evaluateRule = (rule: TVisibilityRule, trigger: EvaluatableField | null): boolean => {
-  if (!trigger) return false; // fail-closed
+  if (!trigger) {
+    return false; // fail-closed
+  }
   const v = triggerValueFor(trigger);
 
   switch (rule.operator) {
@@ -85,17 +89,18 @@ const evaluateRule = (rule: TVisibilityRule, trigger: EvaluatableField | null): 
   }
 };
 
-export const evaluateVisibility = (
-  field: EvaluatableField,
-  siblings: EvaluatableField[],
-): { visible: boolean } => {
+export const evaluateVisibility = (field: EvaluatableField, siblings: EvaluatableField[]): { visible: boolean } => {
   const block = getVisibility(field);
-  if (!block) return { visible: true };
+  if (!block) {
+    return { visible: true };
+  }
 
   const siblingsByStableId = new Map<string, EvaluatableField>();
   for (const s of siblings) {
     const sid = getStableId(s);
-    if (sid) siblingsByStableId.set(sid, s);
+    if (sid) {
+      siblingsByStableId.set(sid, s);
+    }
   }
 
   const checks = block.rules.map((rule) =>
@@ -120,7 +125,9 @@ export const evaluateAllVisibility = (fields: EvaluatableField[]): Map<number, b
   const byStableId = new Map<string, EvaluatableField>();
   for (const f of fields) {
     const sid = getStableId(f);
-    if (sid) byStableId.set(sid, f);
+    if (sid) {
+      byStableId.set(sid, f);
+    }
   }
 
   const ids = fields.map((f) => String(f.id));
@@ -128,9 +135,13 @@ export const evaluateAllVisibility = (fields: EvaluatableField[]): Map<number, b
 
   const dependenciesOf = (idStr: string) => {
     const field = byId.get(idStr);
-    if (!field) return [];
+    if (!field) {
+      return [];
+    }
     const block = getVisibility(field);
-    if (!block) return [];
+    if (!block) {
+      return [];
+    }
     return block.rules
       .map((r) => byStableId.get(r.triggerFieldStableId))
       .filter((f): f is EvaluatableField => !!f)
@@ -140,13 +151,17 @@ export const evaluateAllVisibility = (fields: EvaluatableField[]): Map<number, b
   const sorted = topologicalSort(ids, dependenciesOf);
 
   if (sorted.kind === 'cycle') {
-    for (const f of fields) result.set(f.id, false);
+    for (const f of fields) {
+      result.set(f.id, false);
+    }
     return result;
   }
 
   for (const idStr of sorted.order) {
     const field = byId.get(idStr);
-    if (!field) continue;
+    if (!field) {
+      continue;
+    }
     const { visible } = evaluateVisibility(field, fields);
     result.set(field.id, visible);
   }

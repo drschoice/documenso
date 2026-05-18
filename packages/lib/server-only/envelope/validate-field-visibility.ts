@@ -45,7 +45,9 @@ const extractStableId = (field: ValidatableField): string | null => {
 
 const triggerOptionValues = (field: ValidatableField): string[] | null => {
   const meta = field.fieldMeta as { values?: Array<{ value: string }> } | null;
-  if (!meta?.values) return null;
+  if (!meta?.values) {
+    return null;
+  }
   return meta.values.map((v) => v.value);
 };
 
@@ -64,12 +66,16 @@ export const validateFieldVisibility = (input: {
   const byStableId = new Map<string, ValidatableField>();
   for (const f of input.fields) {
     const sid = extractStableId(f);
-    if (sid) byStableId.set(sid, f);
+    if (sid) {
+      byStableId.set(sid, f);
+    }
   }
 
   for (const dep of input.fields) {
     const block = extractVisibility(dep);
-    if (!block) continue;
+    if (!block) {
+      continue;
+    }
 
     const depStableId = extractStableId(dep);
 
@@ -139,16 +145,18 @@ export const validateFieldVisibility = (input: {
   }
 
   // Cycle detection across all fields that have a visibility block.
-  const relevantIds = input.fields
-    .filter((f) => extractVisibility(f) !== null)
-    .map((f) => String(f.id));
+  const relevantIds = input.fields.filter((f) => extractVisibility(f) !== null).map((f) => String(f.id));
   const byId = new Map(input.fields.map((f) => [String(f.id), f] as const));
 
   const dependenciesOf = (idStr: string) => {
     const f = byId.get(idStr);
-    if (!f) return [];
+    if (!f) {
+      return [];
+    }
     const v = extractVisibility(f);
-    if (!v) return [];
+    if (!v) {
+      return [];
+    }
     return v.rules
       .map((r) => byStableId.get(r.triggerFieldStableId))
       .filter((t): t is ValidatableField => !!t)
@@ -157,9 +165,7 @@ export const validateFieldVisibility = (input: {
 
   const sorted = topologicalSort(relevantIds, dependenciesOf);
   if (sorted.kind === 'cycle') {
-    const pathFields = sorted.path
-      .map((idStr) => byId.get(idStr))
-      .filter(Boolean) as ValidatableField[];
+    const pathFields = sorted.path.map((idStr) => byId.get(idStr)).filter(Boolean) as ValidatableField[];
     for (const f of pathFields) {
       errors.push({
         fieldId: f.id,

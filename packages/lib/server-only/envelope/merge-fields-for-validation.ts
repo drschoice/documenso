@@ -35,7 +35,9 @@ export const mergeFieldsForValidation = (
   });
 
   for (const f of existing) {
-    if (!usedIds.has(f.id)) merged.push(f);
+    if (!usedIds.has(f.id)) {
+      merged.push(f);
+    }
   }
   return merged;
 };

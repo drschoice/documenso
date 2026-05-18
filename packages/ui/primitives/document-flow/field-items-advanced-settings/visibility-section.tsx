@@ -1,20 +1,12 @@
-import { useMemo } from 'react';
-
-import { Trans } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
-import { PlusIcon, TrashIcon } from 'lucide-react';
-
 import type { TVisibilityBlock, TVisibilityRule } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
+import { Trans } from '@lingui/react/macro';
+import { FieldType } from '@prisma/client';
+import { PlusIcon, TrashIcon } from 'lucide-react';
+import { useMemo } from 'react';
 
 type EligibleTriggerField = {
   id: number;
@@ -42,12 +34,7 @@ type AnyOperator = TVisibilityRule['operator'];
 
 type ValueRule = Extract<TVisibilityRule, { value: string }>;
 
-const ELIGIBLE_FIELD_TYPES: FieldType[] = [
-  FieldType.RADIO,
-  FieldType.CHECKBOX,
-  FieldType.DROPDOWN,
-  FieldType.TEXT,
-];
+const ELIGIBLE_FIELD_TYPES: FieldType[] = [FieldType.RADIO, FieldType.CHECKBOX, FieldType.DROPDOWN, FieldType.TEXT];
 
 const OPERATORS_BY_TYPE: Partial<Record<FieldType, AnyOperator[]>> = {
   [FieldType.RADIO]: ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'],
@@ -65,8 +52,7 @@ const OPERATOR_LABELS: Record<AnyOperator, string> = {
   isNotEmpty: 'is not empty',
 };
 
-const isEmptyOperator = (op: AnyOperator): op is EmptyOperator =>
-  op === 'isEmpty' || op === 'isNotEmpty';
+const isEmptyOperator = (op: AnyOperator): op is EmptyOperator => op === 'isEmpty' || op === 'isNotEmpty';
 
 const isValueOperator = (op: AnyOperator): op is ValueOperator => !isEmptyOperator(op);
 
@@ -80,17 +66,9 @@ const labelForTrigger = (t: EligibleTriggerField, idx: number) =>
     ? `${t.label} · ${t.type.toLowerCase()} · p.${t.page ?? 1}`
     : `Unnamed ${t.type.toLowerCase()} #${idx + 1}`;
 
-export const VisibilitySection = ({
-  currentFieldId,
-  triggerCandidates,
-  value,
-  onChange,
-}: Props) => {
+export const VisibilitySection = ({ currentFieldId, triggerCandidates, value, onChange }: Props) => {
   const eligibleTriggers = useMemo(
-    () =>
-      triggerCandidates
-        .filter((t) => ELIGIBLE_FIELD_TYPES.includes(t.type))
-        .filter((t) => t.id !== currentFieldId),
+    () => triggerCandidates.filter((t) => ELIGIBLE_FIELD_TYPES.includes(t.type)).filter((t) => t.id !== currentFieldId),
     [triggerCandidates, currentFieldId],
   );
 
@@ -100,10 +78,7 @@ export const VisibilitySection = ({
    * Build a valid TVisibilityRule from the current rule merged with a patch.
    * We re-derive the discriminated union shape from the merged operator.
    */
-  const buildUpdatedRule = (
-    current: TVisibilityRule,
-    patch: Partial<TVisibilityRule>,
-  ): TVisibilityRule => {
+  const buildUpdatedRule = (current: TVisibilityRule, patch: Partial<TVisibilityRule>): TVisibilityRule => {
     const merged = { ...current, ...patch };
     const op = merged.operator;
 
@@ -114,9 +89,7 @@ export const VisibilitySection = ({
     const currentValue = isValueRule(current) ? current.value : '';
     const patchValueEntry = 'value' in patch ? patch : null;
     const patchValue =
-      patchValueEntry !== null && isValueOperator(op)
-        ? (patchValueEntry.value ?? currentValue)
-        : currentValue;
+      patchValueEntry !== null && isValueOperator(op) ? (patchValueEntry.value ?? currentValue) : currentValue;
 
     return {
       operator: op,
@@ -153,16 +126,13 @@ export const VisibilitySection = ({
 
   return (
     <div className="mt-4 rounded-md border border-border bg-muted/40 p-3">
-      <Label className="text-sm font-semibold">
+      <Label className="font-semibold text-sm">
         <Trans>Visibility</Trans>
       </Label>
 
       {eligibleTriggers.length === 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Trans>
-            Add a radio, checkbox, dropdown, or text field to the same recipient to use visibility
-            rules.
-          </Trans>
+        <p className="mt-2 text-muted-foreground text-xs">
+          <Trans>Add a radio, checkbox, dropdown, or text field to the same recipient to use visibility rules.</Trans>
         </p>
       )}
 
@@ -194,10 +164,7 @@ export const VisibilitySection = ({
           const enumOptions = needsValue && !isTextTrigger ? (trigger?.values ?? []) : null;
 
           return (
-            <div
-              key={index}
-              className="flex flex-wrap items-center gap-2 rounded border bg-background p-2"
-            >
+            <div key={index} className="flex flex-wrap items-center gap-2 rounded border bg-background p-2">
               <Select
                 value={rule.triggerFieldStableId}
                 onValueChange={(v) => updateRule(index, { triggerFieldStableId: v })}
@@ -236,10 +203,7 @@ export const VisibilitySection = ({
               </Select>
 
               {needsValue && enumOptions && (
-                <Select
-                  value={getRuleValue(rule)}
-                  onValueChange={(v) => updateRule(index, { value: v })}
-                >
+                <Select value={getRuleValue(rule)} onValueChange={(v) => updateRule(index, { value: v })}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -261,12 +225,7 @@ export const VisibilitySection = ({
                 />
               )}
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeRule(index)}
-                aria-label="Remove rule"
-              >
+              <Button variant="ghost" size="sm" onClick={() => removeRule(index)} aria-label="Remove rule">
                 <TrashIcon className="h-4 w-4" />
               </Button>
             </div>
@@ -275,12 +234,7 @@ export const VisibilitySection = ({
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addRule}
-          disabled={eligibleTriggers.length === 0}
-        >
+        <Button variant="outline" size="sm" onClick={addRule} disabled={eligibleTriggers.length === 0}>
           <PlusIcon className="mr-1 h-4 w-4" />
           <Trans>Add rule</Trans>
         </Button>

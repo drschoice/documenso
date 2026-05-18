@@ -9,27 +9,20 @@
  * The AI service is never actually called — the route is fulfilled by Playwright
  * with a fake streaming response containing zero detected fields.
  */
-import { expect, test } from '@playwright/test';
 
 import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increment-id';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
-import {
-  DocumentDataType,
-  DocumentSource,
-  DocumentStatus,
-  EnvelopeType,
-} from '@documenso/prisma/client';
+import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
+import { expect, test } from '@playwright/test';
 
 import { apiSignin } from '../fixtures/authentication';
 
 async function seedDraftEnvelopeWithTwoItems(ownerUserId: number, teamId: number) {
   const fs = await import('node:fs');
   const path = await import('node:path');
-  const examplePdf = fs
-    .readFileSync(path.join(__dirname, '../../../../assets/example.pdf'))
-    .toString('base64');
+  const examplePdf = fs.readFileSync(path.join(__dirname, '../../../../assets/example.pdf')).toString('base64');
 
   const dataA = await prisma.documentData.create({
     data: { type: DocumentDataType.BYTES_64, data: examplePdf, initialData: examplePdf },

@@ -76,3 +76,6 @@ tmp/
 
 # superpowers working docs (specs, plans, handoff notes)
 docs/superpowers/
+
+# opencode
+.opencode/package-lock.json

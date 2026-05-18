@@ -1,16 +1,11 @@
-import { forwardRef, useEffect, useState } from 'react';
-
-import type { MessageDescriptor } from '@lingui/core';
-import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react';
-import { FieldType } from '@prisma/client';
-import { match } from 'ts-pattern';
-
 import { useAutoSave } from '@documenso/lib/client-only/hooks/use-autosave';
+import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import {
   type TBaseFieldMeta as BaseFieldMeta,
   type TCheckboxFieldMeta as CheckboxFieldMeta,
   type TDateFieldMeta as DateFieldMeta,
+  DEFAULT_DATE_OVERFLOW_MODE,
+  DEFAULT_EMAIL_OVERFLOW_MODE,
   type TDropdownFieldMeta as DropdownFieldMeta,
   type TEmailFieldMeta as EmailFieldMeta,
   type TFieldMetaSchema as FieldMeta,
@@ -21,8 +16,13 @@ import {
   type TTextFieldMeta as TextFieldMeta,
   ZFieldMetaSchema,
 } from '@documenso/lib/types/field-meta';
-import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { FieldType } from '@prisma/client';
+import { forwardRef, useEffect, useState } from 'react';
+import { match } from 'ts-pattern';
 
 import type { FieldFormType } from './add-fields';
 import {
@@ -84,12 +84,14 @@ const getDefaultState = (fieldType: FieldType): FieldMeta => {
         type: 'email',
         fontSize: 14,
         textAlign: 'left',
+        overflow: DEFAULT_EMAIL_OVERFLOW_MODE,
       };
     case FieldType.DATE:
       return {
         type: 'date',
         fontSize: 14,
         textAlign: 'left',
+        overflow: DEFAULT_DATE_OVERFLOW_MODE,
       };
     case FieldType.TEXT:
       return {
@@ -149,19 +151,7 @@ const getDefaultState = (fieldType: FieldType): FieldMeta => {
 };
 
 export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSettingsProps>(
-  (
-    {
-      title,
-      description,
-      field,
-      fields,
-      onAdvancedSettings,
-      isDocumentPdfLoaded = true,
-      onSave,
-      onAutoSave,
-    },
-    ref,
-  ) => {
+  ({ title, description, field, fields, onAdvancedSettings, isDocumentPdfLoaded = true, onSave, onAutoSave }, ref) => {
     const { _ } = useLingui();
     const { toast } = useToast();
 
@@ -220,9 +210,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
         | undefined,
     ) => {
       setFieldState((prevState: FieldMeta) => {
-        if (
-          ['characterLimit', 'minValue', 'maxValue', 'validationLength', 'fontSize'].includes(key)
-        ) {
+        if (['characterLimit', 'minValue', 'maxValue', 'validationLength', 'fontSize'].includes(key)) {
           const parsedValue = Number(value);
 
           return {
@@ -271,9 +259,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                   key={index}
                   field={localField}
                   disabled={true}
-                  fieldClassName={
-                    localField.formId === field.formId ? 'ring-red-400' : 'ring-neutral-200'
-                  }
+                  fieldClassName={localField.formId === field.formId ? 'ring-red-400' : 'ring-neutral-200'}
                 />
               </span>
             ))}
@@ -316,9 +302,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                 currentFieldId={field.nativeId ?? null}
                 sameRecipientFields={fields
                   .filter(
-                    (f) =>
-                      f.recipientId === field.recipientId &&
-                      (f.nativeId == null || f.nativeId !== field.nativeId),
+                    (f) => f.recipientId === field.recipientId && (f.nativeId == null || f.nativeId !== field.nativeId),
                   )
                   .map((f) => ({
                     id: f.nativeId ?? 0,
@@ -337,9 +321,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                 currentFieldId={field.nativeId ?? null}
                 sameRecipientFields={fields
                   .filter(
-                    (f) =>
-                      f.recipientId === field.recipientId &&
-                      (f.nativeId == null || f.nativeId !== field.nativeId),
+                    (f) => f.recipientId === field.recipientId && (f.nativeId == null || f.nativeId !== field.nativeId),
                   )
                   .map((f) => ({
                     id: f.nativeId ?? 0,
@@ -358,9 +340,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                 currentFieldId={field.nativeId ?? null}
                 sameRecipientFields={fields
                   .filter(
-                    (f) =>
-                      f.recipientId === field.recipientId &&
-                      (f.nativeId == null || f.nativeId !== field.nativeId),
+                    (f) => f.recipientId === field.recipientId && (f.nativeId == null || f.nativeId !== field.nativeId),
                   )
                   .map((f) => ({
                     id: f.nativeId ?? 0,
@@ -379,9 +359,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                 currentFieldId={field.nativeId ?? null}
                 sameRecipientFields={fields
                   .filter(
-                    (f) =>
-                      f.recipientId === field.recipientId &&
-                      (f.nativeId == null || f.nativeId !== field.nativeId),
+                    (f) => f.recipientId === field.recipientId && (f.nativeId == null || f.nativeId !== field.nativeId),
                   )
                   .map((f) => ({
                     id: f.nativeId ?? 0,
@@ -400,9 +378,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
                 currentFieldId={field.nativeId ?? null}
                 sameRecipientFields={fields
                   .filter(
-                    (f) =>
-                      f.recipientId === field.recipientId &&
-                      (f.nativeId == null || f.nativeId !== field.nativeId),
+                    (f) => f.recipientId === field.recipientId && (f.nativeId == null || f.nativeId !== field.nativeId),
                   )
                   .map((f) => ({
                     id: f.nativeId ?? 0,
@@ -419,7 +395,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
             <div className="mt-4">
               <ul>
                 {errors.map((error, index) => (
-                  <li className="text-sm text-red-500" key={index}>
+                  <li className="text-red-500 text-sm" key={index}>
                     {error}
                   </li>
                 ))}
@@ -428,10 +404,7 @@ export const FieldAdvancedSettings = forwardRef<HTMLDivElement, FieldAdvancedSet
           )}
         </DocumentFlowFormContainerContent>
 
-        <DocumentFlowFormContainerFooter
-          className="mt-auto"
-          data-testid="field-advanced-settings-footer"
-        >
+        <DocumentFlowFormContainerFooter className="mt-auto" data-testid="field-advanced-settings-footer">
           <DocumentFlowFormContainerActions
             goNextLabel={msg`Save`}
             goBackLabel={msg`Cancel`}

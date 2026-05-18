@@ -1,26 +1,19 @@
-import { EnvelopeType, type FieldType } from '@prisma/client';
-import { isDeepEqual } from 'remeda';
-
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import {
-  createDocumentAuditLogData,
-  diffFieldChanges,
-} from '@documenso/lib/utils/document-audit-logs';
+import { createDocumentAuditLogData, diffFieldChanges } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
+import { EnvelopeType, type FieldType } from '@prisma/client';
+import { isDeepEqual } from 'remeda';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
-import { type EnvelopeIdOptions } from '../../utils/envelope';
+import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
 import { assignFieldStableIds } from '../envelope/assign-field-stable-ids';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { mergeFieldsForValidation } from '../envelope/merge-fields-for-validation';
-import {
-  type ValidatableField,
-  validateFieldVisibility,
-} from '../envelope/validate-field-visibility';
+import { type ValidatableField, validateFieldVisibility } from '../envelope/validate-field-visibility';
 
 export interface UpdateEnvelopeFieldsOptions {
   userId: number;
@@ -86,9 +79,7 @@ export const updateEnvelopeFields = async ({
       });
     }
 
-    const recipient = envelope.recipients.find(
-      (recipient) => recipient.id === originalField.recipientId,
-    );
+    const recipient = envelope.recipients.find((recipient) => recipient.id === originalField.recipientId);
 
     // Each field MUST have a recipient associated with it.
     if (!recipient) {
@@ -100,8 +91,7 @@ export const updateEnvelopeFields = async ({
     // Check whether the recipient associated with the field can be modified.
     if (!canRecipientFieldsBeModified(recipient, envelope.fields)) {
       throw new AppError(AppErrorCode.INVALID_REQUEST, {
-        message:
-          'Cannot modify a field where the recipient has already interacted with the document',
+        message: 'Cannot modify a field where the recipient has already interacted with the document',
       });
     }
 
@@ -109,20 +99,13 @@ export const updateEnvelopeFields = async ({
     const fieldMetaType = field.fieldMeta?.type || originalField.fieldMeta?.type;
 
     // Not going to mess with V1 envelopes.
-    if (
-      envelope.internalVersion === 2 &&
-      fieldMetaType &&
-      fieldMetaType.toLowerCase() !== fieldType.toLowerCase()
-    ) {
+    if (envelope.internalVersion === 2 && fieldMetaType && fieldMetaType.toLowerCase() !== fieldType.toLowerCase()) {
       throw new AppError(AppErrorCode.INVALID_REQUEST, {
         message: 'Field meta type does not match the field type',
       });
     }
 
-    if (
-      field.envelopeItemId &&
-      !envelope.envelopeItems.some((item) => item.id === field.envelopeItemId)
-    ) {
+    if (field.envelopeItemId && !envelope.envelopeItems.some((item) => item.id === field.envelopeItemId)) {
       throw new AppError(AppErrorCode.INVALID_REQUEST, {
         message: 'Envelope item not found',
       });
@@ -239,8 +222,7 @@ export const updateEnvelopeFields = async ({
                       }
                     : {
                         fieldId: updatedField.secondaryId,
-                        ruleSnapshot: (visType ===
-                        DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_ADDED
+                        ruleSnapshot: (visType === DOCUMENT_AUDIT_LOG_TYPE.FIELD_VISIBILITY_RULE_ADDED
                           ? nextVis
                           : prevVis) as Record<string, unknown>,
                       },

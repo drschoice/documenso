@@ -1,30 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
+import type { NormalizedFieldWithContext } from '@documenso/lib/server-only/ai/envelope/detect-fields/types';
+import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
+import { Button } from '@documenso/ui/primitives/button';
+import { Checkbox } from '@documenso/ui/primitives/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@documenso/ui/primitives/dialog';
+import { Label } from '@documenso/ui/primitives/label';
+import { Textarea } from '@documenso/ui/primitives/textarea';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Plural, Trans } from '@lingui/react/macro';
 import { CheckIcon, FormInputIcon, ShieldCheckIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { NormalizedFieldWithContext } from '@documenso/lib/server-only/ai/envelope/detect-fields/types';
-import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
-import { Button } from '@documenso/ui/primitives/button';
-import { Checkbox } from '@documenso/ui/primitives/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@documenso/ui/primitives/dialog';
-import { Label } from '@documenso/ui/primitives/label';
-import { Textarea } from '@documenso/ui/primitives/textarea';
-
-import {
-  AiApiError,
-  type DetectFieldsProgressEvent,
-  detectFields,
-} from '../../../server/api/ai/detect-fields.client';
+import { AiApiError, type DetectFieldsProgressEvent, detectFields } from '../../../server/api/ai/detect-fields.client';
 import { AnimatedDocumentScanner } from '../general/animated-document-scanner';
 
 type DialogState = 'PROMPT' | 'PROCESSING' | 'REVIEW' | 'ERROR' | 'RATE_LIMITED';
@@ -78,10 +66,7 @@ export const AiFieldDetectionDialog = ({
   const [progress, setProgress] = useState<DetectFieldsProgressEvent | null>(null);
   const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(() => new Set());
 
-  const sortedItems = useMemo(
-    () => [...envelopeItems].sort((a, b) => a.order - b.order),
-    [envelopeItems],
-  );
+  const sortedItems = useMemo(() => [...envelopeItems].sort((a, b) => a.order - b.order), [envelopeItems]);
 
   const allExcluded = sortedItems.length > 0 && excludedItemIds.size === sortedItems.length;
   const showSelectAllToggle = sortedItems.length >= 3;
@@ -186,27 +171,24 @@ export const AiFieldDetectionDialog = ({
             </DialogHeader>
 
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 <Trans>
-                  We'll scan your document to find form fields like signature lines, text inputs,
-                  checkboxes, and more. Detected fields will be suggested for you to review.
+                  We'll scan your document to find form fields like signature lines, text inputs, checkboxes, and more.
+                  Detected fields will be suggested for you to review.
                 </Trans>
               </p>
 
               <Alert className="flex items-center gap-2 space-y-0" variant="neutral">
                 <ShieldCheckIcon className="h-5 w-5 stroke-green-600" />
                 <AlertDescription className="mt-0">
-                  <Trans>
-                    Your document is processed securely using AI services that don't retain your
-                    data.
-                  </Trans>
+                  <Trans>Your document is processed securely using AI services that don't retain your data.</Trans>
                 </AlertDescription>
               </Alert>
 
               {sortedItems.length >= 2 && (
                 <fieldset className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <legend className="text-sm font-medium">
+                    <legend className="font-medium text-sm">
                       <Trans>Analyze these documents</Trans>
                     </legend>
                     {showSelectAllToggle && (
@@ -224,11 +206,7 @@ export const AiFieldDetectionDialog = ({
                           });
                         }}
                       >
-                        {excludedItemIds.size === 0 ? (
-                          <Trans>Deselect all</Trans>
-                        ) : (
-                          <Trans>Select all</Trans>
-                        )}
+                        {excludedItemIds.size === 0 ? <Trans>Deselect all</Trans> : <Trans>Select all</Trans>}
                       </Button>
                     )}
                   </div>
@@ -253,10 +231,7 @@ export const AiFieldDetectionDialog = ({
                               });
                             }}
                           />
-                          <Label
-                            htmlFor={checkboxId}
-                            className="flex-1 cursor-pointer text-sm font-normal"
-                          >
+                          <Label htmlFor={checkboxId} className="flex-1 cursor-pointer font-normal text-sm">
                             {item.title}
                           </Label>
                         </li>
@@ -278,7 +253,7 @@ export const AiFieldDetectionDialog = ({
                   rows={2}
                   className="resize-none"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   <Trans>Help the AI assign fields to the right recipients.</Trans>
                 </p>
               </div>
@@ -314,7 +289,7 @@ export const AiFieldDetectionDialog = ({
               <p className="mt-8 text-muted-foreground">{_(PROCESSING_MESSAGES[messageIndex])}</p>
 
               {progress && (
-                <p className="mt-2 text-xs text-muted-foreground/60">
+                <p className="mt-2 text-muted-foreground/60 text-xs">
                   <Plural
                     value={progress.fieldsDetected}
                     one={
@@ -331,7 +306,7 @@ export const AiFieldDetectionDialog = ({
                 </p>
               )}
 
-              <p className="mt-2 max-w-[40ch] text-center text-xs text-muted-foreground/60">
+              <p className="mt-2 max-w-[40ch] text-center text-muted-foreground/60 text-xs">
                 <Trans>This can take a minute or two depending on the size of your document.</Trans>
               </p>
 
@@ -361,16 +336,16 @@ export const AiFieldDetectionDialog = ({
               {detectedFields.length === 0 ? (
                 <div className="flex flex-col items-center py-8">
                   <FormInputIcon className="h-12 w-12 text-muted-foreground/50" />
-                  <p className="mt-4 text-center text-sm text-muted-foreground">
+                  <p className="mt-4 text-center text-muted-foreground text-sm">
                     <Trans>No fields were detected in your document.</Trans>
                   </p>
-                  <p className="mt-1 text-center text-xs text-muted-foreground/70">
+                  <p className="mt-1 text-center text-muted-foreground/70 text-xs">
                     <Trans>You can add fields manually in the editor.</Trans>
                   </p>
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     <Plural
                       value={detectedFields.length}
                       one="We found # field in your document."
@@ -382,7 +357,7 @@ export const AiFieldDetectionDialog = ({
                     {fieldCountsByType.map(([type, count]) => (
                       <li key={type} className="flex items-center justify-between px-4 py-3">
                         <span className="text-sm">{_(FIELD_TYPE_LABELS[type]) || type}</span>
-                        <span className="text-sm font-medium text-muted-foreground">{count}</span>
+                        <span className="font-medium text-muted-foreground text-sm">{count}</span>
                       </li>
                     ))}
                   </ul>
@@ -397,7 +372,7 @@ export const AiFieldDetectionDialog = ({
 
               {detectedFields.length > 0 && (
                 <Button type="button" onClick={onAddFields}>
-                  <CheckIcon className="-ml-1 mr-2 h-4 w-4" />
+                  <CheckIcon className="mr-2 -ml-1 h-4 w-4" />
                   <Trans>Add fields</Trans>
                 </Button>
               )}
@@ -414,11 +389,11 @@ export const AiFieldDetectionDialog = ({
             </DialogHeader>
 
             <div className="py-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 <Trans>Something went wrong while detecting fields.</Trans>
               </p>
 
-              {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+              {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
             </div>
 
             <DialogFooter>
@@ -441,10 +416,8 @@ export const AiFieldDetectionDialog = ({
             </DialogHeader>
 
             <div className="py-4">
-              <p className="text-sm text-muted-foreground">
-                <Trans>
-                  You've made too many detection requests. Please wait a minute before trying again.
-                </Trans>
+              <p className="text-muted-foreground text-sm">
+                <Trans>You've made too many detection requests. Please wait a minute before trying again.</Trans>
               </p>
             </div>
 

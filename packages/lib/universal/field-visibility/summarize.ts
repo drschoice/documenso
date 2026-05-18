@@ -1,9 +1,6 @@
 import type { TVisibilityBlock } from '../../types/field-meta';
 
-export const summarizeUnmetRules = (
-  block: TVisibilityBlock,
-  stableIdToLabel: Map<string, string>,
-): string => {
+export const summarizeUnmetRules = (block: TVisibilityBlock, stableIdToLabel: Map<string, string>): string => {
   const parts = block.rules
     .map((r) => {
       const label = stableIdToLabel.get(r.triggerFieldStableId) ?? 'a required field';

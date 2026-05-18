@@ -1,3 +1,9 @@
+import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '@documenso/lib/types/document-audit-logs';
+import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { evaluateAllVisibility, summarizeUnmetRules } from '@documenso/lib/universal/field-visibility';
+import { fieldsContainUnsignedRequiredVisibleField } from '@documenso/lib/utils/advanced-fields-helpers';
+import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
+import { prisma } from '@documenso/prisma';
 import {
   DocumentSigningOrder,
   DocumentStatus,
@@ -9,27 +15,11 @@ import {
   WebhookTriggerEvents,
 } from '@prisma/client';
 
-import {
-  DOCUMENT_AUDIT_LOG_TYPE,
-  RECIPIENT_DIFF_TYPE,
-} from '@documenso/lib/types/document-audit-logs';
-import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import {
-  evaluateAllVisibility,
-  summarizeUnmetRules,
-} from '@documenso/lib/universal/field-visibility';
-import { fieldsContainUnsignedRequiredVisibleField } from '@documenso/lib/utils/advanced-fields-helpers';
-import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
-import { prisma } from '@documenso/prisma';
-
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
 import type { TRecipientAccessAuth } from '../../types/document-auth';
 import { DocumentAuth } from '../../types/document-auth';
-import {
-  ZWebhookDocumentSchema,
-  mapEnvelopeToWebhookDocumentPayload,
-} from '../../types/webhook-payload';
+import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../types/webhook-payload';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
@@ -118,9 +108,7 @@ export const completeDocumentWithToken = async ({
     });
 
     if (!isRecipientsTurn) {
-      throw new Error(
-        `Recipient ${recipient.id} attempted to complete the document before it was their turn`,
-      );
+      throw new Error(`Recipient ${recipient.id} attempted to complete the document before it was their turn`);
     }
   }
 
@@ -174,10 +162,7 @@ export const completeDocumentWithToken = async ({
 
           const summary =
             meta?.visibility && Array.isArray(meta.visibility.rules)
-              ? summarizeUnmetRules(
-                  meta.visibility as Parameters<typeof summarizeUnmetRules>[0],
-                  stableIdToLabel,
-                )
+              ? summarizeUnmetRules(meta.visibility as Parameters<typeof summarizeUnmetRules>[0], stableIdToLabel)
               : '';
 
           return createDocumentAuditLogData({

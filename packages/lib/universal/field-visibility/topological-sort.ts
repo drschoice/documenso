@@ -5,10 +5,7 @@ export type TopoResult = { kind: 'ok'; order: string[] } | { kind: 'cycle'; path
  * graph is not a DAG. Unknown dependency ids (returned by dependenciesOf but
  * not in ids) are ignored — fail-closed handling happens in the evaluator.
  */
-export const topologicalSort = (
-  ids: string[],
-  dependenciesOf: (id: string) => string[],
-): TopoResult => {
+export const topologicalSort = (ids: string[], dependenciesOf: (id: string) => string[]): TopoResult => {
   const known = new Set(ids);
   const visited = new Set<string>();
   const visiting = new Set<string>();
@@ -43,7 +40,9 @@ export const topologicalSort = (
 
       const dep = next.value;
 
-      if (visited.has(dep)) continue;
+      if (visited.has(dep)) {
+        continue;
+      }
 
       if (visiting.has(dep)) {
         // Back-edge — found a cycle. Reconstruct the cycle path.
@@ -60,9 +59,13 @@ export const topologicalSort = (
   };
 
   for (const id of ids) {
-    if (visited.has(id)) continue;
+    if (visited.has(id)) {
+      continue;
+    }
     const cycle = dfs(id);
-    if (cycle) return { kind: 'cycle', path: cycle };
+    if (cycle) {
+      return { kind: 'cycle', path: cycle };
+    }
   }
 
   return { kind: 'ok', order };

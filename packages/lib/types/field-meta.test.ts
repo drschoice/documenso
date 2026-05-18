@@ -17,9 +17,7 @@ import {
 describe('field-meta visibility extension', () => {
   const validBlock = {
     match: 'all' as const,
-    rules: [
-      { operator: 'equals' as const, triggerFieldStableId: 'abc', value: 'Married' },
-    ],
+    rules: [{ operator: 'equals' as const, triggerFieldStableId: 'abc', value: 'Married' }],
   };
 
   it('accepts stableId and visibility on text fields', () => {
@@ -38,9 +36,7 @@ describe('field-meta visibility extension', () => {
     ['checkbox', ZCheckboxFieldMeta],
     ['dropdown', ZDropdownFieldMeta],
   ])('accepts visibility on %s fields', (type, schema) => {
-    expect(() =>
-      schema.parse({ type, stableId: 'id1', visibility: validBlock }),
-    ).not.toThrow();
+    expect(() => schema.parse({ type, stableId: 'id1', visibility: validBlock })).not.toThrow();
   });
 
   it.each([
@@ -62,17 +58,14 @@ describe('field-meta visibility extension', () => {
     ).toThrow();
   });
 
-  it.each([['isEmpty'], ['isNotEmpty']])(
-    'rejects value when operator is %s',
-    (operator) => {
-      expect(() =>
-        ZVisibilityBlock.parse({
-          match: 'all',
-          rules: [{ operator, triggerFieldStableId: 'abc', value: 'x' }],
-        }),
-      ).toThrow();
-    },
-  );
+  it.each([['isEmpty'], ['isNotEmpty']])('rejects value when operator is %s', (operator) => {
+    expect(() =>
+      ZVisibilityBlock.parse({
+        match: 'all',
+        rules: [{ operator, triggerFieldStableId: 'abc', value: 'x' }],
+      }),
+    ).toThrow();
+  });
 
   it('requires at least one rule', () => {
     expect(() => ZVisibilityBlock.parse({ match: 'all', rules: [] })).toThrow();

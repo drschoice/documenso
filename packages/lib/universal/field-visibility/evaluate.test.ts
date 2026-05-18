@@ -52,11 +52,15 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('radio equals: case-insensitive and trimmed', () => {
     const trigger = mkField({
-      id: 10, type: FieldType.RADIO, customText: '  married ', inserted: true,
+      id: 10,
+      type: FieldType.RADIO,
+      customText: '  married ',
+      inserted: true,
       fieldMeta: { type: 'radio', stableId: 'mar' },
     });
     const dep = mkField({
-      id: 11, fieldMeta: vis({
+      id: 11,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'equals', triggerFieldStableId: 'mar', value: 'Married' }],
       }),
@@ -66,11 +70,15 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('text contains substring match', () => {
     const trigger = mkField({
-      id: 10, type: FieldType.TEXT, customText: 'John Smith', inserted: true,
+      id: 10,
+      type: FieldType.TEXT,
+      customText: 'John Smith',
+      inserted: true,
       fieldMeta: { type: 'text', stableId: 'name' },
     });
     const dep = mkField({
-      id: 11, fieldMeta: vis({
+      id: 11,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'contains', triggerFieldStableId: 'name', value: 'smith' }],
       }),
@@ -80,16 +88,22 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('checkbox contains: customText is JSON array; match by value', () => {
     const trigger = mkField({
-      id: 10, type: FieldType.CHECKBOX,
+      id: 10,
+      type: FieldType.CHECKBOX,
       customText: '["1"]',
       inserted: true,
       fieldMeta: {
-        type: 'checkbox', stableId: 'cbx',
-        values: [{ id: 1, checked: false, value: 'Yes' }, { id: 2, checked: false, value: 'No' }],
+        type: 'checkbox',
+        stableId: 'cbx',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
       },
     });
     const dep = mkField({
-      id: 11, fieldMeta: vis({
+      id: 11,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'contains', triggerFieldStableId: 'cbx', value: 'Yes' }],
       }),
@@ -99,11 +113,15 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('isEmpty when trigger not inserted', () => {
     const trigger = mkField({
-      id: 10, type: FieldType.TEXT, customText: '', inserted: false,
+      id: 10,
+      type: FieldType.TEXT,
+      customText: '',
+      inserted: false,
       fieldMeta: { type: 'text', stableId: 't' },
     });
     const dep = mkField({
-      id: 11, fieldMeta: vis({
+      id: 11,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'isEmpty', triggerFieldStableId: 't' }],
       }),
@@ -113,11 +131,15 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('isNotEmpty when trigger inserted with value', () => {
     const trigger = mkField({
-      id: 10, type: FieldType.TEXT, customText: 'hello', inserted: true,
+      id: 10,
+      type: FieldType.TEXT,
+      customText: 'hello',
+      inserted: true,
       fieldMeta: { type: 'text', stableId: 't' },
     });
     const dep = mkField({
-      id: 11, fieldMeta: vis({
+      id: 11,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'isNotEmpty', triggerFieldStableId: 't' }],
       }),
@@ -126,10 +148,23 @@ describe('evaluateAllVisibility — operator semantics', () => {
   });
 
   it('match=all requires every rule to pass', () => {
-    const t1 = mkField({ id: 1, type: FieldType.RADIO, customText: 'Yes', inserted: true, fieldMeta: { type: 'radio', stableId: 'a' } });
-    const t2 = mkField({ id: 2, type: FieldType.RADIO, customText: 'No', inserted: true, fieldMeta: { type: 'radio', stableId: 'b' } });
+    const t1 = mkField({
+      id: 1,
+      type: FieldType.RADIO,
+      customText: 'Yes',
+      inserted: true,
+      fieldMeta: { type: 'radio', stableId: 'a' },
+    });
+    const t2 = mkField({
+      id: 2,
+      type: FieldType.RADIO,
+      customText: 'No',
+      inserted: true,
+      fieldMeta: { type: 'radio', stableId: 'b' },
+    });
     const dep = mkField({
-      id: 3, fieldMeta: vis({
+      id: 3,
+      fieldMeta: vis({
         match: 'all',
         rules: [
           { operator: 'equals', triggerFieldStableId: 'a', value: 'Yes' },
@@ -141,10 +176,23 @@ describe('evaluateAllVisibility — operator semantics', () => {
   });
 
   it('match=any requires at least one rule to pass', () => {
-    const t1 = mkField({ id: 1, type: FieldType.RADIO, customText: 'Yes', inserted: true, fieldMeta: { type: 'radio', stableId: 'a' } });
-    const t2 = mkField({ id: 2, type: FieldType.RADIO, customText: 'No', inserted: true, fieldMeta: { type: 'radio', stableId: 'b' } });
+    const t1 = mkField({
+      id: 1,
+      type: FieldType.RADIO,
+      customText: 'Yes',
+      inserted: true,
+      fieldMeta: { type: 'radio', stableId: 'a' },
+    });
+    const t2 = mkField({
+      id: 2,
+      type: FieldType.RADIO,
+      customText: 'No',
+      inserted: true,
+      fieldMeta: { type: 'radio', stableId: 'b' },
+    });
     const dep = mkField({
-      id: 3, fieldMeta: vis({
+      id: 3,
+      fieldMeta: vis({
         match: 'any',
         rules: [
           { operator: 'equals', triggerFieldStableId: 'a', value: 'Yes' },
@@ -157,7 +205,8 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('missing trigger → dependent hidden (fail-closed)', () => {
     const dep = mkField({
-      id: 3, fieldMeta: vis({
+      id: 3,
+      fieldMeta: vis({
         match: 'all',
         rules: [{ operator: 'equals', triggerFieldStableId: 'gone', value: 'x' }],
       }),
@@ -172,17 +221,24 @@ describe('evaluateAllVisibility — operator semantics', () => {
 
   it('chained: A triggers B, B triggers C — all visible when met', () => {
     const a = mkField({
-      id: 1, type: FieldType.RADIO, customText: 'Yes', inserted: true,
+      id: 1,
+      type: FieldType.RADIO,
+      customText: 'Yes',
+      inserted: true,
       fieldMeta: { type: 'radio', stableId: 'A' },
     });
     const b = mkField({
-      id: 2, type: FieldType.TEXT, customText: 'Jane', inserted: true,
+      id: 2,
+      type: FieldType.TEXT,
+      customText: 'Jane',
+      inserted: true,
       fieldMeta: {
         ...vis({ match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'A', value: 'Yes' }] }, 'B'),
       },
     });
     const c = mkField({
-      id: 3, type: FieldType.TEXT,
+      id: 3,
+      type: FieldType.TEXT,
       fieldMeta: vis({ match: 'all', rules: [{ operator: 'isNotEmpty', triggerFieldStableId: 'B' }] }, 'C'),
     });
     const m = evaluateAllVisibility([a, b, c]);
@@ -190,25 +246,29 @@ describe('evaluateAllVisibility — operator semantics', () => {
     expect(m.get(3)).toBe(true);
   });
 
-  it('chained: when A fails, B hides, and C evaluates against hidden B (still sees B\'s committed value)', () => {
+  it("chained: when A fails, B hides, and C evaluates against hidden B (still sees B's committed value)", () => {
     const a = mkField({
-      id: 1, type: FieldType.RADIO, customText: 'No', inserted: true,
+      id: 1,
+      type: FieldType.RADIO,
+      customText: 'No',
+      inserted: true,
       fieldMeta: { type: 'radio', stableId: 'A' },
     });
     // B has customText filled from a prior state when A was 'Yes'; A is now 'No' so B is hidden.
     const b = mkField({
-      id: 2, type: FieldType.TEXT, customText: 'Jane', inserted: true,
-      fieldMeta: vis(
-        { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'A', value: 'Yes' }] },
-        'B',
-      ),
+      id: 2,
+      type: FieldType.TEXT,
+      customText: 'Jane',
+      inserted: true,
+      fieldMeta: vis({ match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'A', value: 'Yes' }] }, 'B'),
     });
     // C depends on B being non-empty. B's customText is still 'Jane' even though B is hidden,
     // so C's condition is met and C is visible. This documents the "committed values are
     // the source of truth" semantic — cleanup of stale values happens at completion, not during
     // live evaluation.
     const c = mkField({
-      id: 3, type: FieldType.TEXT,
+      id: 3,
+      type: FieldType.TEXT,
       fieldMeta: vis({ match: 'all', rules: [{ operator: 'isNotEmpty', triggerFieldStableId: 'B' }] }, 'C'),
     });
     const m = evaluateAllVisibility([a, b, c]);

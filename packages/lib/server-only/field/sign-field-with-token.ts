@@ -1,8 +1,3 @@
-import { DocumentStatus, FieldType, RecipientRole, SigningStatus } from '@prisma/client';
-import { DateTime } from 'luxon';
-import { isDeepEqual } from 'remeda';
-import { match } from 'ts-pattern';
-
 import { validateCheckboxField } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
@@ -10,6 +5,10 @@ import { validateRadioField } from '@documenso/lib/advanced-fields-validation/va
 import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
 import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
 import { prisma } from '@documenso/prisma';
+import { DocumentStatus, FieldType, RecipientRole, SigningStatus } from '@prisma/client';
+import { DateTime } from 'luxon';
+import { isDeepEqual } from 'remeda';
+import { match } from 'ts-pattern';
 
 import { AUTO_SIGNABLE_FIELD_TYPES } from '../../constants/autosign';
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '../../constants/date-formats';
@@ -80,6 +79,7 @@ export const signFieldWithToken = async ({
               signingOrder: {
                 gte: recipient.signingOrder ?? 0,
               },
+              envelopeId: recipient.envelopeId,
             }),
       },
     },
@@ -113,10 +113,7 @@ export const signFieldWithToken = async ({
 
   assertRecipientNotExpired(recipient);
 
-  if (
-    recipient.signingStatus === SigningStatus.SIGNED ||
-    field.recipient.signingStatus === SigningStatus.SIGNED
-  ) {
+  if (recipient.signingStatus === SigningStatus.SIGNED || field.recipient.signingStatus === SigningStatus.SIGNED) {
     throw new Error(`Recipient ${recipient.id} has already signed`);
   }
 
@@ -216,8 +213,7 @@ export const signFieldWithToken = async ({
     },
   });
 
-  const isSignatureField =
-    field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
+  const isSignatureField = field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
 
   let customText = !isSignatureField ? value : undefined;
 
@@ -320,27 +316,14 @@ export const signFieldWithToken = async ({
               type,
               data: signatureImageAsBase64 || typedSignature || '',
             }))
-            .with(
-              FieldType.DATE,
-              FieldType.EMAIL,
-              FieldType.NAME,
-              FieldType.TEXT,
-              FieldType.INITIALS,
-              (type) => ({
-                type,
-                data: updatedField.customText,
-              }),
-            )
-            .with(
-              FieldType.NUMBER,
-              FieldType.RADIO,
-              FieldType.CHECKBOX,
-              FieldType.DROPDOWN,
-              (type) => ({
-                type,
-                data: updatedField.customText,
-              }),
-            )
+            .with(FieldType.DATE, FieldType.EMAIL, FieldType.NAME, FieldType.TEXT, FieldType.INITIALS, (type) => ({
+              type,
+              data: updatedField.customText,
+            }))
+            .with(FieldType.NUMBER, FieldType.RADIO, FieldType.CHECKBOX, FieldType.DROPDOWN, (type) => ({
+              type,
+              data: updatedField.customText,
+            }))
             .exhaustive(),
           fieldSecurity: derivedRecipientActionAuth
             ? {

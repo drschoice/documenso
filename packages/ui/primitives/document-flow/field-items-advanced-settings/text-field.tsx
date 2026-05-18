@@ -1,20 +1,12 @@
-import { Trans, useLingui } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
-
 import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
-import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
-import { type TTextFieldMeta as TextFieldMeta } from '@documenso/lib/types/field-meta';
+import type { TTextFieldMeta as TextFieldMeta, TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { Switch } from '@documenso/ui/primitives/switch';
 import { Textarea } from '@documenso/ui/primitives/textarea';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { FieldType } from '@prisma/client';
 
 import { VisibilitySection } from './visibility-section';
 
@@ -26,10 +18,7 @@ type FieldMetaWithValues = {
 
 type TextFieldAdvancedSettingsProps = {
   fieldState: TextFieldMeta;
-  handleFieldChange: (
-    key: keyof TextFieldMeta,
-    value: string | boolean | TVisibilityBlock | undefined,
-  ) => void;
+  handleFieldChange: (key: keyof TextFieldMeta, value: string | boolean | TVisibilityBlock | undefined) => void;
   handleErrors: (errors: string[]) => void;
   sameRecipientFields?: Array<{
     id: number;
@@ -52,8 +41,7 @@ export const TextFieldAdvancedSettings = ({
 
   const handleInput = (field: keyof TextFieldMeta, value: string | boolean) => {
     const text = field === 'text' ? String(value) : (fieldState.text ?? '');
-    const limit =
-      field === 'characterLimit' ? Number(value) : Number(fieldState.characterLimit ?? 0);
+    const limit = field === 'characterLimit' ? Number(value) : Number(fieldState.characterLimit ?? 0);
     const fontSize = field === 'fontSize' ? Number(value) : Number(fieldState.fontSize ?? 14);
     const readOnly = field === 'readOnly' ? Boolean(value) : Boolean(fieldState.readOnly);
     const required = field === 'required' ? Boolean(value) : Boolean(fieldState.required);

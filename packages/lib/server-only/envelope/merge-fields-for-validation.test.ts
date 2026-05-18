@@ -8,9 +8,7 @@ describe('mergeFieldsForValidation', () => {
       { id: 1, type: 'TEXT', recipientId: 10, fieldMeta: { stableId: 'old-stable' } },
       { id: 2, type: 'SIGNATURE', recipientId: 11, fieldMeta: null },
     ];
-    const incoming = [
-      { id: 1, type: 'TEXT', recipientId: 10, fieldMeta: { stableId: 'new-stable' } },
-    ];
+    const incoming = [{ id: 1, type: 'TEXT', recipientId: 10, fieldMeta: { stableId: 'new-stable' } }];
 
     const result = mergeFieldsForValidation(existing, incoming);
 
