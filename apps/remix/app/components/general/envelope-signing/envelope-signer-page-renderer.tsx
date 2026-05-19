@@ -54,6 +54,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     envelopeData,
     recipient,
     recipientFields,
+    visibleRecipientFields,
     recipientFieldsRemaining,
     showPendingFieldTooltip,
     signField: signFieldInternal,
@@ -80,7 +81,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
   const { envelope } = envelopeData;
 
   const localPageFields = useMemo(() => {
-    let fieldsToRender = recipientFields;
+    let fieldsToRender = visibleRecipientFields;
 
     if (recipient.role === RecipientRole.ASSISTANT) {
       fieldsToRender = selectedAssistantRecipientFields;
@@ -89,7 +90,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     return fieldsToRender.filter(
       (field) => field.page === pageNumber && field.envelopeItemId === currentEnvelopeItem?.id,
     );
-  }, [recipientFields, selectedAssistantRecipientFields, pageNumber, currentEnvelopeItem?.id]);
+  }, [visibleRecipientFields, selectedAssistantRecipientFields, pageNumber, currentEnvelopeItem?.id]);
 
   /**
    * Returns fields that have been fully signed by other recipients for this specific
@@ -489,6 +490,22 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     if (!pageLayer.current || !stage.current) {
       return;
     }
+
+    // Destroy groups for fields that are no longer in localPageFields (e.g. hidden
+    // by a conditional visibility rule). Without this, groups for hidden fields stay
+    // on the canvas and newly-visible fields (whose groups were previously added and
+    // then orphaned) are never re-added because isFirstRender evaluates to false.
+    const currentRecipientFieldIds = new Set(localPageFields.map((f) => f.id.toString()));
+    const otherRecipientFieldIds = new Set(localPageOtherRecipientFields.map((f) => f.id.toString()));
+    pageLayer.current.find('Group').forEach((group) => {
+      if (
+        group.name() === 'field-group' &&
+        !currentRecipientFieldIds.has(group.id()) &&
+        !otherRecipientFieldIds.has(group.id())
+      ) {
+        group.destroy();
+      }
+    });
 
     renderFields();
 

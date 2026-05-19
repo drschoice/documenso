@@ -48,11 +48,20 @@ const triggerValueFor = (trigger: EvaluatableField): { isEmpty: boolean; scalar:
   }
 
   if (trigger.type === FieldType.CHECKBOX) {
-    const selectedIds = parseCheckboxCustomText(trigger.customText);
+    const selectedIndices = parseCheckboxCustomText(trigger.customText);
     const meta = trigger.fieldMeta as { values?: Array<{ id: number; value: string }> } | null;
-    const byId = new Map((meta?.values ?? []).map((v) => [String(v.id), v.value]));
-    const list = selectedIds.map((id) => byId.get(id) ?? id);
+    const values = meta?.values ?? [];
+    const list = selectedIndices.map((idx) => values[Number(idx)]?.value ?? '').filter((v) => v !== '');
     return { isEmpty: list.length === 0, scalar: '', list };
+  }
+
+  if (trigger.type === FieldType.RADIO) {
+    const meta = trigger.fieldMeta as { values?: Array<{ id: number; value: string }> } | null;
+    const selectedIndex = Number(trigger.customText);
+    const radioValues = meta?.values ?? [];
+    // customText stores the 0-based index into the values array
+    const selectedValue = radioValues[selectedIndex]?.value ?? '';
+    return { isEmpty: selectedValue.trim() === '', scalar: selectedValue, list: [] };
   }
 
   const scalar = trigger.customText;

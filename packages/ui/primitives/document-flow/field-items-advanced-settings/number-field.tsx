@@ -77,7 +77,7 @@ export const NumberFieldAdvancedSettings = ({
           id="label"
           className="mt-2 bg-background"
           placeholder={t`Label`}
-          value={fieldState.label}
+          value={fieldState.label ?? ''}
           onChange={(e) => handleFieldChange('label', e.target.value)}
         />
       </div>

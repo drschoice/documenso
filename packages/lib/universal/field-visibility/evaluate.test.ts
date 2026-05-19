@@ -34,9 +34,17 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const trigger = mkField({
       id: 10,
       type: FieldType.RADIO,
-      customText: 'Married',
+      // customText holds the 0-based index into the values array.
+      customText: '0',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'mar' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'mar',
+        values: [
+          { id: 1, checked: false, value: 'Married' },
+          { id: 2, checked: false, value: 'Single' },
+        ],
+      },
     });
     const dep = mkField({
       id: 11,
@@ -54,9 +62,13 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const trigger = mkField({
       id: 10,
       type: FieldType.RADIO,
-      customText: '  married ',
+      customText: '0',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'mar' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'mar',
+        values: [{ id: 1, checked: false, value: '  married ' }],
+      },
     });
     const dep = mkField({
       id: 11,
@@ -86,11 +98,12 @@ describe('evaluateAllVisibility — operator semantics', () => {
     expect(evaluateAllVisibility([trigger, dep]).get(11)).toBe(true);
   });
 
-  it('checkbox contains: customText is JSON array; match by value', () => {
+  it('checkbox contains: customText is JSON array of indices; match by value', () => {
     const trigger = mkField({
       id: 10,
       type: FieldType.CHECKBOX,
-      customText: '["1"]',
+      // customText is a JSON array of 0-based indices into the values array.
+      customText: '["0"]',
       inserted: true,
       fieldMeta: {
         type: 'checkbox',
@@ -151,16 +164,30 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const t1 = mkField({
       id: 1,
       type: FieldType.RADIO,
-      customText: 'Yes',
+      customText: '0',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'a' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'a',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     const t2 = mkField({
       id: 2,
       type: FieldType.RADIO,
-      customText: 'No',
+      customText: '1',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'b' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'b',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     const dep = mkField({
       id: 3,
@@ -179,16 +206,30 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const t1 = mkField({
       id: 1,
       type: FieldType.RADIO,
-      customText: 'Yes',
+      customText: '0',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'a' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'a',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     const t2 = mkField({
       id: 2,
       type: FieldType.RADIO,
-      customText: 'No',
+      customText: '1',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'b' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'b',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     const dep = mkField({
       id: 3,
@@ -223,9 +264,16 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const a = mkField({
       id: 1,
       type: FieldType.RADIO,
-      customText: 'Yes',
+      customText: '0',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'A' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'A',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     const b = mkField({
       id: 2,
@@ -250,9 +298,16 @@ describe('evaluateAllVisibility — operator semantics', () => {
     const a = mkField({
       id: 1,
       type: FieldType.RADIO,
-      customText: 'No',
+      customText: '1',
       inserted: true,
-      fieldMeta: { type: 'radio', stableId: 'A' },
+      fieldMeta: {
+        type: 'radio',
+        stableId: 'A',
+        values: [
+          { id: 1, checked: false, value: 'Yes' },
+          { id: 2, checked: false, value: 'No' },
+        ],
+      },
     });
     // B has customText filled from a prior state when A was 'Yes'; A is now 'No' so B is hidden.
     const b = mkField({

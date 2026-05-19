@@ -70,13 +70,18 @@ export const EditorGenericTextAlignField = ({
     <FormField
       control={formControl}
       name="textAlign"
-      render={({ field }) => (
+      render={({ field: { ref: _ref, ...field } }) => (
         <FormItem className={className}>
           <FormLabel>
             <Trans>Text Align</Trans>
           </FormLabel>
           <FormControl>
-            <Select {...field} onValueChange={field.onChange}>
+            <Select
+              value={field.value}
+              name={field.name}
+              onValueChange={field.onChange}
+              onOpenChange={() => field.onBlur()}
+            >
               <SelectTrigger data-testid="field-form-textAlign">
                 <SelectValue placeholder={t`Select text align`} />
               </SelectTrigger>
@@ -113,13 +118,18 @@ export const EditorGenericVerticalAlignField = ({
     <FormField
       control={formControl}
       name="verticalAlign"
-      render={({ field }) => (
+      render={({ field: { ref: _ref, ...field } }) => (
         <FormItem className={className}>
           <FormLabel>
             <Trans>Vertical Align</Trans>
           </FormLabel>
           <FormControl>
-            <Select {...field} onValueChange={field.onChange}>
+            <Select
+              value={field.value}
+              name={field.name}
+              onValueChange={field.onChange}
+              onOpenChange={() => field.onBlur()}
+            >
               <SelectTrigger data-testid="field-form-verticalAlign">
                 <SelectValue placeholder={t`Select vertical align`} />
               </SelectTrigger>
@@ -170,6 +180,7 @@ export const EditorGenericLineHeightField = ({
               className="bg-background"
               placeholder={t`Line height`}
               {...field}
+              value={field.value ?? ''}
             />
           </FormControl>
           <FormMessage />
@@ -206,6 +217,7 @@ export const EditorGenericLetterSpacingField = ({
               className="bg-background"
               placeholder={t`Letter spacing`}
               {...field}
+              value={field.value ?? ''}
             />
           </FormControl>
           <FormMessage />

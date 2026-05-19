@@ -3,7 +3,7 @@ import { authClient } from '@documenso/auth/client';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
 import { trpc } from '@documenso/trpc/react';
-import { Sheet, SheetContent } from '@documenso/ui/primitives/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@documenso/ui/primitives/sheet';
 import { ThemeSwitcher } from '@documenso/ui/primitives/theme-switcher';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { ReadStatus } from '@prisma/client';
@@ -80,6 +80,9 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
   return (
     <Sheet open={isMenuOpen} onOpenChange={onMenuOpenChange}>
       <SheetContent className="flex w-full max-w-[350px] flex-col">
+        <SheetTitle className="sr-only">
+          <Trans>Navigation</Trans>
+        </SheetTitle>
         <Link to="/" onClick={handleMenuItemClick}>
           <img src={LogoImage} alt="Documenso Logo" className="dark:invert" width={170} height={25} />
         </Link>

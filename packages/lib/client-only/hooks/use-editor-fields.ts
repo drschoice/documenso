@@ -1,6 +1,6 @@
 import { getPdfPagesCount } from '@documenso/lib/constants/pdf-viewer';
 import type { TEditorEnvelope } from '@documenso/lib/types/envelope-editor';
-import { ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
+import { FIELD_META_DEFAULT_VALUES, ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { nanoid } from '@documenso/lib/universal/id';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Field } from '@prisma/client';
@@ -8,6 +8,37 @@ import { FieldType } from '@prisma/client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
+
+const STABLE_ID_FIELD_TYPES = new Set<FieldType>([
+  FieldType.TEXT,
+  FieldType.NUMBER,
+  FieldType.RADIO,
+  FieldType.CHECKBOX,
+  FieldType.DROPDOWN,
+]);
+
+/**
+ * Ensures fieldMeta has a stableId for field types that support visibility rules.
+ * If the type doesn't support stableId (e.g. SIGNATURE) or already has one, the meta is returned as-is.
+ */
+const withStableId = <T extends { type: FieldType; fieldMeta?: TLocalField['fieldMeta'] }>(field: T): T => {
+  if (!STABLE_ID_FIELD_TYPES.has(field.type)) {
+    return field;
+  }
+
+  const meta = field.fieldMeta as Record<string, unknown> | undefined;
+
+  if (meta?.stableId) {
+    return field;
+  }
+
+  return {
+    ...field,
+    fieldMeta: meta
+      ? { ...meta, stableId: nanoid(12) }
+      : { ...FIELD_META_DEFAULT_VALUES[field.type], stableId: nanoid(12) },
+  };
+};
 
 export const ZLocalFieldSchema = z.object({
   // This is the actual ID of the field if created.
@@ -70,8 +101,10 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
 
   const generateDefaultValues = (fields?: Field[]) => {
-    const formFields = (fields || envelope.fields).map(
-      (field): TLocalField => ({
+    const formFields = (fields || envelope.fields).map((field): TLocalField => {
+      const parsedMeta = field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined;
+
+      const base: TLocalField = {
         id: field.id,
         formId: nanoid(),
         envelopeItemId: field.envelopeItemId,
@@ -82,9 +115,11 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
         width: Number(field.width),
         height: Number(field.height),
         recipientId: field.recipientId,
-        fieldMeta: field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined,
-      }),
-    );
+        fieldMeta: parsedMeta,
+      };
+
+      return withStableId(base);
+    });
 
     return {
       fields: formFields,
@@ -134,10 +169,12 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
 
   const addField = useCallback(
     (fieldData: Omit<TLocalField, 'formId'>): TLocalField => {
+      const dataWithStableId = withStableId(fieldData);
+
       const field: TLocalField = {
-        ...fieldData,
+        ...dataWithStableId,
         formId: nanoid(12),
-        ...restrictFieldPosValues(fieldData),
+        ...restrictFieldPosValues(dataWithStableId),
       };
 
       append(field);
@@ -197,14 +234,20 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
 
   const duplicateField = useCallback(
     (field: TLocalField): TLocalField => {
-      const newField: TLocalField = {
-        ...structuredClone(field),
+      const cloned = structuredClone(field);
+      // Strip stableId so a fresh one is assigned for the duplicate
+      if (cloned.fieldMeta && 'stableId' in (cloned.fieldMeta as Record<string, unknown>)) {
+        (cloned.fieldMeta as Record<string, unknown>).stableId = undefined;
+      }
+
+      const newField: TLocalField = withStableId({
+        ...cloned,
         id: undefined,
         formId: nanoid(12),
         recipientId: field.recipientId,
         positionX: field.positionX + 3,
         positionY: field.positionY + 3,
-      };
+      });
 
       append(newField);
       triggerFieldsUpdate();
@@ -227,12 +270,17 @@ export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsPr
           continue;
         }
 
-        const newField: TLocalField = {
-          ...structuredClone(field),
+        const clonedForPage = structuredClone(field);
+        if (clonedForPage.fieldMeta && 'stableId' in (clonedForPage.fieldMeta as Record<string, unknown>)) {
+          (clonedForPage.fieldMeta as Record<string, unknown>).stableId = undefined;
+        }
+
+        const newField: TLocalField = withStableId({
+          ...clonedForPage,
           id: undefined,
           formId: nanoid(12),
           page: pageNumber,
-        };
+        });
 
         append(newField);
         newFields.push(newField);
