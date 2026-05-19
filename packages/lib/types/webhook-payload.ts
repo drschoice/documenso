@@ -1,10 +1,4 @@
-import type {
-  DocumentMeta,
-  Envelope,
-  Field,
-  Recipient,
-  WebhookTriggerEvents,
-} from '@prisma/client';
+import type { DocumentMeta, Envelope, Field, Recipient } from '@prisma/client';
 import {
   DocumentDistributionMethod,
   DocumentSigningOrder,
@@ -17,6 +11,7 @@ import {
   RecipientRole,
   SendStatus,
   SigningStatus,
+  WebhookTriggerEvents,
 } from '@prisma/client';
 import { z } from 'zod';
 
@@ -33,10 +28,10 @@ export const ZWebhookRecipientSchema = z.object({
   email: z.string(),
   name: z.string(),
   token: z.string(),
-  documentDeletedAt: z.date().nullable(),
-  expiresAt: z.date().nullable(),
-  expirationNotifiedAt: z.date().nullable(),
-  signedAt: z.date().nullable(),
+  documentDeletedAt: z.coerce.date().nullable(),
+  expiresAt: z.coerce.date().nullable(),
+  expirationNotifiedAt: z.coerce.date().nullable(),
+  signedAt: z.coerce.date().nullable(),
   authOptions: z.any().nullable(),
   signingOrder: z.number().nullable(),
   rejectionReason: z.string().nullable(),
@@ -96,10 +91,10 @@ export const ZWebhookDocumentSchema = z.object({
   visibility: z.nativeEnum(DocumentVisibility),
   title: z.string(),
   status: z.nativeEnum(DocumentStatus),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  completedAt: z.date().nullable(),
-  deletedAt: z.date().nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  completedAt: z.coerce.date().nullable(),
+  deletedAt: z.coerce.date().nullable(),
   teamId: z.number().nullable(),
   templateId: z.number().nullable(),
   source: z.nativeEnum(DocumentSource),
@@ -118,15 +113,20 @@ export const ZWebhookDocumentSchema = z.object({
   Recipient: z.array(ZWebhookRecipientSchema),
 });
 
+/**
+ * Schema for the full webhook delivery envelope (what receivers see on the wire
+ * and what is persisted to `WebhookCall.requestBody`).
+ */
+export const ZWebhookPayloadSchema = z.object({
+  event: z.nativeEnum(WebhookTriggerEvents),
+  payload: ZWebhookDocumentSchema,
+  createdAt: z.string(),
+  webhookEndpoint: z.string(),
+});
+
 export type TWebhookRecipient = z.infer<typeof ZWebhookRecipientSchema>;
 export type TWebhookDocument = z.infer<typeof ZWebhookDocumentSchema>;
-
-export type WebhookPayload = {
-  event: WebhookTriggerEvents;
-  payload: TWebhookDocument;
-  createdAt: string;
-  webhookEndpoint: string;
-};
+export type WebhookPayload = z.infer<typeof ZWebhookPayloadSchema>;
 
 export const mapEnvelopeToWebhookDocumentPayload = (
   envelope: Envelope & {

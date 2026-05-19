@@ -1,18 +1,11 @@
-import type { HTMLAttributes } from 'react';
-import { useState } from 'react';
+import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogTitle } from '@documenso/ui/primitives/dialog';
 
 import type { MessageDescriptor } from '@lingui/core';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { motion } from 'framer-motion';
-
-import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogTitle,
-} from '@documenso/ui/primitives/dialog';
+import type { HTMLAttributes } from 'react';
+import { useState } from 'react';
 
 import { cn } from '../../lib/utils';
 import { Button } from '../button';
@@ -148,11 +141,7 @@ export const SignaturePadDialog = ({
                 setShowSignatureModal(false);
               }}
             >
-              {dialogConfirmText ? (
-                parseMessageDescriptor(i18n._, dialogConfirmText)
-              ) : (
-                <Trans>Next</Trans>
-              )}
+              {dialogConfirmText ? parseMessageDescriptor(i18n._, dialogConfirmText) : <Trans>Next</Trans>}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,10 @@
-import type { DocumentData, Envelope, EnvelopeItem, Field } from '@prisma/client';
+import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
+import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
+import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
+import { prisma } from '@documenso/prisma';
+import { checkboxValidationSigns } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
+import type { DocumentData, Envelope, EnvelopeItem, Field, Recipient } from '@prisma/client';
 import {
   DocumentSigningOrder,
   DocumentStatus,
@@ -10,14 +16,8 @@ import {
   WebhookTriggerEvents,
 } from '@prisma/client';
 
-import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
-import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
-import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
-import { prisma } from '@documenso/prisma';
-import { checkboxValidationSigns } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
-
 import { validateCheckboxLength } from '../../advanced-fields-validation/validate-checkbox';
+import { DIRECT_TEMPLATE_RECIPIENT_EMAIL } from '../../constants/direct-templates';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
@@ -29,20 +29,14 @@ import {
   ZRadioFieldMeta,
   ZTextFieldMeta,
 } from '../../types/field-meta';
-import {
-  ZWebhookDocumentSchema,
-  mapEnvelopeToWebhookDocumentPayload,
-} from '../../types/webhook-payload';
+import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../types/webhook-payload';
 import { getFileServerSide } from '../../universal/upload/get-file.server';
 import { putNormalizedPdfFileServerSide } from '../../universal/upload/put-file.server';
 import { isDocumentCompleted } from '../../utils/document';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { type EnvelopeIdOptions, mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { toCheckboxCustomText, toRadioCustomText } from '../../utils/fields';
-import {
-  getRecipientsWithMissingFields,
-  isRecipientEmailValidForSending,
-} from '../../utils/recipients';
+import { getRecipientsWithMissingFields, isRecipientEmailValidForSending } from '../../utils/recipients';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { insertFormValuesInPdf } from '../pdf/insert-form-values-in-pdf';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
@@ -55,13 +49,7 @@ export type SendDocumentOptions = {
   requestMetadata: ApiRequestMetadata;
 };
 
-export const sendDocument = async ({
-  id,
-  userId,
-  teamId,
-  sendEmail,
-  requestMetadata,
-}: SendDocumentOptions) => {
+export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetadata }: SendDocumentOptions) => {
   const { envelopeWhereInput } = await getEnvelopeWhereInput({
     id,
     type: EnvelopeType.DOCUMENT,
@@ -153,10 +141,7 @@ export const sendDocument = async ({
   });
 
   // Validate that recipients who require fields (e.g., signers need signature fields) have them.
-  const recipientsWithMissingFields = getRecipientsWithMissingFields(
-    envelope.recipients,
-    envelope.fields,
-  );
+  const recipientsWithMissingFields = getRecipientsWithMissingFields(envelope.recipients, envelope.fields);
 
   if (recipientsWithMissingFields.length > 0) {
     const missingRecipientDescriptions = recipientsWithMissingFields
@@ -169,8 +154,7 @@ export const sendDocument = async ({
   }
 
   const allRecipientsHaveNoActionToTake = envelope.recipients.every(
-    (recipient) =>
-      recipient.role === RecipientRole.CC || recipient.signingStatus === SigningStatus.SIGNED,
+    (recipient) => recipient.role === RecipientRole.CC || recipient.signingStatus === SigningStatus.SIGNED,
   );
 
   if (allRecipientsHaveNoActionToTake) {
@@ -207,7 +191,7 @@ export const sendDocument = async ({
         });
       }
 
-      const fieldToAutoInsert = extractFieldAutoInsertValues(unknownField);
+      const fieldToAutoInsert = extractFieldAutoInsertValues(unknownField, recipient);
 
       // Only auto-insert fields if the recipient has not been sent the document yet.
       if (fieldToAutoInsert && recipient.sendStatus !== SendStatus.SENT) {
@@ -374,6 +358,7 @@ const injectFormValuesIntoDocument = async (
  */
 export const extractFieldAutoInsertValues = (
   unknownField: Field,
+  recipient: Pick<Recipient, 'email'>,
 ): { fieldId: number; customText: string } | null => {
   // Prisma JSON columns return null for unset fields; ZFieldAndMetaSchema uses
   // z.undefined() / z.optional() which reject null — normalise before parsing.
@@ -390,6 +375,18 @@ export const extractFieldAutoInsertValues = (
 
   const field = parsedField.data;
   const fieldId = unknownField.id;
+
+  // Auto insert email fields if the recipient has a valid email.
+  if (
+    field.type === FieldType.EMAIL &&
+    isRecipientEmailValidForSending(recipient) &&
+    recipient.email !== DIRECT_TEMPLATE_RECIPIENT_EMAIL
+  ) {
+    return {
+      fieldId,
+      customText: recipient.email,
+    };
+  }
 
   // Auto insert text fields with prefilled values.
   if (field.type === FieldType.TEXT) {
@@ -443,11 +440,7 @@ export const extractFieldAutoInsertValues = (
 
   // Auto insert checkbox fields with the pre-checked values.
   if (field.type === FieldType.CHECKBOX) {
-    const {
-      values = [],
-      validationRule,
-      validationLength,
-    } = ZCheckboxFieldMeta.parse(field.fieldMeta);
+    const { values = [], validationRule, validationLength } = ZCheckboxFieldMeta.parse(field.fieldMeta);
 
     const checkedIndices: number[] = [];
 

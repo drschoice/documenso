@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import type { Field, Recipient } from '@prisma/client';
-import { FieldType } from '@prisma/client';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
-
 import { getPdfPagesCount } from '@documenso/lib/constants/pdf-viewer';
 import type { TEditorEnvelope } from '@documenso/lib/types/envelope-editor';
 import { FIELD_META_DEFAULT_VALUES, ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { nanoid } from '@documenso/lib/universal/id';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { Field } from '@prisma/client';
+import { FieldType } from '@prisma/client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 const STABLE_ID_FIELD_TYPES = new Set<FieldType>([
   FieldType.TEXT,
@@ -23,9 +21,7 @@ const STABLE_ID_FIELD_TYPES = new Set<FieldType>([
  * Ensures fieldMeta has a stableId for field types that support visibility rules.
  * If the type doesn't support stableId (e.g. SIGNATURE) or already has one, the meta is returned as-is.
  */
-const withStableId = <T extends { type: FieldType; fieldMeta?: TLocalField['fieldMeta'] }>(
-  field: T,
-): T => {
+const withStableId = <T extends { type: FieldType; fieldMeta?: TLocalField['fieldMeta'] }>(field: T): T => {
   if (!STABLE_ID_FIELD_TYPES.has(field.type)) {
     return field;
   }
@@ -94,16 +90,13 @@ type UseEditorFieldsResponse = {
   getFieldsByRecipient: (recipientId: number) => TLocalField[];
 
   // Selected recipient
-  selectedRecipient: Recipient | null;
+  selectedRecipient: TEditorEnvelope['recipients'][number] | null;
   setSelectedRecipient: (recipientId: number | null) => void;
 
   resetForm: (fields?: Field[]) => void;
 };
 
-export const useEditorFields = ({
-  envelope,
-  handleFieldsUpdate,
-}: EditorFieldsProps): UseEditorFieldsResponse => {
+export const useEditorFields = ({ envelope, handleFieldsUpdate }: EditorFieldsProps): UseEditorFieldsResponse => {
   const [selectedFieldFormId, setSelectedFieldFormId] = useState<string | null>(null);
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
 
@@ -160,9 +153,7 @@ export const useEditorFields = ({
     }
 
     const foundField = localFields.find((field) => field.formId === formId);
-    const recipient = envelope.recipients.find(
-      (recipient) => recipient.id === foundField?.recipientId,
-    );
+    const recipient = envelope.recipients.find((recipient) => recipient.id === foundField?.recipientId);
 
     if (recipient) {
       setSelectedRecipient(recipient.id);
@@ -280,10 +271,7 @@ export const useEditorFields = ({
         }
 
         const clonedForPage = structuredClone(field);
-        if (
-          clonedForPage.fieldMeta &&
-          'stableId' in (clonedForPage.fieldMeta as Record<string, unknown>)
-        ) {
+        if (clonedForPage.fieldMeta && 'stableId' in (clonedForPage.fieldMeta as Record<string, unknown>)) {
           (clonedForPage.fieldMeta as Record<string, unknown>).stableId = undefined;
         }
 
@@ -372,9 +360,7 @@ export const useEditorFields = ({
   };
 };
 
-const restrictFieldPosValues = (
-  field: Pick<TLocalField, 'positionX' | 'positionY' | 'width' | 'height'>,
-) => {
+const restrictFieldPosValues = (field: Pick<TLocalField, 'positionX' | 'positionY' | 'width' | 'height'>) => {
   return {
     positionX: Math.max(0, Math.min(100, field.positionX)),
     positionY: Math.max(0, Math.min(100, field.positionY)),

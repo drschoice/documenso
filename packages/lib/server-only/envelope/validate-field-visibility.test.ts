@@ -13,9 +13,7 @@ const field = (overrides: Partial<Parameters<typeof validateFieldVisibility>[0][
 
 describe('validateFieldVisibility', () => {
   it('passes when no fields have visibility rules', () => {
-    expect(
-      validateFieldVisibility({ fields: [field({ id: 1 }), field({ id: 2 })] }).ok,
-    ).toBe(true);
+    expect(validateFieldVisibility({ fields: [field({ id: 1 }), field({ id: 2 })] }).ok).toBe(true);
   });
 
   it('rejects if trigger stableId does not exist', () => {
@@ -24,14 +22,17 @@ describe('validateFieldVisibility', () => {
         field({
           id: 1,
           fieldMeta: {
-            type: 'text', stableId: 'dep',
+            type: 'text',
+            stableId: 'dep',
             visibility: { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'nope', value: 'x' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors[0].code).toBe('FIELD_VISIBILITY_TRIGGER_NOT_FOUND');
   });
 
@@ -39,20 +40,26 @@ describe('validateFieldVisibility', () => {
     const result = validateFieldVisibility({
       fields: [
         field({
-          id: 1, recipientId: 1, type: FieldType.RADIO,
+          id: 1,
+          recipientId: 1,
+          type: FieldType.RADIO,
           fieldMeta: { type: 'radio', stableId: 'trig' },
         }),
         field({
-          id: 2, recipientId: 2,
+          id: 2,
+          recipientId: 2,
           fieldMeta: {
-            type: 'text', stableId: 'dep',
+            type: 'text',
+            stableId: 'dep',
             visibility: { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'trig', value: 'x' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors[0].code).toBe('FIELD_VISIBILITY_CROSS_RECIPIENT');
   });
 
@@ -61,15 +68,19 @@ describe('validateFieldVisibility', () => {
       fields: [
         field({ id: 1, type: FieldType.SIGNATURE, fieldMeta: { type: 'signature', stableId: 'sig' } }),
         field({
-          id: 2, fieldMeta: {
-            type: 'text', stableId: 'dep',
+          id: 2,
+          fieldMeta: {
+            type: 'text',
+            stableId: 'dep',
             visibility: { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'sig', value: 'x' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors[0].code).toBe('FIELD_VISIBILITY_TRIGGER_INELIGIBLE');
   });
 
@@ -77,22 +88,31 @@ describe('validateFieldVisibility', () => {
     const result = validateFieldVisibility({
       fields: [
         field({
-          id: 1, type: FieldType.RADIO,
+          id: 1,
+          type: FieldType.RADIO,
           fieldMeta: {
-            type: 'radio', stableId: 'trig',
-            values: [{ id: 1, checked: false, value: 'Yes' }, { id: 2, checked: false, value: 'No' }],
+            type: 'radio',
+            stableId: 'trig',
+            values: [
+              { id: 1, checked: false, value: 'Yes' },
+              { id: 2, checked: false, value: 'No' },
+            ],
           },
         }),
         field({
-          id: 2, fieldMeta: {
-            type: 'text', stableId: 'dep',
+          id: 2,
+          fieldMeta: {
+            type: 'text',
+            stableId: 'dep',
             visibility: { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'trig', value: 'Maybe' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors[0].code).toBe('FIELD_VISIBILITY_VALUE_INVALID');
   });
 
@@ -101,9 +121,14 @@ describe('validateFieldVisibility', () => {
       fields: [
         field({ id: 1, type: FieldType.TEXT, fieldMeta: { type: 'text', stableId: 'trig' } }),
         field({
-          id: 2, fieldMeta: {
-            type: 'text', stableId: 'dep',
-            visibility: { match: 'all', rules: [{ operator: 'contains', triggerFieldStableId: 'trig', value: 'anything' }] },
+          id: 2,
+          fieldMeta: {
+            type: 'text',
+            stableId: 'dep',
+            visibility: {
+              match: 'all',
+              rules: [{ operator: 'contains', triggerFieldStableId: 'trig', value: 'anything' }],
+            },
           },
         }),
       ],
@@ -115,16 +140,20 @@ describe('validateFieldVisibility', () => {
     const result = validateFieldVisibility({
       fields: [
         field({
-          id: 1, type: FieldType.TEXT,
+          id: 1,
+          type: FieldType.TEXT,
           fieldMeta: {
-            type: 'text', stableId: 'loop',
+            type: 'text',
+            stableId: 'loop',
             visibility: { match: 'all', rules: [{ operator: 'equals', triggerFieldStableId: 'loop', value: 'x' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors[0].code).toBe('FIELD_VISIBILITY_SELF_REFERENCE');
   });
 
@@ -132,23 +161,29 @@ describe('validateFieldVisibility', () => {
     const result = validateFieldVisibility({
       fields: [
         field({
-          id: 1, type: FieldType.TEXT,
+          id: 1,
+          type: FieldType.TEXT,
           fieldMeta: {
-            type: 'text', stableId: 'A',
+            type: 'text',
+            stableId: 'A',
             visibility: { match: 'all', rules: [{ operator: 'isNotEmpty', triggerFieldStableId: 'B' }] },
           },
         }),
         field({
-          id: 2, type: FieldType.TEXT,
+          id: 2,
+          type: FieldType.TEXT,
           fieldMeta: {
-            type: 'text', stableId: 'B',
+            type: 'text',
+            stableId: 'B',
             visibility: { match: 'all', rules: [{ operator: 'isNotEmpty', triggerFieldStableId: 'A' }] },
           },
         }),
       ],
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.errors.some((e) => e.code === 'FIELD_VISIBILITY_CYCLE')).toBe(true);
   });
 });

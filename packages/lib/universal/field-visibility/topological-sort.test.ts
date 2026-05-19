@@ -17,7 +17,9 @@ describe('topologicalSort', () => {
     ]);
     const result = topologicalSort(ids, dependenciesOf);
     expect(result.kind).toBe('ok');
-    if (result.kind !== 'ok') return;
+    if (result.kind !== 'ok') {
+      return;
+    }
     expect(new Set(result.order)).toEqual(new Set(['a', 'b']));
   });
 
@@ -29,7 +31,9 @@ describe('topologicalSort', () => {
     ]);
     const result = topologicalSort(ids, dependenciesOf);
     expect(result.kind).toBe('ok');
-    if (result.kind !== 'ok') return;
+    if (result.kind !== 'ok') {
+      return;
+    }
     expect(result.order.indexOf('a')).toBeLessThan(result.order.indexOf('b'));
     expect(result.order.indexOf('b')).toBeLessThan(result.order.indexOf('c'));
   });
@@ -44,7 +48,9 @@ describe('topologicalSort', () => {
     ]);
     const result = topologicalSort(ids, dependenciesOf);
     expect(result.kind).toBe('ok');
-    if (result.kind !== 'ok') return;
+    if (result.kind !== 'ok') {
+      return;
+    }
     expect(result.order.indexOf('d')).toBeLessThan(result.order.indexOf('b'));
     expect(result.order.indexOf('d')).toBeLessThan(result.order.indexOf('c'));
   });
@@ -56,7 +62,9 @@ describe('topologicalSort', () => {
     ]);
     const result = topologicalSort(ids, dependenciesOf);
     expect(result.kind).toBe('cycle');
-    if (result.kind !== 'cycle') return;
+    if (result.kind !== 'cycle') {
+      return;
+    }
     expect(result.path).toEqual(expect.arrayContaining(['a', 'b']));
     // Closed-walk contract: first node repeats at the end
     expect(result.path[0]).toBe(result.path[result.path.length - 1]);
@@ -71,7 +79,9 @@ describe('topologicalSort', () => {
     ]);
     const result = topologicalSort(ids, dependenciesOf);
     expect(result.kind).toBe('cycle');
-    if (result.kind !== 'cycle') return;
+    if (result.kind !== 'cycle') {
+      return;
+    }
     expect(result.path).toEqual(expect.arrayContaining(['a', 'b', 'c']));
     expect(result.path[0]).toBe(result.path[result.path.length - 1]);
     expect(result.path.length).toBeGreaterThanOrEqual(4);

@@ -19,8 +19,12 @@ export const assignFieldStableIds = <T extends FieldLike>(fields: T[]): T[] => {
     const meta = (f.fieldMeta ?? {}) as Record<string, unknown>;
     const hasVisibility = Boolean((meta as { visibility?: unknown }).visibility);
 
-    if (!hasVisibility) return f;
-    if (typeof meta.stableId === 'string' && meta.stableId.length > 0) return f;
+    if (!hasVisibility) {
+      return f;
+    }
+    if (typeof meta.stableId === 'string' && meta.stableId.length > 0) {
+      return f;
+    }
 
     return {
       ...f,
