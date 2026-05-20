@@ -27,8 +27,8 @@ export const BulkSendCompleteEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>{_(msg`Bulk send operation complete for template "${templateName}"`)}</Preview>
       <Body className="mx-auto my-auto bg-white font-sans">
+        <Preview>{_(msg`Bulk send operation complete for template "${templateName}"`)}</Preview>
         <Section>
           <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
             <Section>
@@ -64,7 +64,7 @@ export const BulkSendCompleteEmail = ({
 
                   <ul className="my-2 ml-4 list-inside list-disc">
                     {errors.map((error, index) => (
-                      <li key={index} className="text-destructive mt-1 text-sm text-slate-400">
+                      <li key={index} className="mt-1 text-sm text-destructive text-slate-400">
                         {error}
                       </li>
                     ))}

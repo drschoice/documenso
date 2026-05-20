@@ -27,9 +27,8 @@ export const RecipientRemovedFromDocumentTemplate = ({
   return (
     <Html>
       <Head />
-      <Preview>{_(previewText)}</Preview>
-
       <Body className="mx-auto my-auto bg-white font-sans">
+        <Preview>{_(previewText)}</Preview>
         <Section>
           <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
             <Section>
@@ -46,7 +45,7 @@ export const RecipientRemovedFromDocumentTemplate = ({
               <TemplateDocumentImage className="mt-6" assetBaseUrl={assetBaseUrl} />
 
               <Section>
-                <Text className="text-primary mx-auto mb-0 max-w-[80%] text-center text-lg font-semibold">
+                <Text className="mx-auto mb-0 max-w-[80%] text-center text-lg font-semibold text-primary">
                   <Trans>
                     {inviterName} has removed you from the document
                     <br />"{documentName}"
