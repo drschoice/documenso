@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react/macro';
+import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DateTime } from 'luxon';
 import { createCallable } from 'react-call';
