@@ -142,7 +142,10 @@ export const EmbedDirectTemplateClientPage = ({
         }
 
         if (field.type === FieldType.DATE) {
-          newField.customText = DateTime.now()
+          const parsedDate = payload.value ? DateTime.fromISO(payload.value) : null;
+          const dateToUse = parsedDate?.isValid ? parsedDate : DateTime.now();
+
+          newField.customText = dateToUse
             .setZone(metadata?.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
             .toFormat(metadata?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
         }

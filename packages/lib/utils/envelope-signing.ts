@@ -87,8 +87,11 @@ export const extractFieldInsertionValues = ({
         };
       }
 
+      const parsedDate = DateTime.fromISO(fieldValue.value);
+      const dateToUse = parsedDate.isValid ? parsedDate : DateTime.now();
+
       return {
-        customText: DateTime.now()
+        customText: dateToUse
           .setZone(documentMeta.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
           .toFormat(documentMeta.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT),
         inserted: true,
