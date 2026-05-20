@@ -52,13 +52,26 @@ export const SignFieldDateDialog = createCallable<SignFieldDateDialogProps, stri
     const YEARS = Array.from({ length: 111 }, (_, i) => currentYear - 100 + i);
 
     const defaultDate = fieldMeta?.value
-      ? DateTime.fromISO(fieldMeta.value).toJSDate()
+      ? (() => {
+          const dt = DateTime.fromISO(fieldMeta.value);
+          return new Date(dt.year, dt.month - 1, dt.day, 12, 0, 0);
+        })()
       : new Date();
     const [selectedDate, setSelectedDate] = useState<Date>(defaultDate);
     const [viewMonth, setViewMonth] = useState<Date>(defaultDate);
 
     const onConfirm = () => {
-      call.end(DateTime.fromJSDate(selectedDate).toISO());
+      // Encode as UTC noon so that .setZone(documentTimezone) on the server
+      // never rolls the date back to the previous day regardless of timezone offset.
+      const dt = DateTime.utc(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() + 1,
+        selectedDate.getDate(),
+        12,
+        0,
+        0,
+      );
+      call.end(dt.toISO());
     };
 
     return (
