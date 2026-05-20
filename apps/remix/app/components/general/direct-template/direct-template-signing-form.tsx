@@ -114,7 +114,10 @@ export const DirectTemplateSigningForm = ({
         }
 
         if (field.type === FieldType.DATE) {
-          tempField.customText = DateTime.now()
+          const parsedDate = value.value ? DateTime.fromISO(value.value) : null;
+          const dateToUse = parsedDate?.isValid ? parsedDate : DateTime.now();
+
+          tempField.customText = dateToUse
             .setZone(template.templateMeta?.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
             .toFormat(template.templateMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
         }

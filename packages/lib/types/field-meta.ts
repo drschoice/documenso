@@ -107,7 +107,8 @@ export type TEmailFieldMeta = z.infer<typeof ZEmailFieldMeta>;
 export const ZDateFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('date'),
   textAlign: ZFieldTextAlignSchema.optional(),
-}).strict();
+  value: z.string().optional(),
+});
 
 export type TDateFieldMeta = z.infer<typeof ZDateFieldMeta>;
 

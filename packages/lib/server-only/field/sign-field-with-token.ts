@@ -225,7 +225,10 @@ export const signFieldWithToken = async ({
   const typedSignature = isSignatureField && !isBase64 ? value : undefined;
 
   if (field.type === FieldType.DATE) {
-    customText = DateTime.now()
+    const parsedDate = value ? DateTime.fromISO(value) : null;
+    const dateToUse = parsedDate?.isValid ? parsedDate : DateTime.now();
+
+    customText = dateToUse
       .setZone(documentMeta?.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE)
       .toFormat(documentMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT);
   }
