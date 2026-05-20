@@ -264,7 +264,10 @@ export const createDocumentFromDirectTemplate = async ({
       const typedSignature = isSignatureField && !isBase64 ? value : undefined;
 
       if (templateField.type === FieldType.DATE) {
-        customText = DateTime.now()
+        const parsedDate = value ? DateTime.fromISO(value) : null;
+        const dateToUse = parsedDate?.isValid ? parsedDate : DateTime.now();
+
+        customText = dateToUse
           .setZone(derivedDocumentMeta.timezone)
           .toFormat(derivedDocumentMeta.dateFormat);
       }

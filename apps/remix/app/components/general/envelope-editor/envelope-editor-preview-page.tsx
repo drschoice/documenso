@@ -12,7 +12,7 @@ import {
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
-import { ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
+import { ZDateFieldMeta, ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
@@ -98,11 +98,17 @@ export const EnvelopeEditorPreviewPage = () => {
               customText: number,
             };
           })
-          .with({ type: FieldType.DATE }, () => {
+          .with({ type: FieldType.DATE }, (parsedFieldMeta) => {
+            const dateMeta = ZDateFieldMeta.safeParse(parsedFieldMeta.fieldMeta);
+            const previewDate =
+              dateMeta.success && dateMeta.data.value
+                ? dateMeta.data.value
+                : new Date().toISOString();
+
             const date = extractFieldInsertionValues({
               fieldValue: {
                 type: FieldType.DATE,
-                value: true,
+                value: previewDate,
               },
               field,
               documentMeta: envelope.documentMeta,

@@ -36,6 +36,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { handleCheckboxFieldClick } from '~/utils/field-signing/checkbox-field';
+import { handleDateFieldClick } from '~/utils/field-signing/date-field';
 import { handleDropdownFieldClick } from '~/utils/field-signing/dropdown-field';
 import { handleEmailFieldClick } from '~/utils/field-signing/email-field';
 import { handleInitialsFieldClick } from '~/utils/field-signing/initial-field';
@@ -359,14 +360,18 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * DATE FIELD.
          */
         .with({ type: FieldType.DATE }, (field) => {
-          fieldGroup.add(loadingSpinnerGroup);
+          handleDateFieldClick({ field })
+            .then(async (payload) => {
+              if (payload) {
+                fieldGroup.add(loadingSpinnerGroup);
+                await signField(field.id, payload);
+              }
 
-          void signField(field.id, {
-            type: FieldType.DATE,
-            value: !field.inserted,
-          }).finally(() => {
-            loadingSpinnerGroup.destroy();
-          });
+              loadingSpinnerGroup.destroy();
+            })
+            .catch(() => {
+              loadingSpinnerGroup.destroy();
+            });
         })
         /**
          * SIGNATURE FIELD.
