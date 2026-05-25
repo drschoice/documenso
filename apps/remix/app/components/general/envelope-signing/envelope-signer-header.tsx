@@ -25,8 +25,13 @@ import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-
 import { EnvelopeSignerCompleteDialog } from './envelope-signing-complete-dialog';
 
 export const EnvelopeSignerHeader = () => {
-  const { envelopeData, envelope, recipientFieldsRemaining, recipient } =
-    useRequiredEnvelopeSigningContext();
+  const {
+    envelopeData,
+    envelope,
+    recipientFieldsRemaining,
+    recipientFieldsRemainingForNavigation,
+    recipient,
+  } = useRequiredEnvelopeSigningContext();
 
   const isEmbedSigning = useEmbedSigningContext() !== null;
 
@@ -82,7 +87,7 @@ export const EnvelopeSignerHeader = () => {
           <Plural
             one="1 Field Remaining"
             other="# Fields Remaining"
-            value={recipientFieldsRemaining.length}
+            value={recipientFieldsRemainingForNavigation.length}
           />
         </p>
 

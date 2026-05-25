@@ -516,7 +516,9 @@ model DocumentMeta {
   dateFormat             String?              @default("yyyy-MM-dd hh:mm a") @db.Text
   redirectUrl            String?
   signingOrder           DocumentSigningOrder @default(PARALLEL)
-  allowDictateNextSigner Boolean              @default(false)
+  allowDictateNextSigner      Boolean     @default(false)
+  nextFieldNavigationTypes    FieldType[] @default([])
+  nextFieldNavigationLabels   String[]    @default([])
 
   typedSignatureEnabled  Boolean @default(true)
   uploadSignatureEnabled Boolean @default(true)

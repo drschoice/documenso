@@ -1,6 +1,6 @@
 import { PDFDocument } from '@cantoo/pdf-lib';
 import { PDF } from '@libpdf/core';
-import type { DocumentData, Envelope, EnvelopeItem, Field } from '@prisma/client';
+import type { DocumentData, Envelope, EnvelopeItem, Field, FieldType } from '@prisma/client';
 import {
   DocumentStatus,
   EnvelopeType,
@@ -144,9 +144,30 @@ export const run = async ({
     // Get the rejection reason from the rejected recipient
     const rejectionReason = rejectedRecipient?.rejectionReason ?? '';
 
-    // Skip the field check if the document is rejected
-    if (!isRejected && fieldsContainUnsignedRequiredVisibleField(fields)) {
-      throw new Error(`Document ${envelope.id} has unsigned required fields`);
+    // Skip the field check if the document is rejected.
+    // When nextFieldNavigationTypes/Labels are configured, only fields matching
+    // the filter must be signed — other required fields are intentionally skipped.
+    if (!isRejected) {
+      const navigationTypes = (envelope.documentMeta?.nextFieldNavigationTypes ??
+        []) as FieldType[];
+      const navigationLabels = (envelope.documentMeta?.nextFieldNavigationLabels ?? []) as string[];
+      const hasNavigationFilter = navigationTypes.length > 0 || navigationLabels.length > 0;
+
+      const fieldsToCheck = hasNavigationFilter
+        ? fields.filter((field) => {
+            if (navigationTypes.includes(field.type)) {
+              return true;
+            }
+
+            const fieldLabel = (field.fieldMeta as { label?: string } | null)?.label;
+
+            return Boolean(fieldLabel && navigationLabels.includes(fieldLabel));
+          })
+        : fields;
+
+      if (fieldsContainUnsignedRequiredVisibleField(fieldsToCheck)) {
+        throw new Error(`Document ${envelope.id} has unsigned required fields`);
+      }
     }
 
     if (isResealing) {

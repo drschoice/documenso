@@ -62,6 +62,8 @@ export const getTemplatesByIdsRoute = authenticatedProcedure
           select: {
             signingOrder: true,
             distributionMethod: true,
+            nextFieldNavigationTypes: true,
+            nextFieldNavigationLabels: true,
           },
         },
         directLink: {
@@ -109,6 +111,8 @@ export const getTemplatesByIdsRoute = authenticatedProcedure
           ? {
               signingOrder: envelope.documentMeta.signingOrder,
               distributionMethod: envelope.documentMeta.distributionMethod,
+              nextFieldNavigationTypes: envelope.documentMeta.nextFieldNavigationTypes,
+              nextFieldNavigationLabels: envelope.documentMeta.nextFieldNavigationLabels,
             }
           : null,
         directLink: envelope.directLink

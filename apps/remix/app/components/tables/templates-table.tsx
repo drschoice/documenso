@@ -227,6 +227,13 @@ export const TemplatesTable = ({
                 envelopeId={row.original.envelopeId}
                 templateId={row.original.id}
                 templateSigningOrder={row.original.templateMeta?.signingOrder}
+                templateNextFieldNavigationTypes={
+                  row.original.templateMeta?.nextFieldNavigationTypes
+                }
+                templateNextFieldNavigationLabels={
+                  row.original.templateMeta?.nextFieldNavigationLabels
+                }
+                templateFields={row.original.fields}
                 documentDistributionMethod={row.original.templateMeta?.distributionMethod}
                 recipients={row.original.recipients}
                 documentRootPath={documentRootPath}

@@ -49,6 +49,8 @@ export const ZEnvelopeForSigningResponse = z.object({
       drawSignatureEnabled: true,
       allowDictateNextSigner: true,
       language: true,
+      nextFieldNavigationTypes: true,
+      nextFieldNavigationLabels: true,
     }),
     recipients: ZRecipientLiteSchema.pick({
       id: true,

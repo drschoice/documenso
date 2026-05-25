@@ -153,6 +153,8 @@ export const ZTemplateManySchema = TemplateSchema.pick({
   templateMeta: DocumentMetaSchema.pick({
     signingOrder: true,
     distributionMethod: true,
+    nextFieldNavigationTypes: true,
+    nextFieldNavigationLabels: true,
   }).nullable(),
   directLink: LegacyTemplateDirectLinkSchema.pick({
     token: true,

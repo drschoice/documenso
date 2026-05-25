@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLingui } from '@lingui/react/macro';
 import { Trans } from '@lingui/react/macro';
-import { DocumentDistributionMethod, DocumentStatus, EnvelopeType } from '@prisma/client';
+import {
+  DocumentDistributionMethod,
+  DocumentStatus,
+  EnvelopeType,
+  FieldType,
+} from '@prisma/client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InfoIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -41,6 +46,7 @@ import {
   FormMessage,
 } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
+import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
 import {
   Select,
   SelectContent,
@@ -53,6 +59,20 @@ import { Tabs, TabsList, TabsTrigger } from '@documenso/ui/primitives/tabs';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+
+const NEXT_FIELD_NAVIGATION_TYPE_OPTIONS = [
+  { label: 'Signature', value: FieldType.SIGNATURE },
+  { label: 'Free Signature', value: FieldType.FREE_SIGNATURE },
+  { label: 'Initials', value: FieldType.INITIALS },
+  { label: 'Name', value: FieldType.NAME },
+  { label: 'Email', value: FieldType.EMAIL },
+  { label: 'Date', value: FieldType.DATE },
+  { label: 'Text', value: FieldType.TEXT },
+  { label: 'Number', value: FieldType.NUMBER },
+  { label: 'Radio', value: FieldType.RADIO },
+  { label: 'Checkbox', value: FieldType.CHECKBOX },
+  { label: 'Dropdown', value: FieldType.DROPDOWN },
+];
 
 export type EnvelopeDistributeDialogProps = {
   onDistribute?: () => Promise<void>;
@@ -70,6 +90,8 @@ export const ZEnvelopeDistributeFormSchema = z.object({
       .nativeEnum(DocumentDistributionMethod)
       .optional()
       .default(DocumentDistributionMethod.EMAIL),
+    nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).default([]),
+    nextFieldNavigationLabels: z.array(z.string()).default([]),
   }),
 });
 
@@ -102,6 +124,8 @@ export const EnvelopeDistributeDialog = ({
         message: envelope.documentMeta?.message ?? '',
         distributionMethod:
           envelope.documentMeta?.distributionMethod || DocumentDistributionMethod.EMAIL,
+        nextFieldNavigationTypes: envelope.documentMeta?.nextFieldNavigationTypes ?? [],
+        nextFieldNavigationLabels: envelope.documentMeta?.nextFieldNavigationLabels ?? [],
       },
     },
     resolver: zodResolver(ZEnvelopeDistributeFormSchema),
@@ -438,6 +462,83 @@ export const EnvelopeDistributeDialog = ({
                     ) : null}
                   </AnimatePresence>
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="meta.nextFieldNavigationTypes"
+                  render={({ field }) => (
+                    <FormItem className="mt-2">
+                      <FormLabel className="flex flex-row items-center">
+                        <Trans>Next Button Field Types</Trans>
+                        <Tooltip>
+                          <TooltipTrigger type="button">
+                            <InfoIcon className="mx-2 h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-muted-foreground">
+                            <Trans>
+                              Restrict the Next button during signing to only navigate to fields of
+                              the selected types. Leave empty to navigate to all field types.
+                            </Trans>
+                          </TooltipContent>
+                        </Tooltip>
+                      </FormLabel>
+                      <FormControl>
+                        <MultiSelectCombobox
+                          options={NEXT_FIELD_NAVIGATION_TYPE_OPTIONS}
+                          selectedValues={field.value}
+                          onChange={field.onChange}
+                          className="w-full bg-background"
+                          emptySelectionPlaceholder={t`All field types`}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="meta.nextFieldNavigationLabels"
+                  render={({ field }) => {
+                    const labelOptions = Array.from(
+                      new Set(
+                        envelope.fields
+                          .map((f) => (f.fieldMeta as { label?: string } | null)?.label)
+                          .filter((l): l is string => Boolean(l)),
+                      ),
+                    ).map((label) => ({ label, value: label }));
+
+                    return (
+                      <FormItem className="mt-2">
+                        <FormLabel className="flex flex-row items-center">
+                          <Trans>Next Button Field Labels</Trans>
+                          <Tooltip>
+                            <TooltipTrigger type="button">
+                              <InfoIcon className="mx-2 h-4 w-4" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-muted-foreground">
+                              <Trans>
+                                Restrict the Next button during signing to only navigate to fields
+                                with the selected labels. Combined with field types using OR logic.
+                                Leave empty to not filter by label.
+                              </Trans>
+                            </TooltipContent>
+                          </Tooltip>
+                        </FormLabel>
+                        <FormControl>
+                          <MultiSelectCombobox
+                            options={labelOptions}
+                            selectedValues={field.value}
+                            onChange={field.onChange}
+                            className="w-full bg-background"
+                            emptySelectionPlaceholder={t`All field labels`}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
 
                 <DialogFooter>
                   <DialogClose asChild>

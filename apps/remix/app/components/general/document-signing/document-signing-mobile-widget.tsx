@@ -20,8 +20,12 @@ export const DocumentSigningMobileWidget = () => {
 
   const { hidePoweredBy = true } = useEmbedSigningContext() || {};
 
-  const { recipientFieldsRemaining, recipient, requiredRecipientFields } =
-    useRequiredEnvelopeSigningContext();
+  const {
+    recipientFieldsRemaining,
+    recipientFieldsRemainingForNavigation,
+    recipient,
+    requiredRecipientFields,
+  } = useRequiredEnvelopeSigningContext();
 
   /**
    * Pre open the widget for assistants to let them know it's there.
@@ -66,7 +70,7 @@ export const DocumentSigningMobileWidget = () => {
                   </h2>
 
                   <p className="-mt-0.5 text-sm text-muted-foreground">
-                    {recipientFieldsRemaining.length === 0 ? (
+                    {recipientFieldsRemainingForNavigation.length === 0 ? (
                       match(recipient.role)
                         .with(RecipientRole.VIEWER, () => (
                           <Trans>Please mark as viewed to complete</Trans>
@@ -83,7 +87,7 @@ export const DocumentSigningMobileWidget = () => {
                         .otherwise(() => null)
                     ) : (
                       <Plural
-                        value={recipientFieldsRemaining.length}
+                        value={recipientFieldsRemainingForNavigation.length}
                         one="1 Field Remaining"
                         other="# Fields Remaining"
                       />
