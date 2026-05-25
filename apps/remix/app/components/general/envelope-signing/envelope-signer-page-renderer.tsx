@@ -26,7 +26,6 @@ import type { TEnvelope } from '@documenso/lib/types/envelope';
 import { ZFullFieldSchema } from '@documenso/lib/types/field';
 import { createSpinner } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
-import { isFieldUnsignedAndRequired } from '@documenso/lib/utils/advanced-fields-helpers';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
@@ -66,6 +65,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     recipientFields,
     visibleRecipientFields,
     recipientFieldsRemaining,
+    recipientFieldsRemainingForNavigation,
     showPendingFieldTooltip,
     signField: signFieldInternal,
     email,
@@ -147,7 +147,8 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
     const color = fieldToRender.fieldMeta?.readOnly
       ? 'readOnly'
-      : showPendingFieldTooltip && isFieldUnsignedAndRequired(fieldToRender)
+      : showPendingFieldTooltip &&
+          recipientFieldsRemainingForNavigation.some((f) => f.id === fieldToRender.id)
         ? 'orange'
         : 'green';
 
@@ -559,12 +560,12 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
   return (
     <>
       {showPendingFieldTooltip &&
-        recipientFieldsRemaining.length > 0 &&
-        recipientFieldsRemaining[0]?.envelopeItemId === currentEnvelopeItem?.id &&
-        recipientFieldsRemaining[0]?.page === pageNumber && (
+        recipientFieldsRemainingForNavigation.length > 0 &&
+        recipientFieldsRemainingForNavigation[0]?.envelopeItemId === currentEnvelopeItem?.id &&
+        recipientFieldsRemainingForNavigation[0]?.page === pageNumber && (
           <EnvelopeFieldToolTip
-            key={recipientFieldsRemaining[0].id}
-            field={recipientFieldsRemaining[0]}
+            key={recipientFieldsRemainingForNavigation[0].id}
+            field={recipientFieldsRemainingForNavigation[0]}
             color="warning"
           >
             <Trans>Click to insert field</Trans>

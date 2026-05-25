@@ -228,6 +228,9 @@ export default function EnvelopeEditorHeader() {
                 envelopeId={envelope.id}
                 templateId={mapSecondaryIdToTemplateId(envelope.secondaryId)}
                 templateSigningOrder={envelope.documentMeta?.signingOrder}
+                templateNextFieldNavigationTypes={envelope.documentMeta?.nextFieldNavigationTypes}
+                templateNextFieldNavigationLabels={envelope.documentMeta?.nextFieldNavigationLabels}
+                templateFields={envelope.fields}
                 recipients={envelope.recipients}
                 documentRootPath={relativePath.documentRootPath}
                 trigger={

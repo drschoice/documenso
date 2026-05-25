@@ -55,6 +55,7 @@ export const DocumentSigningPageViewV2 = () => {
     recipient,
     visibleRecipientFields,
     recipientFieldsRemaining,
+    recipientFieldsRemainingForNavigation,
     requiredRecipientFields,
     selectedAssistantRecipientFields,
   } = useRequiredEnvelopeSigningContext();
@@ -136,7 +137,7 @@ export const DocumentSigningPageViewV2 = () => {
                 <div className="ml-2 flex items-center gap-1">
                   <span className="rounded border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
                     <Plural
-                      value={recipientFieldsRemaining.length}
+                      value={recipientFieldsRemainingForNavigation.length}
                       one="1 Field Remaining"
                       other="# Fields Remaining"
                     />

@@ -1,5 +1,5 @@
 import { msg } from '@lingui/core/macro';
-import { DocumentDistributionMethod, DocumentSigningOrder } from '@prisma/client';
+import { DocumentDistributionMethod, DocumentSigningOrder, FieldType } from '@prisma/client';
 import { z } from 'zod';
 
 import { VALID_DATE_FORMAT_VALUES } from '@documenso/lib/constants/date-formats';
@@ -30,6 +30,8 @@ export const ZDocumentMetaSchema = DocumentMetaSchema.pick({
   drawSignatureEnabled: true,
   language: true,
   emailSettings: true,
+  nextFieldNavigationTypes: true,
+  nextFieldNavigationLabels: true,
 });
 
 export type TDocumentMeta = z.infer<typeof ZDocumentMetaSchema>;
@@ -122,6 +124,8 @@ export const ZDocumentMetaCreateSchema = z.object({
   distributionMethod: ZDocumentMetaDistributionMethodSchema.optional(),
   signingOrder: z.nativeEnum(DocumentSigningOrder).optional(),
   allowDictateNextSigner: z.boolean().optional(),
+  nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).optional(),
+  nextFieldNavigationLabels: z.array(z.string()).optional(),
   redirectUrl: ZDocumentMetaRedirectUrlSchema.optional(),
   language: ZDocumentMetaLanguageSchema.optional(),
   typedSignatureEnabled: ZDocumentMetaTypedSignatureEnabledSchema.optional(),
