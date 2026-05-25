@@ -146,19 +146,21 @@ export function MultiSelectCombobox<T = OptionValue>({
               className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 dark:bg-neutral-700"
               onClick={() => onChange([])}
             >
-              <XIcon className="text-muted-foreground h-3.5 w-3.5" />
+              <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </div>
         )}
       </div>
 
-      <PopoverContent className={cn('z-[50000000] w-full p-0', contentClassName)}>
+      <PopoverContent
+        className={cn('z-[50000000] w-[--radix-popover-trigger-width] p-0', contentClassName)}
+      >
         <Command>
           {enableSearch && <CommandInput placeholder={inputPlaceholder && _(inputPlaceholder)} />}
           <CommandEmpty>
             <Trans>No value found.</Trans>
           </CommandEmpty>
-          <CommandGroup>
+          <CommandGroup className="max-h-60 overflow-y-auto">
             {options.map((option, i) => (
               <CommandItem key={i} onSelect={() => handleSelect(option.value)}>
                 <Check
