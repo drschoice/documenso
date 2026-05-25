@@ -5,7 +5,7 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import type { Recipient } from '@prisma/client';
-import { DocumentDistributionMethod, DocumentSigningOrder } from '@prisma/client';
+import { DocumentDistributionMethod, DocumentSigningOrder, FieldType } from '@prisma/client';
 import { FileTextIcon, InfoIcon, Plus, UploadCloudIcon, X } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
@@ -46,10 +46,25 @@ import {
   FormMessage,
 } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
+import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
 import { SpinnerBox } from '@documenso/ui/primitives/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 import type { Toast } from '@documenso/ui/primitives/use-toast';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+
+const NEXT_FIELD_NAVIGATION_TYPE_OPTIONS = [
+  { label: 'Signature', value: FieldType.SIGNATURE },
+  { label: 'Free Signature', value: FieldType.FREE_SIGNATURE },
+  { label: 'Initials', value: FieldType.INITIALS },
+  { label: 'Name', value: FieldType.NAME },
+  { label: 'Email', value: FieldType.EMAIL },
+  { label: 'Date', value: FieldType.DATE },
+  { label: 'Text', value: FieldType.TEXT },
+  { label: 'Number', value: FieldType.NUMBER },
+  { label: 'Radio', value: FieldType.RADIO },
+  { label: 'Checkbox', value: FieldType.CHECKBOX },
+  { label: 'Dropdown', value: FieldType.DROPDOWN },
+];
 
 const ZAddRecipientsForNewDocumentSchema = z.object({
   distributeDocument: z.boolean(),
@@ -63,6 +78,8 @@ const ZAddRecipientsForNewDocumentSchema = z.object({
       }),
     )
     .optional(),
+  nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).default([]),
+  nextFieldNavigationLabels: z.array(z.string()).default([]),
   recipients: z.array(
     z.object({
       id: z.number(),
@@ -79,6 +96,9 @@ export type TemplateUseDialogProps = {
   envelopeId: string;
   templateId: number;
   templateSigningOrder?: DocumentSigningOrder | null;
+  templateNextFieldNavigationTypes?: FieldType[];
+  templateNextFieldNavigationLabels?: string[];
+  templateFields?: Array<{ fieldMeta: unknown }>;
   recipients: Recipient[];
   documentDistributionMethod?: DocumentDistributionMethod;
   documentRootPath: string;
@@ -92,6 +112,9 @@ export function TemplateUseDialog({
   envelopeId,
   templateId,
   templateSigningOrder,
+  templateNextFieldNavigationTypes = [],
+  templateNextFieldNavigationLabels = [],
+  templateFields = [],
   trigger,
 }: TemplateUseDialogProps) {
   const { toast } = useToast();
@@ -142,6 +165,8 @@ export function TemplateUseDialog({
             signingOrder: recipient.signingOrder ?? undefined,
           };
         }),
+      nextFieldNavigationTypes: templateNextFieldNavigationTypes,
+      nextFieldNavigationLabels: templateNextFieldNavigationLabels,
     };
   };
 
@@ -181,6 +206,12 @@ export function TemplateUseDialog({
         recipients: data.recipients,
         distributeDocument: data.distributeDocument,
         customDocumentData,
+        override: {
+          nextFieldNavigationTypes:
+            data.nextFieldNavigationTypes.length > 0 ? data.nextFieldNavigationTypes : undefined,
+          nextFieldNavigationLabels:
+            data.nextFieldNavigationLabels.length > 0 ? data.nextFieldNavigationLabels : undefined,
+        },
       });
 
       toast({
@@ -596,6 +627,91 @@ export function TemplateUseDialog({
                   </div>
                 )}
               </div>
+
+              <FormField
+                control={form.control}
+                name="nextFieldNavigationTypes"
+                render={({ field }) => (
+                  <FormItem className="mt-4">
+                    <FormLabel className="flex items-center gap-x-2">
+                      <Trans>Next Button Field Types</Trans>
+
+                      <Tooltip>
+                        <TooltipTrigger type="button">
+                          <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+
+                        <TooltipContent className="max-w-xs">
+                          <Trans>
+                            Restrict the Next button during signing to only navigate to fields of
+                            the selected types. Leave empty to navigate to all field types.
+                          </Trans>
+                        </TooltipContent>
+                      </Tooltip>
+                    </FormLabel>
+
+                    <FormControl>
+                      <MultiSelectCombobox
+                        options={NEXT_FIELD_NAVIGATION_TYPE_OPTIONS}
+                        selectedValues={field.value}
+                        onChange={field.onChange}
+                        emptySelectionPlaceholder={_(msg`All field types`)}
+                        className="w-full"
+                      />
+                    </FormControl>
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="nextFieldNavigationLabels"
+                render={({ field }) => {
+                  const labelOptions = Array.from(
+                    new Set(
+                      templateFields
+                        .map((f) => (f.fieldMeta as { label?: string } | null)?.label)
+                        .filter((l): l is string => Boolean(l)),
+                    ),
+                  ).map((label) => ({ label, value: label }));
+
+                  return (
+                    <FormItem className="mt-4">
+                      <FormLabel className="flex items-center gap-x-2">
+                        <Trans>Next Button Field Labels</Trans>
+
+                        <Tooltip>
+                          <TooltipTrigger type="button">
+                            <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+
+                          <TooltipContent className="max-w-xs">
+                            <Trans>
+                              Restrict the Next button during signing to only navigate to fields
+                              with the selected labels. Combined with field types using OR logic.
+                              Leave empty to not filter by label.
+                            </Trans>
+                          </TooltipContent>
+                        </Tooltip>
+                      </FormLabel>
+
+                      <FormControl>
+                        <MultiSelectCombobox
+                          options={labelOptions}
+                          selectedValues={field.value}
+                          onChange={field.onChange}
+                          emptySelectionPlaceholder={_(msg`All field labels`)}
+                          className="w-full"
+                        />
+                      </FormControl>
+
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
 
               <DialogFooter className="mt-4">
                 <DialogClose asChild>

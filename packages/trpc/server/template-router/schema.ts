@@ -1,4 +1,4 @@
-import { DocumentSigningOrder, DocumentVisibility, TemplateType } from '@prisma/client';
+import { DocumentSigningOrder, DocumentVisibility, FieldType, TemplateType } from '@prisma/client';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';
 
@@ -163,6 +163,8 @@ export const ZCreateDocumentFromTemplateRequestSchema = z.object({
       uploadSignatureEnabled: ZDocumentMetaUploadSignatureEnabledSchema.optional(),
       drawSignatureEnabled: ZDocumentMetaDrawSignatureEnabledSchema.optional(),
       allowDictateNextSigner: z.boolean().optional(),
+      nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).optional(),
+      nextFieldNavigationLabels: z.array(z.string()).optional(),
       envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
     })
     .describe('Override values from the template for the created document.')

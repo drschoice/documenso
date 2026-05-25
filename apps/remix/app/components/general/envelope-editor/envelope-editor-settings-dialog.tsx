@@ -8,6 +8,7 @@ import {
   DocumentDistributionMethod,
   DocumentVisibility,
   EnvelopeType,
+  FieldType,
   RecipientRole,
   SendStatus,
   TemplateType,
@@ -108,6 +109,20 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useCurrentTeam } from '~/providers/team';
 
+const NEXT_FIELD_NAVIGATION_TYPE_OPTIONS = [
+  { label: 'Signature', value: FieldType.SIGNATURE },
+  { label: 'Free Signature', value: FieldType.FREE_SIGNATURE },
+  { label: 'Initials', value: FieldType.INITIALS },
+  { label: 'Name', value: FieldType.NAME },
+  { label: 'Email', value: FieldType.EMAIL },
+  { label: 'Date', value: FieldType.DATE },
+  { label: 'Text', value: FieldType.TEXT },
+  { label: 'Number', value: FieldType.NUMBER },
+  { label: 'Radio', value: FieldType.RADIO },
+  { label: 'Checkbox', value: FieldType.CHECKBOX },
+  { label: 'Dropdown', value: FieldType.DROPDOWN },
+];
+
 export const ZAddSettingsFormSchema = z.object({
   templateType: z.nativeEnum(TemplateType).optional(),
   externalId: z.string().optional(),
@@ -145,6 +160,8 @@ export const ZAddSettingsFormSchema = z.object({
       message: msg`At least one signature type must be enabled`.id,
     }),
     envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
+    nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).default([]),
+    nextFieldNavigationLabels: z.array(z.string()).default([]),
   }),
 });
 
@@ -222,6 +239,8 @@ export const EnvelopeEditorSettingsDialog = ({
         emailSettings: ZDocumentEmailSettingsSchema.parse(envelope.documentMeta.emailSettings),
         signatureTypes: extractTeamSignatureSettings(envelope.documentMeta),
         envelopeExpirationPeriod: envelope.documentMeta?.envelopeExpirationPeriod ?? null,
+        nextFieldNavigationTypes: envelope.documentMeta.nextFieldNavigationTypes ?? [],
+        nextFieldNavigationLabels: envelope.documentMeta.nextFieldNavigationLabels ?? [],
       },
     };
   };
@@ -270,6 +289,8 @@ export const EnvelopeEditorSettingsDialog = ({
       subject,
       emailReplyTo,
       envelopeExpirationPeriod,
+      nextFieldNavigationTypes,
+      nextFieldNavigationLabels,
     } = data.meta;
 
     const parsedGlobalAccessAuth = z
@@ -300,6 +321,8 @@ export const EnvelopeEditorSettingsDialog = ({
           typedSignatureEnabled: signatureTypes.includes(DocumentSignatureType.TYPE),
           uploadSignatureEnabled: signatureTypes.includes(DocumentSignatureType.UPLOAD),
           envelopeExpirationPeriod,
+          nextFieldNavigationTypes,
+          nextFieldNavigationLabels,
         },
       });
 
@@ -749,6 +772,90 @@ export const EnvelopeEditorSettingsDialog = ({
                           )}
                         />
                       )}
+
+                      <FormField
+                        control={form.control}
+                        name="meta.nextFieldNavigationTypes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex flex-row items-center">
+                              <Trans>Next Button Field Types</Trans>
+                              <Tooltip>
+                                <TooltipTrigger type="button">
+                                  <InfoIcon className="mx-2 h-4 w-4" />
+                                </TooltipTrigger>
+
+                                <TooltipContent className="max-w-xs text-muted-foreground">
+                                  <Trans>
+                                    Restrict the Next button during signing to only navigate to
+                                    fields of the selected types. Leave empty to navigate to all
+                                    field types.
+                                  </Trans>
+                                </TooltipContent>
+                              </Tooltip>
+                            </FormLabel>
+
+                            <FormControl>
+                              <MultiSelectCombobox
+                                options={NEXT_FIELD_NAVIGATION_TYPE_OPTIONS}
+                                selectedValues={field.value}
+                                onChange={field.onChange}
+                                className="w-full bg-background"
+                                emptySelectionPlaceholder={t`All field types`}
+                              />
+                            </FormControl>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="meta.nextFieldNavigationLabels"
+                        render={({ field }) => {
+                          const labelOptions = Array.from(
+                            new Set(
+                              envelope.fields
+                                .map((f) => (f.fieldMeta as { label?: string } | null)?.label)
+                                .filter((l): l is string => Boolean(l)),
+                            ),
+                          ).map((label) => ({ label, value: label }));
+
+                          return (
+                            <FormItem>
+                              <FormLabel className="flex flex-row items-center">
+                                <Trans>Next Button Field Labels</Trans>
+                                <Tooltip>
+                                  <TooltipTrigger type="button">
+                                    <InfoIcon className="mx-2 h-4 w-4" />
+                                  </TooltipTrigger>
+
+                                  <TooltipContent className="max-w-xs text-muted-foreground">
+                                    <Trans>
+                                      Restrict the Next button during signing to only navigate to
+                                      fields with the selected labels. Combined with field types
+                                      using OR logic. Leave empty to not filter by label.
+                                    </Trans>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </FormLabel>
+
+                              <FormControl>
+                                <MultiSelectCombobox
+                                  options={labelOptions}
+                                  selectedValues={field.value}
+                                  onChange={field.onChange}
+                                  className="w-full bg-background"
+                                  emptySelectionPlaceholder={t`All field labels`}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
                     </>
                   ))
                   .with(

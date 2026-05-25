@@ -2,6 +2,7 @@ import {
   type DocumentDistributionMethod,
   type DocumentSigningOrder,
   EnvelopeType,
+  type FieldType,
 } from '@prisma/client';
 
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -32,6 +33,8 @@ export type CreateDocumentMetaOptions = {
   emailSettings?: TDocumentEmailSettings;
   signingOrder?: DocumentSigningOrder;
   allowDictateNextSigner?: boolean;
+  nextFieldNavigationTypes?: FieldType[];
+  nextFieldNavigationLabels?: string[];
   distributionMethod?: DocumentDistributionMethod;
   typedSignatureEnabled?: boolean;
   uploadSignatureEnabled?: boolean;
@@ -51,6 +54,8 @@ export const updateDocumentMeta = async ({
   redirectUrl,
   signingOrder,
   allowDictateNextSigner,
+  nextFieldNavigationTypes,
+  nextFieldNavigationLabels,
   emailId,
   emailReplyTo,
   emailSettings,
@@ -112,6 +117,8 @@ export const updateDocumentMeta = async ({
         redirectUrl,
         signingOrder,
         allowDictateNextSigner,
+        nextFieldNavigationTypes,
+        nextFieldNavigationLabels,
         emailId,
         emailReplyTo,
         emailSettings,

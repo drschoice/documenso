@@ -132,7 +132,30 @@ export const completeDocumentWithToken = async ({
   });
 
   if (fieldsContainUnsignedRequiredVisibleField(fields)) {
-    throw new Error(`Recipient ${recipient.id} has unsigned fields`);
+    // When nextFieldNavigationTypes / nextFieldNavigationLabels are configured,
+    // only fields matching the filter must be signed to complete the document.
+    // Re-check with just the navigation-filtered subset if a filter is active.
+    const navigationTypes = (envelope.documentMeta?.nextFieldNavigationTypes ?? []) as FieldType[];
+    const navigationLabels = (envelope.documentMeta?.nextFieldNavigationLabels ?? []) as string[];
+    const hasNavigationFilter = navigationTypes.length > 0 || navigationLabels.length > 0;
+
+    if (!hasNavigationFilter) {
+      throw new Error(`Recipient ${recipient.id} has unsigned fields`);
+    }
+
+    const filteredFields = fields.filter((field) => {
+      if (navigationTypes.includes(field.type)) {
+        return true;
+      }
+
+      const fieldLabel = (field.fieldMeta as { label?: string } | null)?.label;
+
+      return Boolean(fieldLabel && navigationLabels.includes(fieldLabel));
+    });
+
+    if (fieldsContainUnsignedRequiredVisibleField(filteredFields)) {
+      throw new Error(`Recipient ${recipient.id} has unsigned fields`);
+    }
   }
 
   // Sweep: clear hidden fields and emit audit entries before marking completion.

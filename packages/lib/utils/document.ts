@@ -50,6 +50,8 @@ export const extractDerivedDocumentMeta = (
 
     signingOrder: meta.signingOrder || DocumentSigningOrder.PARALLEL,
     allowDictateNextSigner: meta.allowDictateNextSigner ?? false,
+    nextFieldNavigationTypes: meta.nextFieldNavigationTypes ?? [],
+    nextFieldNavigationLabels: meta.nextFieldNavigationLabels ?? [],
     distributionMethod: meta.distributionMethod || DocumentDistributionMethod.EMAIL, // Todo: Make this a setting.
 
     // Signature settings.

@@ -1,4 +1,4 @@
-import type { DocumentDistributionMethod, DocumentSigningOrder } from '@prisma/client';
+import type { DocumentDistributionMethod, DocumentSigningOrder, FieldType } from '@prisma/client';
 import {
   DocumentSource,
   EnvelopeType,
@@ -117,6 +117,8 @@ export type CreateDocumentFromTemplateOptions = {
     language?: SupportedLanguageCodes;
     distributionMethod?: DocumentDistributionMethod;
     allowDictateNextSigner?: boolean;
+    nextFieldNavigationTypes?: FieldType[];
+    nextFieldNavigationLabels?: string[];
     emailSettings?: TDocumentEmailSettings;
     typedSignatureEnabled?: boolean;
     uploadSignatureEnabled?: boolean;
@@ -538,6 +540,10 @@ export const createDocumentFromTemplate = async ({
         override?.drawSignatureEnabled ?? template.documentMeta?.drawSignatureEnabled,
       allowDictateNextSigner:
         override?.allowDictateNextSigner ?? template.documentMeta?.allowDictateNextSigner,
+      nextFieldNavigationTypes:
+        override?.nextFieldNavigationTypes ?? template.documentMeta?.nextFieldNavigationTypes,
+      nextFieldNavigationLabels:
+        override?.nextFieldNavigationLabels ?? template.documentMeta?.nextFieldNavigationLabels,
       envelopeExpirationPeriod:
         override?.envelopeExpirationPeriod ?? template.documentMeta?.envelopeExpirationPeriod,
     }),

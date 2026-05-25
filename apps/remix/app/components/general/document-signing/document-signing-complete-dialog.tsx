@@ -229,7 +229,7 @@ export const DocumentSigningCompleteDialog = ({
             <Trans>Are you sure?</Trans>
           </DialogTitle>
           <DialogDescription>
-            <div className="max-w-[50ch] text-muted-foreground">
+            <span className="block max-w-[50ch] text-muted-foreground">
               {match(recipient.role)
                 .with(RecipientRole.VIEWER, () => (
                   <span className="inline-flex flex-wrap">
@@ -253,7 +253,7 @@ export const DocumentSigningCompleteDialog = ({
                 ))
                 .with(RecipientRole.CC, () => null)
                 .exhaustive()}
-            </div>
+            </span>
           </DialogDescription>
         </DialogHeader>
 

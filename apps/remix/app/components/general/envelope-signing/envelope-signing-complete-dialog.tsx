@@ -34,6 +34,7 @@ export const EnvelopeSignerCompleteDialog = () => {
     envelope,
     setShowPendingFieldTooltip,
     recipientFieldsRemaining,
+    recipientFieldsRemainingForNavigation,
     recipient,
     nextRecipient,
     email,
@@ -51,7 +52,7 @@ export const EnvelopeSignerCompleteDialog = () => {
     trpc.template.createDocumentFromDirectTemplate.useMutation();
 
   const handleOnNextFieldClick = () => {
-    const nextField = recipientFieldsRemaining[0];
+    const nextField = recipientFieldsRemainingForNavigation[0] ?? recipientFieldsRemaining[0];
 
     if (!nextField) {
       setShowPendingFieldTooltip(false);
@@ -246,7 +247,7 @@ export const EnvelopeSignerCompleteDialog = () => {
         isDirectTemplate ? handleDirectTemplateCompleteClick : handleOnCompleteClick
       }
       documentTitle={envelope.title}
-      fields={recipientFieldsRemaining}
+      fields={recipientFieldsRemainingForNavigation}
       fieldsValidated={handleOnNextFieldClick}
       recipient={recipient}
       allowDictateNextSigner={Boolean(

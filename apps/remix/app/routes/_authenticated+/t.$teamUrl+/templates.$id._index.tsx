@@ -276,6 +276,11 @@ export default function TemplatePage({ params }: Route.ComponentProps) {
                   envelopeId={envelope.id}
                   templateId={mapSecondaryIdToTemplateId(envelope.secondaryId)}
                   templateSigningOrder={envelope.documentMeta?.signingOrder}
+                  templateNextFieldNavigationTypes={envelope.documentMeta?.nextFieldNavigationTypes}
+                  templateNextFieldNavigationLabels={
+                    envelope.documentMeta?.nextFieldNavigationLabels
+                  }
+                  templateFields={envelope.fields}
                   recipients={envelope.recipients}
                   documentRootPath={documentRootPath}
                   trigger={

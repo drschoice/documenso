@@ -41,6 +41,8 @@ export const distributeEnvelopeRoute = authenticatedProcedure
         language: meta.language,
         emailId: meta.emailId,
         emailReplyTo: meta.emailReplyTo,
+        nextFieldNavigationTypes: meta.nextFieldNavigationTypes,
+        nextFieldNavigationLabels: meta.nextFieldNavigationLabels,
         requestMetadata: ctx.metadata,
       });
     }

@@ -41,6 +41,7 @@ export type EnvelopeSigningContextValue = {
 
   recipient: EnvelopeForSigningResponse['recipient'];
   recipientFieldsRemaining: Field[];
+  recipientFieldsRemainingForNavigation: Field[];
   recipientFields: Field[];
   recipientFieldVisibility: Map<number, boolean>;
   visibleRecipientFields: Field[];
@@ -260,6 +261,71 @@ export const EnvelopeSigningProvider = ({
   }, [envelopeData.recipient.fields, recipientFieldVisibility]);
 
   /**
+   * A filtered subset used for "Next" button navigation.
+   * When nextFieldNavigationTypes and/or nextFieldNavigationLabels are configured,
+   * only fields matching any of the specified types OR labels are included.
+   * The base is all unsigned visible fields (required + optional) so that optional
+   * fields matching the filter are reachable via Next.
+   * Falls back to required-only remaining fields when no filter is configured.
+   */
+  const recipientFieldsRemainingForNavigation = useMemo(() => {
+    const navigationTypes = envelope.documentMeta.nextFieldNavigationTypes;
+    const navigationLabels = envelope.documentMeta.nextFieldNavigationLabels;
+
+    const hasTypeFilter = navigationTypes && navigationTypes.length > 0;
+    const hasLabelFilter = navigationLabels && navigationLabels.length > 0;
+
+    if (!hasTypeFilter && !hasLabelFilter) {
+      return recipientFieldsRemaining;
+    }
+
+    // Build a sorted list of ALL unsigned visible fields (required + optional)
+    // so optional fields matching the filter are included in navigation.
+    const allUnsignedFields = visibleRecipientFields
+      .filter((field) => !field.inserted)
+      .map((field) => {
+        const envelopeItem = envelope.envelopeItems.find(
+          (item) => item.id === field.envelopeItemId,
+        );
+
+        if (!envelopeItem) {
+          return null;
+        }
+
+        return { ...field, envelopeItemOrder: envelopeItem.order };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    const sortedFields = sortBy(
+      allUnsignedFields,
+      [prop('envelopeItemOrder'), 'asc'],
+      [prop('page'), 'asc'],
+      [prop('positionY'), 'asc'],
+    );
+
+    return sortedFields.filter((field) => {
+      if (hasTypeFilter && navigationTypes.includes(field.type)) {
+        return true;
+      }
+
+      if (hasLabelFilter) {
+        const fieldLabel = (field.fieldMeta as { label?: string } | null)?.label;
+        if (fieldLabel && navigationLabels.includes(fieldLabel)) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+  }, [
+    recipientFieldsRemaining,
+    visibleRecipientFields,
+    envelope.envelopeItems,
+    envelope.documentMeta.nextFieldNavigationTypes,
+    envelope.documentMeta.nextFieldNavigationLabels,
+  ]);
+
+  /**
    * Assistant recipients are those that have a signing order after the assistant.
    */
   const assistantRecipients =
@@ -437,6 +503,7 @@ export const EnvelopeSigningProvider = ({
 
         recipient,
         recipientFieldsRemaining,
+        recipientFieldsRemainingForNavigation,
         recipientFields,
         recipientFieldVisibility,
         visibleRecipientFields,

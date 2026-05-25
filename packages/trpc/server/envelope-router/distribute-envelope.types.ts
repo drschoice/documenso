@@ -29,6 +29,8 @@ export const ZDistributeEnvelopeRequestSchema = z.object({
     emailId: true,
     emailReplyTo: true,
     emailSettings: true,
+    nextFieldNavigationTypes: true,
+    nextFieldNavigationLabels: true,
   }).optional(),
 });
 
