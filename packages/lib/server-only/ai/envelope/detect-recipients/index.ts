@@ -5,6 +5,7 @@ import { chunk } from 'remeda';
 
 import { AppError, AppErrorCode } from '../../../../errors/app-error';
 import { getFileServerSide } from '../../../../universal/upload/get-file.server';
+import { logger } from '../../../../utils/logger';
 import { getEnvelopeById } from '../../../envelope/get-envelope-by-id';
 import { vertex } from '../../google';
 import { pdfToImages } from '../../pdf-to-images';
@@ -13,6 +14,9 @@ import type { TDetectedRecipientSchema } from './schema';
 import { ZDetectedRecipientsSchema } from './schema';
 
 const MAX_PAGES_PER_CHUNK = 10;
+
+/** Max number of AI attempts per chunk before the chunk is skipped. */
+const MAX_CHUNK_DETECTION_ATTEMPTS = 3;
 
 const createImageContentParts = (images: Buffer[]) => {
   return images.map<ImagePart>((image) => ({
@@ -206,17 +210,54 @@ const detectRecipientsFromImages = async ({
       ],
     });
 
-    const result = await generateObject({
-      model: vertex('gemini-3-flash-preview'),
-      system: SYSTEM_PROMPT,
-      schema: ZDetectedRecipientsSchema,
-      messages,
-      temperature: 0.5,
-    });
+    // The model occasionally returns output that fails schema validation, which
+    // makes generateObject throw. Retry a few times, and if a chunk still fails,
+    // skip it so one bad batch doesn't abort recipient detection for the document.
+    let newRecipients: TDetectedRecipientSchema[] = [];
+    let lastError: unknown;
 
-    const newRecipients = result.object?.recipients ?? [];
+    for (let attempt = 1; attempt <= MAX_CHUNK_DETECTION_ATTEMPTS; attempt++) {
+      try {
+        const result = await generateObject({
+          model: vertex('gemini-3-flash-preview'),
+          system: SYSTEM_PROMPT,
+          schema: ZDetectedRecipientsSchema,
+          messages,
+          temperature: 0.5,
+        });
 
-    // Merge new recipients into our accumulated list (handles duplicates)
+        logger.debug(
+          { chunk: chunkIndex + 1, totalChunks, startPage, endPage, usage: result.usage },
+          '[ai-detect-recipients] chunk usage',
+        );
+
+        newRecipients = result.object?.recipients ?? [];
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        logger.warn(
+          {
+            err: error,
+            chunk: chunkIndex + 1,
+            totalChunks,
+            attempt,
+            maxAttempts: MAX_CHUNK_DETECTION_ATTEMPTS,
+          },
+          '[ai-detect-recipients] chunk attempt failed',
+        );
+      }
+    }
+
+    if (lastError) {
+      logger.error(
+        { err: lastError, chunk: chunkIndex + 1, totalChunks, startPage, endPage },
+        '[ai-detect-recipients] chunk failed, skipping',
+      );
+    }
+
+    // Merge new recipients into our accumulated list (handles duplicates).
+    // newRecipients is empty if every attempt for this chunk failed.
     allRecipients = mergeRecipients(allRecipients, newRecipients);
 
     // Report progress (endPage represents pages processed so far)
