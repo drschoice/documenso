@@ -30,11 +30,13 @@ import {
 } from '@documenso/lib/types/field-meta';
 import { getEnvelopeItemPermissions } from '@documenso/lib/utils/envelope';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
+import { trpc } from '@documenso/trpc/react';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
 import { cn } from '@documenso/ui/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
 import { Separator } from '@documenso/ui/primitives/separator';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { AiFeaturesEnableDialog } from '~/components/dialogs/ai-features-enable-dialog';
 import { AiFieldDetectionDialog } from '~/components/dialogs/ai-field-detection-dialog';
@@ -54,6 +56,7 @@ import { useCurrentTeam } from '~/providers/team';
 
 import { EnvelopeEditorFieldDragDrop } from './envelope-editor-fields-drag-drop';
 import { EnvelopeEditorFieldsPageRenderer } from './envelope-editor-fields-page-renderer';
+import { EnvelopeEditorPageThumbnails } from './envelope-editor-page-thumbnails';
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
 import { EnvelopeRecipientSelector } from './envelope-recipient-selector';
 
@@ -78,15 +81,125 @@ export const EnvelopeEditorFieldsPage = () => {
 
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
-  const { envelope, editorFields, navigateToStep, editorConfig } = useCurrentEnvelopeEditor();
+  const {
+    envelope,
+    editorFields,
+    navigateToStep,
+    editorConfig,
+    isTemplate,
+    isEmbedded,
+    setLocalEnvelope,
+    registerPendingMutation,
+  } = useCurrentEnvelopeEditor();
 
   const { currentEnvelopeItem } = useCurrentEnvelopeRender();
 
   const { _ } = useLingui();
 
+  const { toast } = useToast();
+
   const [isAiFieldDialogOpen, setIsAiFieldDialogOpen] = useState(false);
   const [isAiEnableDialogOpen, setIsAiEnableDialogOpen] = useState(false);
   const { revalidate } = useRevalidator();
+
+  const [pageCount, setPageCount] = useState<number>(0);
+  const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
+  const [isPageOperationLoading, setIsPageOperationLoading] = useState(false);
+
+  const { mutateAsync: addBlankPage } = trpc.envelope.item.addBlankPage.useMutation();
+  const { mutateAsync: deletePage } = trpc.envelope.item.deletePage.useMutation();
+
+  // Reset page images whenever the current envelope item changes (PDF replaced).
+  const currentEnvelopeItemDocumentDataId = envelope.envelopeItems.find(
+    (item) => item.id === currentEnvelopeItem?.id,
+  )?.documentDataId;
+
+  useEffect(() => {
+    setPageImages(new Map());
+    setPageCount(0);
+  }, [currentEnvelopeItem?.id, currentEnvelopeItemDocumentDataId]);
+
+  const onPageRendered = (pageNumber: number, dataUrl: string) => {
+    setPageImages((prev) => new Map(prev).set(pageNumber, dataUrl));
+  };
+
+  const onPageCountChange = (count: number) => {
+    setPageCount(count);
+  };
+
+  const onAddBlankPage = async () => {
+    if (!currentEnvelopeItem) {
+      return;
+    }
+
+    setIsPageOperationLoading(true);
+
+    try {
+      const addPromise = addBlankPage({
+        envelopeId: envelope.id,
+        envelopeItemId: currentEnvelopeItem.id,
+      });
+
+      registerPendingMutation(addPromise);
+
+      const { data } = await addPromise;
+
+      setLocalEnvelope({
+        envelopeItems: envelope.envelopeItems.map((item) =>
+          item.id === data.id ? { ...item, documentDataId: data.documentDataId } : item,
+        ),
+      });
+    } catch {
+      toast({
+        title: _(msg`Failed to add page`),
+        description: _(msg`Something went wrong while adding the page`),
+        duration: 5000,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPageOperationLoading(false);
+    }
+  };
+
+  const onDeletePage = async (pageNumber: number) => {
+    if (!currentEnvelopeItem) {
+      return;
+    }
+
+    setIsPageOperationLoading(true);
+
+    try {
+      const deletePromise = deletePage({
+        envelopeId: envelope.id,
+        envelopeItemId: currentEnvelopeItem.id,
+        pageNumber,
+      });
+
+      registerPendingMutation(deletePromise);
+
+      const { data, fields } = await deletePromise;
+
+      setLocalEnvelope({
+        envelopeItems: envelope.envelopeItems.map((item) =>
+          item.id === data.id ? { ...item, documentDataId: data.documentDataId } : item,
+        ),
+        ...(fields ? { fields } : {}),
+      });
+
+      if (fields) {
+        editorFields.resetForm(fields);
+      }
+    } catch {
+      toast({
+        title: _(msg`Failed to delete page`),
+        description: _(msg`Something went wrong while deleting the page`),
+        duration: 5000,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPageOperationLoading(false);
+    }
+  };
 
   const envelopeItemPermissions = useMemo(
     () => getEnvelopeItemPermissions(envelope, envelope.recipients),
@@ -190,6 +303,17 @@ export const EnvelopeEditorFieldsPage = () => {
 
   return (
     <div className="relative flex h-full">
+      {/* Page Thumbnails Sidebar — templates only */}
+      {isTemplate && !isEmbedded && currentEnvelopeItem && pageCount > 0 && (
+        <EnvelopeEditorPageThumbnails
+          pageCount={pageCount}
+          pageImages={pageImages}
+          isLoading={isPageOperationLoading}
+          onDeletePage={(pageNumber) => void onDeletePage(pageNumber)}
+          onAddBlankPage={() => void onAddBlankPage()}
+        />
+      )}
+
       <div
         className="flex h-full w-full flex-col overflow-y-auto px-2"
         ref={scrollableContainerRef}
@@ -256,6 +380,8 @@ export const EnvelopeEditorFieldsPage = () => {
               customPageRenderer={EnvelopeEditorFieldsPageRenderer}
               scrollParentRef={scrollableContainerRef}
               errorMessage={PDF_VIEWER_ERROR_MESSAGES.editor}
+              onPageRendered={onPageRendered}
+              onPageCountChange={onPageCountChange}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-32">
