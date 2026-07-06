@@ -70,7 +70,7 @@ export const deleteEnvelopeItemPage = async ({
 
   if (pageNumber < 1 || pageNumber > pageCount) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {
-      message: `Page number ${pageNumber} is out of bounds (1–${pageCount})`,
+      message: `Page number ${pageNumber} is out of bounds (1-${pageCount})`,
     });
   }
 
