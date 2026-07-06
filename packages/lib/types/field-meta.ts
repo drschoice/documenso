@@ -361,7 +361,10 @@ export const FIELD_EMAIL_META_DEFAULT_VALUES: TEmailFieldMeta = {
 export const FIELD_RADIO_META_DEFAULT_VALUES: TRadioFieldMeta = {
   type: 'radio',
   fontSize: DEFAULT_FIELD_FONT_SIZE,
-  values: [{ id: 1, checked: false, value: '' }],
+  values: [
+    { id: 1, checked: false, value: '' },
+    { id: 2, checked: false, value: '' },
+  ],
   required: true,
   readOnly: false,
   direction: 'vertical',
