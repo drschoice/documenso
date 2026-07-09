@@ -8,6 +8,7 @@ import { prisma } from '@documenso/prisma';
 import { AppError, AppErrorCode } from '../../../../errors/app-error';
 import { getFileServerSide } from '../../../../universal/upload/get-file.server';
 import { resizeImageToGeminiImage } from '../../../../utils/images/resize-image-to-gemini-image';
+import { logger } from '../../../../utils/logger';
 import { getEnvelopeById } from '../../../envelope/get-envelope-by-id';
 import { createEnvelopeRecipients } from '../../../recipient/create-envelope-recipients';
 import { vertex } from '../../google';
@@ -165,30 +166,41 @@ export const detectFieldsFromPdf = async ({
       // Get existing fields for this page
       const fieldsOnPage = existingFields.filter((f) => f.page === page.pageNumber);
 
-      // Mask existing fields on the image
-      const maskedImage = await maskFieldsOnImage({
-        image: page.image,
-        width: page.width,
-        height: page.height,
-        fields: fieldsOnPage,
-      });
+      let normalizedFields: NormalizedFieldWithPage[] = [];
 
-      const rawFields = await detectFieldsFromPage({
-        image: maskedImage,
-        pageNumber: page.pageNumber,
-        recipients,
-        context,
-      });
+      // Isolate failures per page: a single page that fails (even after retries)
+      // must not abort detection for the rest of the document.
+      try {
+        // Mask existing fields on the image
+        const maskedImage = await maskFieldsOnImage({
+          image: page.image,
+          width: page.width,
+          height: page.height,
+          fields: fieldsOnPage,
+        });
 
-      // Convert bounding boxes to normalized positions and add page number
-      const normalizedFields = rawFields.map(
-        (field): NormalizedFieldWithPage => ({
-          ...normalizeDetectedField(field),
+        const rawFields = await detectFieldsFromPage({
+          image: maskedImage,
           pageNumber: page.pageNumber,
-        }),
-      );
+          recipients,
+          context,
+        });
 
-      // Update progress
+        // Convert bounding boxes to normalized positions and add page number
+        normalizedFields = rawFields.map(
+          (field): NormalizedFieldWithPage => ({
+            ...normalizeDetectedField(field),
+            pageNumber: page.pageNumber,
+          }),
+        );
+      } catch (error) {
+        logger.error(
+          { err: error, pageNumber: page.pageNumber },
+          '[ai-detect-fields] page failed, skipping',
+        );
+      }
+
+      // Update progress (always advances, even for a skipped page)
       pagesProcessed += 1;
       totalFieldsDetected += normalizedFields.length;
 
@@ -244,6 +256,9 @@ const maskFieldsOnImage = async ({ image, width, height, fields }: MaskFieldsOnI
   return canvas.encode('jpeg');
 };
 
+/** Max number of AI attempts per page before the page is skipped. */
+const MAX_PAGE_DETECTION_ATTEMPTS = 3;
+
 type DetectFieldsFromPageOptions = {
   image: Buffer;
   pageNumber: number;
@@ -291,24 +306,40 @@ const detectFieldsFromPage = async ({
     ],
   });
 
-  const result = await generateObject({
-    model: vertex('gemini-3-flash-preview'),
-    system: SYSTEM_PROMPT,
-    schema: ZSubmitDetectedFieldsInputSchema,
-    messages,
-    temperature: 0.5,
-    providerOptions: {
-      google: {
-        thinkingConfig: {
-          thinkingLevel: 'low',
-        },
-      },
-    },
-  });
+  // The model occasionally returns output that fails schema validation (e.g. a
+  // malformed box2d), which makes generateObject throw. Retry a few times since
+  // the call is non-deterministic before giving up on this page.
+  let lastError: unknown;
 
-  if (!result.object) {
-    return [];
+  for (let attempt = 1; attempt <= MAX_PAGE_DETECTION_ATTEMPTS; attempt++) {
+    try {
+      const result = await generateObject({
+        model: vertex('gemini-3-flash-preview'),
+        system: SYSTEM_PROMPT,
+        schema: ZSubmitDetectedFieldsInputSchema,
+        messages,
+        temperature: 0.5,
+        providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingLevel: 'low',
+            },
+          },
+        },
+      });
+
+      logger.debug({ pageNumber, usage: result.usage }, '[ai-detect-fields] page usage');
+
+      return result.object?.fields ?? [];
+    } catch (error) {
+      lastError = error;
+      logger.warn(
+        { err: error, pageNumber, attempt, maxAttempts: MAX_PAGE_DETECTION_ATTEMPTS },
+        '[ai-detect-fields] page attempt failed',
+      );
+    }
   }
 
-  return result.object.fields ?? [];
+  // All attempts failed — surface to the per-page handler, which skips this page.
+  throw lastError;
 };

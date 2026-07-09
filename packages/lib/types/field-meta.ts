@@ -326,7 +326,7 @@ export const FIELD_TEXT_META_DEFAULT_VALUES: TTextFieldMeta = {
   label: '',
   placeholder: '',
   text: '',
-  required: false,
+  required: true,
   readOnly: false,
 };
 
@@ -336,7 +336,7 @@ export const FIELD_NUMBER_META_DEFAULT_VALUES: TNumberFieldMeta = {
   textAlign: 'left',
   label: '',
   placeholder: '',
-  required: false,
+  required: true,
   readOnly: false,
 };
 
@@ -361,8 +361,11 @@ export const FIELD_EMAIL_META_DEFAULT_VALUES: TEmailFieldMeta = {
 export const FIELD_RADIO_META_DEFAULT_VALUES: TRadioFieldMeta = {
   type: 'radio',
   fontSize: DEFAULT_FIELD_FONT_SIZE,
-  values: [{ id: 1, checked: false, value: '' }],
-  required: false,
+  values: [
+    { id: 1, checked: false, value: '' },
+    { id: 2, checked: false, value: '' },
+  ],
+  required: true,
   readOnly: false,
   direction: 'vertical',
 };
@@ -373,7 +376,7 @@ export const FIELD_CHECKBOX_META_DEFAULT_VALUES: TCheckboxFieldMeta = {
   values: [{ id: 1, checked: false, value: '' }],
   validationRule: '',
   validationLength: 0,
-  required: false,
+  required: true,
   readOnly: false,
   direction: 'vertical',
 };
@@ -383,7 +386,7 @@ export const FIELD_DROPDOWN_META_DEFAULT_VALUES: TDropdownFieldMeta = {
   fontSize: DEFAULT_FIELD_FONT_SIZE,
   values: [{ value: 'Option 1' }],
   defaultValue: '',
-  required: false,
+  required: true,
   readOnly: false,
 };
 

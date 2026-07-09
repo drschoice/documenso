@@ -4,12 +4,16 @@ import type { BaseApiLog } from '../types/api-logs';
 import { extractRequestMetadata } from '../universal/extract-request-metadata';
 import { env } from './env';
 
+// Defaults to 'info'. Set NEXT_PRIVATE_LOGGER_LEVEL=debug to surface debug logs
+// (e.g. AI token-usage diagnostics) without code changes.
+const logLevel = env('NEXT_PRIVATE_LOGGER_LEVEL') || 'info';
+
 const transports: TransportTargetOptions[] = [];
 
 if (env('NODE_ENV') !== 'production' && !env('INTERNAL_FORCE_JSON_LOGGER')) {
   transports.push({
     target: 'pino-pretty',
-    level: 'info',
+    level: logLevel,
   });
 }
 
@@ -18,7 +22,7 @@ const loggingFilePath = env('NEXT_PRIVATE_LOGGER_FILE_PATH');
 if (loggingFilePath) {
   transports.push({
     target: 'pino/file',
-    level: 'info',
+    level: logLevel,
     options: {
       destination: loggingFilePath,
       mkdir: true,
@@ -27,7 +31,7 @@ if (loggingFilePath) {
 }
 
 export const logger = pino({
-  level: 'info',
+  level: logLevel,
   transport:
     transports.length > 0
       ? {

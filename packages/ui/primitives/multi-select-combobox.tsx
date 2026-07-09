@@ -60,6 +60,25 @@ export function MultiSelectCombobox<T = OptionValue>({
 
   const [open, setOpen] = React.useState(false);
 
+  // The dropdown list is portaled outside the surrounding Radix Dialog, so
+  // `react-remove-scroll` (mounted by the Dialog) swallows wheel events over it
+  // — leaving the scrollbar draggable but the mouse wheel dead. We stop the
+  // wheel event from reaching that scroll-lock listener and scroll the container
+  // ourselves. A ref callback is used (instead of a mount-only effect) so the
+  // listener re-attaches every time the popover content mounts on open.
+  const commandGroupRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (!node) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      event.stopPropagation();
+      node.scrollTop += event.deltaY;
+    };
+
+    node.addEventListener('wheel', handleWheel, { passive: true });
+  }, []);
+
   const handleSelect = (selectedOption: T) => {
     let newSelectedOptions = [...selectedValues, selectedOption];
 
@@ -160,7 +179,7 @@ export function MultiSelectCombobox<T = OptionValue>({
           <CommandEmpty>
             <Trans>No value found.</Trans>
           </CommandEmpty>
-          <CommandGroup className="max-h-60 overflow-y-auto">
+          <CommandGroup ref={commandGroupRef} className="max-h-60 overflow-y-auto">
             {options.map((option, i) => (
               <CommandItem key={i} onSelect={() => handleSelect(option.value)}>
                 <Check

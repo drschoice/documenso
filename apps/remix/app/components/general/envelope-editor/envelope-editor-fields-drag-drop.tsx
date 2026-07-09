@@ -33,6 +33,10 @@ const MIN_WIDTH_PX = 36;
 const DEFAULT_HEIGHT_PX = MIN_HEIGHT_PX * 2.5;
 const DEFAULT_WIDTH_PX = MIN_WIDTH_PX * 2.5;
 
+const FIELD_TYPE_DEFAULT_HEIGHTS: Partial<Record<FieldType, number>> = {
+  [FieldType.RADIO]: 70,
+};
+
 export const fieldButtonList = [
   {
     type: FieldType.SIGNATURE,
@@ -101,6 +105,11 @@ export const EnvelopeEditorFieldDragDrop = ({
   const { t } = useLingui();
 
   const [selectedField, setSelectedField] = useState<FieldType | null>(null);
+  const selectedFieldRef = useRef<FieldType | null>(null);
+
+  useEffect(() => {
+    selectedFieldRef.current = selectedField;
+  }, [selectedField]);
 
   const { isWithinPageBounds, getPage } = useDocumentElement();
 
@@ -226,8 +235,10 @@ export const EnvelopeEditorFieldDragDrop = ({
       }
 
       fieldBounds.current = {
-        height: Math.max(DEFAULT_HEIGHT_PX),
-        width: Math.max(DEFAULT_WIDTH_PX),
+        height:
+          FIELD_TYPE_DEFAULT_HEIGHTS[selectedFieldRef.current ?? FieldType.SIGNATURE] ??
+          DEFAULT_HEIGHT_PX,
+        width: DEFAULT_WIDTH_PX,
       };
     });
 

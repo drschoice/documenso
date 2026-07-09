@@ -51,7 +51,10 @@ export const RadioFieldAdvancedSettings = ({
 
   const [showValidation, setShowValidation] = useState(false);
   const [values, setValues] = useState(
-    fieldState.values ?? [{ id: 1, checked: false, value: _(msg`Default value`) }],
+    fieldState.values ?? [
+      { id: 1, checked: false, value: _(msg`Option 1`) },
+      { id: 2, checked: false, value: _(msg`Option 2`) },
+    ],
   );
   const [readOnly, setReadOnly] = useState(fieldState.readOnly ?? false);
   const [required, setRequired] = useState(fieldState.required ?? false);
@@ -119,7 +122,12 @@ export const RadioFieldAdvancedSettings = ({
   };
 
   useEffect(() => {
-    setValues(fieldState.values ?? [{ id: 1, checked: false, value: _(msg`Default value`) }]);
+    setValues(
+      fieldState.values ?? [
+        { id: 1, checked: false, value: _(msg`Option 1`) },
+        { id: 2, checked: false, value: _(msg`Option 2`) },
+      ],
+    );
   }, [fieldState.values]);
 
   useEffect(() => {
