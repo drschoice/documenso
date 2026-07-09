@@ -1,4 +1,5 @@
 import { router } from '../trpc';
+import { addEnvelopeItemBlankPageRoute } from './add-envelope-item-blank-page';
 import { createAttachmentRoute } from './attachment/create-attachment';
 import { deleteAttachmentRoute } from './attachment/delete-attachment';
 import { findAttachmentsRoute } from './attachment/find-attachments';
@@ -9,6 +10,7 @@ import { createEnvelopeRoute } from './create-envelope';
 import { createEnvelopeItemsRoute } from './create-envelope-items';
 import { deleteEnvelopeRoute } from './delete-envelope';
 import { deleteEnvelopeItemRoute } from './delete-envelope-item';
+import { deleteEnvelopeItemPageRoute } from './delete-envelope-item-page';
 import { distributeEnvelopeRoute } from './distribute-envelope';
 import { downloadEnvelopeItemRoute } from './download-envelope-item';
 import { duplicateEnvelopeRoute } from './duplicate-envelope';
@@ -58,6 +60,8 @@ export const envelopeRouter = router({
     delete: deleteEnvelopeItemRoute,
     download: downloadEnvelopeItemRoute,
     replacePdf: replaceEnvelopeItemPdfRoute,
+    addBlankPage: addEnvelopeItemBlankPageRoute,
+    deletePage: deleteEnvelopeItemPageRoute,
   },
   recipient: {
     get: getEnvelopeRecipientRoute,

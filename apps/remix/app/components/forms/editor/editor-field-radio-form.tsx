@@ -79,7 +79,10 @@ export const EditorFieldRadioForm = ({
     mode: 'onChange',
     defaultValues: {
       label: value.label || '',
-      values: value.values || [{ id: 1, checked: false, value: t`Default value` }],
+      values: value.values || [
+        { id: 1, checked: false, value: t`Option 1` },
+        { id: 2, checked: false, value: t`Option 2` },
+      ],
       required: value.required || false,
       readOnly: value.readOnly || false,
       direction: value.direction || 'vertical',

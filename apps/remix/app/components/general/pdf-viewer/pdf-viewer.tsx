@@ -56,10 +56,21 @@ export type PDFViewerProps = {
   onDocumentLoad?: () => void;
 
   /**
+   * Called when the total page count of the loaded document becomes known.
+   */
+  onPageCountChange?: (pageCount: number) => void;
+
+  /**
    * Additional component to render next to the image, such as a Konva canvas
    * for rendering fields.
    */
   customPageRenderer?: React.FunctionComponent<{ pageData: PageRenderData }>;
+
+  /**
+   * Called once per page when it finishes rendering at high resolution.
+   * Receives the 1-indexed page number and a JPEG data URL of the rendered page.
+   */
+  onPageRendered?: (pageNumber: number, dataUrl: string) => void;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 export default function PDFViewer({
@@ -67,7 +78,9 @@ export default function PDFViewer({
   data,
   scrollParentRef,
   onDocumentLoad,
+  onPageCountChange,
   customPageRenderer,
+  onPageRendered,
   ...props
 }: PDFViewerProps) {
   const { t } = useLingui();
@@ -183,7 +196,11 @@ export default function PDFViewer({
     if (loadingState === 'loaded' && onDocumentLoad) {
       onDocumentLoad();
     }
-  }, [loadingState, onDocumentLoad]);
+
+    if (loadingState === 'loaded' && onPageCountChange) {
+      onPageCountChange(pages.length);
+    }
+  }, [loadingState, onDocumentLoad, onPageCountChange]);
 
   const isLoading = loadingState === 'loading';
   const hasError = loadingState === 'error';
@@ -215,6 +232,7 @@ export default function PDFViewer({
           pages={pages}
           pdf={pdfRef.current}
           customPageRenderer={customPageRenderer}
+          onPageRendered={onPageRendered}
         />
       )}
     </div>
@@ -228,6 +246,7 @@ type VirtualizedPageListProps = {
   numPages: number;
   pdf: pdfjsLib.PDFDocumentProxy;
   customPageRenderer?: React.FunctionComponent<{ pageData: PageRenderData }>;
+  onPageRendered?: (pageNumber: number, dataUrl: string) => void;
 };
 
 const VirtualizedPageList = ({
@@ -237,6 +256,7 @@ const VirtualizedPageList = ({
   numPages,
   pdf,
   customPageRenderer,
+  onPageRendered,
 }: VirtualizedPageListProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -305,6 +325,7 @@ const VirtualizedPageList = ({
               pdf={pdf}
               scale={scale}
               customPageRenderer={customPageRenderer}
+              onPageRendered={onPageRendered}
             />
 
             <p className="my-2 text-center text-[11px] text-muted-foreground/80">
@@ -328,6 +349,7 @@ type PdfViewerPageProps = {
   scaledHeight: number;
   scale: number;
   customPageRenderer?: React.FunctionComponent<{ pageData: PageRenderData }>;
+  onPageRendered?: (pageNumber: number, dataUrl: string) => void;
 };
 
 const PdfViewerPage = ({
@@ -339,6 +361,7 @@ const PdfViewerPage = ({
   scaledHeight,
   scale,
   customPageRenderer: CustomPageRenderer,
+  onPageRendered,
 }: PdfViewerPageProps) => {
   const { imageProps, imageLoadingState } = usePdfPageImage({
     pageNumber,
@@ -348,6 +371,7 @@ const PdfViewerPage = ({
     scaledWidth,
     scaledHeight,
     scale,
+    onPageRendered,
   });
 
   return (
@@ -382,6 +406,7 @@ const usePdfPageImage = ({
   scale,
   scaledWidth,
   scaledHeight,
+  onPageRendered,
 }: PdfViewerPageProps) => {
   const [imageLoadingState, setImageLoadingState] = useState<ImageLoadingState>('loading');
 
@@ -466,7 +491,12 @@ const usePdfPageImage = ({
 
         setRenderedImageMeta(resolution);
 
-        setImageUrl(canvas.toDataURL('image/jpeg'));
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setImageUrl(dataUrl);
+
+        if (resolution === HIGH_RENDER_RESOLUTION) {
+          onPageRendered?.(pageNumber, dataUrl);
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'RenderingCancelledException') {
           return;
