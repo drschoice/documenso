@@ -31,7 +31,9 @@ import {
 import { Separator } from '@documenso/ui/primitives/separator';
 
 import {
+  EditorGenericButtonSizeField,
   EditorGenericFontSizeField,
+  EditorGenericFreePlacementField,
   EditorGenericReadOnlyField,
   EditorGenericRequiredField,
 } from './editor-field-generic-field-forms';
@@ -43,6 +45,8 @@ const ZRadioFieldFormSchema = ZRadioFieldMeta.pick({
   required: true,
   readOnly: true,
   fontSize: true,
+  buttonSize: true,
+  layout: true,
 }).refine(
   (data) => {
     // There cannot be more than one checked option
@@ -63,6 +67,7 @@ type TRadioFieldFormSchema = z.infer<typeof ZRadioFieldFormSchema>;
 export type EditorFieldRadioFormProps = {
   value: RadioFieldMeta | undefined;
   onValueChange: (value: RadioFieldMeta) => void;
+  isEnvelopeV2?: boolean;
 };
 
 export const EditorFieldRadioForm = ({
@@ -71,6 +76,7 @@ export const EditorFieldRadioForm = ({
     direction: 'vertical',
   },
   onValueChange,
+  isEnvelopeV2 = false,
 }: EditorFieldRadioFormProps) => {
   const { t } = useLingui();
 
@@ -87,6 +93,8 @@ export const EditorFieldRadioForm = ({
       readOnly: value.readOnly || false,
       direction: value.direction || 'vertical',
       fontSize: value.fontSize || DEFAULT_FIELD_FONT_SIZE,
+      buttonSize: value.buttonSize,
+      layout: value.layout || 'box',
     },
   });
 
@@ -121,6 +129,7 @@ export const EditorFieldRadioForm = ({
 
     if (validatedFormValues.success) {
       onValueChange({
+        ...value,
         type: 'radio',
         ...validatedFormValues.data,
       });
@@ -133,36 +142,42 @@ export const EditorFieldRadioForm = ({
         <fieldset className="flex flex-col gap-2">
           <EditorGenericFontSizeField formControl={form.control} />
 
-          <FormField
-            control={form.control}
-            name="direction"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  <Trans>Direction</Trans>
-                </FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger
-                      data-testid="field-form-direction"
-                      className="w-full bg-background text-muted-foreground"
-                    >
-                      <SelectValue placeholder={t`Select direction`} />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      <SelectItem value="vertical">
-                        <Trans>Vertical</Trans>
-                      </SelectItem>
-                      <SelectItem value="horizontal">
-                        <Trans>Horizontal</Trans>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {isEnvelopeV2 && <EditorGenericButtonSizeField formControl={form.control} />}
+
+          {formValues.layout !== 'free' && (
+            <FormField
+              control={form.control}
+              name="direction"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    <Trans>Direction</Trans>
+                  </FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger
+                        data-testid="field-form-direction"
+                        className="w-full bg-background text-muted-foreground"
+                      >
+                        <SelectValue placeholder={t`Select direction`} />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        <SelectItem value="vertical">
+                          <Trans>Vertical</Trans>
+                        </SelectItem>
+                        <SelectItem value="horizontal">
+                          <Trans>Horizontal</Trans>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isEnvelopeV2 && <EditorGenericFreePlacementField formControl={form.control} />}
 
           <EditorGenericRequiredField formControl={form.control} />
 

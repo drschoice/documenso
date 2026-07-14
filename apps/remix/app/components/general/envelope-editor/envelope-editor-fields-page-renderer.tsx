@@ -25,9 +25,16 @@ import {
 import { FIELD_META_DEFAULT_VALUES } from '@documenso/lib/types/field-meta';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
+  getFieldOptionGroupsUnion,
+  upsertFreeLayoutDecorations,
+} from '@documenso/lib/universal/field-renderer/field-generic-items';
+import {
   MIN_FIELD_HEIGHT_PX,
   MIN_FIELD_WIDTH_PX,
+  calculateFieldPosition,
+  calculateMultiItemPosition,
   convertPixelToPercentage,
+  resolveButtonSize,
 } from '@documenso/lib/universal/field-renderer/field-renderer';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
@@ -53,6 +60,20 @@ const ADVANCED_FIELD_TYPES = new Set([
   'DATE',
   'NAME',
 ]);
+
+/**
+ * Returns the field meta when the field is a free-layout radio/checkbox field,
+ * otherwise null.
+ */
+const getFreeLayoutMeta = (field: TLocalField | undefined) => {
+  const meta = field?.fieldMeta;
+
+  if (meta && (meta.type === 'radio' || meta.type === 'checkbox') && meta.layout === 'free') {
+    return meta;
+  }
+
+  return null;
+};
 
 export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
   const { t, i18n } = useLingui();
@@ -81,11 +102,83 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     [editorFields.localFields, pageNumber, currentEnvelopeItem?.id],
   );
 
+  /**
+   * Re-normalize a free-layout field after any of its parts moved:
+   *
+   * - The field's stored position/bounds become the union of its options.
+   * - Each option's offsets are recomputed against the new origin so their
+   *   absolute positions are preserved.
+   */
+  const syncFreeLayoutField = (fieldGroup: Konva.Group) => {
+    const fieldFormId = fieldGroup.id();
+
+    const localField = editorFields.getFieldByFormId(fieldFormId);
+    const meta = getFreeLayoutMeta(localField);
+
+    if (!localField || !meta || !pageLayer.current) {
+      return;
+    }
+
+    const union = getFieldOptionGroupsUnion(fieldGroup, pageLayer.current);
+
+    if (!union) {
+      return;
+    }
+
+    const pageWidth = unscaledViewport.width;
+    const pageHeight = unscaledViewport.height;
+
+    const values = (meta.values ?? []).map((value, index) => {
+      const optionGroup = fieldGroup.findOne<Konva.Group>(`#${fieldFormId}-option-${index}`);
+
+      if (!optionGroup) {
+        return value;
+      }
+
+      const anchorX = fieldGroup.x() + optionGroup.x();
+      const anchorY = fieldGroup.y() + optionGroup.y();
+
+      return {
+        ...value,
+        offsetX: ((anchorX - union.x) / pageWidth) * 100,
+        offsetY: ((anchorY - union.y) / pageHeight) * 100,
+      };
+    });
+
+    editorFields.updateFieldByFormId(fieldFormId, {
+      positionX: (union.x / pageWidth) * 100,
+      positionY: (union.y / pageHeight) * 100,
+      width: (union.width / pageWidth) * 100,
+      height: (union.height / pageHeight) * 100,
+      fieldMeta: { ...meta, values },
+    });
+  };
+
   const handleResizeOrMove = (event: KonvaEventObject<Event>) => {
     const isDragEvent = event.type === 'dragend';
 
     const fieldGroup = event.target as Konva.Group;
     const fieldFormId = fieldGroup.id();
+
+    // Ignore events bubbled up from free-layout option subgroups, they are
+    // handled by their own dragend handler.
+    if (!fieldGroup.hasName('field-group')) {
+      return;
+    }
+
+    // Free-layout fields derive their position and bounds from the union of
+    // their options rather than the group client rect, which also contains
+    // decorations (dashed outline, move handle) that extend past the options.
+    if (getFreeLayoutMeta(editorFields.getFieldByFormId(fieldFormId))) {
+      syncFreeLayoutField(fieldGroup);
+
+      if (isDragEvent && interactiveTransformer.current?.nodes().length === 0) {
+        setSelectedFields([fieldGroup]);
+      }
+
+      pageLayer.current?.batchDraw();
+      return;
+    }
 
     // Note: This values are scaled.
     const {
@@ -176,6 +269,27 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     fieldGroup.on('transformend', handleResizeOrMove);
     fieldGroup.on('dragend', handleResizeOrMove);
+
+    // Free-layout radio/checkbox options are individually draggable.
+    fieldGroup.find<Konva.Group>('.field-option-group').forEach((optionGroup) => {
+      optionGroup.on('dragmove', () => {
+        upsertFreeLayoutDecorations({
+          fieldGroup,
+          options: {
+            mode: 'edit',
+            editable: isFieldEditable,
+            color: getRecipientColorKey(field.recipientId),
+          },
+        });
+
+        interactiveTransformer.current?.forceUpdate();
+      });
+
+      optionGroup.on('dragend', () => {
+        syncFreeLayoutField(fieldGroup);
+        pageLayer.current?.batchDraw();
+      });
+    });
   };
 
   const renderFieldOnLayer = (field: TLocalField) => {
@@ -215,6 +329,22 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     // When an item is dragged, select it automatically.
     const onDragStartOrEnd = (e: KonvaEventObject<Event>) => {
       removePendingField();
+
+      // Free-layout option drags select the parent field group.
+      if (e.target.hasName('field-option-group')) {
+        setIsFieldChanging(e.type === 'dragstart');
+
+        const parentFieldGroup = e.target.findAncestor('.field-group');
+
+        if (
+          parentFieldGroup &&
+          !(interactiveTransformer.current?.nodes() || []).includes(parentFieldGroup)
+        ) {
+          setSelectedFields([parentFieldGroup]);
+        }
+
+        return;
+      }
 
       if (!e.target.hasName('field-group')) {
         return;
@@ -428,6 +558,102 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   };
 
   /**
+   * Seed per-option offsets for free-layout radio/checkbox fields.
+   *
+   * Covers two cases:
+   * - A field was just toggled to free layout (every offset missing): seed
+   *   from the current stacked layout so nothing visually jumps.
+   * - New options were added while in free layout: place them below the
+   *   bottom-most placed option.
+   */
+  useEffect(() => {
+    for (const field of localPageFields) {
+      const meta = getFreeLayoutMeta(field);
+      const values = meta?.values ?? [];
+
+      const isMissingOffsets = values.some(
+        (value) => value.offsetX === undefined || value.offsetY === undefined,
+      );
+
+      if (!meta || values.length === 0 || !isMissingOffsets) {
+        continue;
+      }
+
+      const pageWidth = unscaledViewport.width;
+      const pageHeight = unscaledViewport.height;
+
+      const itemSize = resolveButtonSize(meta);
+      const { fieldWidth, fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
+
+      const isSeededFromBox = values.every(
+        (value) => value.offsetX === undefined || value.offsetY === undefined,
+      );
+
+      // Track the bottom-most placed option so new options stack below it.
+      let nextAppendX = 0;
+      let nextAppendY = 0;
+
+      for (const value of values) {
+        if (value.offsetX !== undefined && value.offsetY !== undefined) {
+          const below = value.offsetY + ((itemSize + 8) / pageHeight) * 100;
+
+          if (below > nextAppendY) {
+            nextAppendY = below;
+            nextAppendX = value.offsetX;
+          }
+        }
+      }
+
+      const seededValues = values.map((value, index) => {
+        if (value.offsetX !== undefined && value.offsetY !== undefined) {
+          return value;
+        }
+
+        if (isSeededFromBox) {
+          // Match the position the option currently occupies in the stacked
+          // layout so toggling to free layout is visually a no-op.
+          const { itemInputX, itemInputY } = calculateMultiItemPosition({
+            fieldWidth,
+            fieldHeight,
+            itemCount: values.length,
+            itemIndex: index,
+            itemSize,
+            spacingBetweenItemAndText: 8,
+            fieldPadding: 8,
+            direction: meta.direction || 'vertical',
+            type: meta.type,
+          });
+
+          // Offsets anchor to the top-left of the button, radios are
+          // positioned by their center point.
+          const anchorX = meta.type === 'radio' ? itemInputX - itemSize / 2 : itemInputX;
+          const anchorY = meta.type === 'radio' ? itemInputY - itemSize / 2 : itemInputY;
+
+          return {
+            ...value,
+            offsetX: (anchorX / pageWidth) * 100,
+            offsetY: (anchorY / pageHeight) * 100,
+          };
+        }
+
+        const seededValue = {
+          ...value,
+          offsetX: nextAppendX,
+          offsetY: nextAppendY,
+        };
+
+        nextAppendY += ((itemSize + 8) / pageHeight) * 100;
+
+        return seededValue;
+      });
+
+      editorFields.updateFieldByFormId(field.formId, {
+        fieldMeta: { ...meta, values: seededValues },
+      });
+    }
+  }, [localPageFields]);
+
+  /**
    * Render fields when they are added or removed from the localFields.
    */
   useEffect(() => {
@@ -475,6 +701,18 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       (node) =>
         node.hasName('field-group') && Boolean(node.getStage()) && Boolean(node.getParent()),
     ) as Konva.Group[];
+
+    // Resizing has no meaning for free-layout fields (their bounds are derived
+    // from their options), and the transformer overdraw area would swallow the
+    // drag events of individual options.
+    const containsFreeLayoutField = fieldGroups.some((group) =>
+      getFreeLayoutMeta(editorFields.getFieldByFormId(group.id())),
+    );
+
+    interactiveTransformer.current?.setAttrs({
+      resizeEnabled: !containsFreeLayoutField,
+      shouldOverdrawWholeArea: !containsFreeLayoutField,
+    });
 
     interactiveTransformer.current?.nodes(fieldGroups);
     setSelectedKonvaFieldGroups(fieldGroups);

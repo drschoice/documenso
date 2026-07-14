@@ -80,6 +80,238 @@ export const upsertFieldRect = (
   return fieldRect;
 };
 
+/**
+ * Background rect rendered behind each option of a free-layout radio/checkbox
+ * field. Carries the same internal index attrs as the option shapes so it acts
+ * as a click/drag target.
+ */
+export const createFieldOptionRect = ({
+  attrs,
+  id,
+  x,
+  y,
+  width,
+  height,
+  options,
+}: {
+  attrs: Record<string, number>;
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  options: RenderFieldElementOptions;
+}): Konva.Rect => {
+  const { mode, color } = options;
+
+  return new Konva.Rect({
+    ...attrs,
+    id,
+    name: 'field-option-rect',
+    x,
+    y,
+    width,
+    height,
+    fill: color ? getRecipientColorStyles(color).fieldBackground : DEFAULT_RECT_BACKGROUND,
+    stroke: color ? getRecipientColorStyles(color).fieldBorder : '#e5e7eb',
+    strokeWidth: 1.5,
+    cornerRadius: 2,
+    strokeScaleEnabled: false,
+    visible: mode !== 'export',
+  });
+};
+
+/**
+ * Hover effect for free-layout fields, highlighting every option rect so the
+ * whole logical field lights up together.
+ */
+export const createFieldOptionsHoverInteraction = ({
+  options,
+  fieldGroup,
+}: {
+  options: RenderFieldElementOptions;
+  fieldGroup: Konva.Group;
+}) => {
+  const { mode } = options;
+
+  if (mode === 'export' || !options.color) {
+    return;
+  }
+
+  const { baseRingHover: hoverColor, fieldBackground: restingColor } = getRecipientColorStyles(
+    options.color,
+  );
+
+  const tweenOptionRects = (fill: string) => {
+    fieldGroup.find('.field-option-rect').forEach((rect) => {
+      new Konva.Tween({
+        node: rect,
+        duration: 0.3,
+        fill,
+      }).play();
+    });
+  };
+
+  fieldGroup.off('mouseover.optionHover mouseout.optionHover');
+  fieldGroup.on('mouseover.optionHover', () => tweenOptionRects(hoverColor));
+  fieldGroup.on('mouseout.optionHover', () => tweenOptionRects(restingColor));
+};
+
+/**
+ * The bounding box of all option groups of a free-layout field, relative to
+ * the provided container.
+ *
+ * Purposefully excludes decorations (outline, move handle) so it can be used
+ * to derive the field's stored position and bounds.
+ */
+export const getFieldOptionGroupsUnion = (
+  fieldGroup: Konva.Group,
+  relativeTo: Konva.Container = fieldGroup,
+) => {
+  const optionGroups = fieldGroup.find<Konva.Group>('.field-option-group');
+
+  if (optionGroups.length === 0) {
+    return null;
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const optionGroup of optionGroups) {
+    const rect = optionGroup.getClientRect({
+      relativeTo,
+      skipShadow: true,
+      skipStroke: true,
+    });
+
+    minX = Math.min(minX, rect.x);
+    minY = Math.min(minY, rect.y);
+    maxX = Math.max(maxX, rect.x + rect.width);
+    maxY = Math.max(maxY, rect.y + rect.height);
+  }
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+};
+
+const FREE_LAYOUT_HANDLE_SIZE = 16;
+
+/**
+ * Editor-only decorations for free-layout fields:
+ *
+ * - A dashed outline around the union of all options showing they belong to
+ *   one logical field.
+ * - A move handle chip at the union's top-left corner. It is a non-draggable
+ *   child of the field group, so dragging it bubbles up and moves the whole
+ *   group at once.
+ *
+ * Safe to call repeatedly, both after a re-render and during option drags.
+ */
+export const upsertFreeLayoutDecorations = ({
+  fieldGroup,
+  options,
+}: {
+  fieldGroup: Konva.Group;
+  options: Pick<RenderFieldElementOptions, 'mode' | 'editable' | 'color'>;
+}) => {
+  const { mode, editable, color } = options;
+
+  if (mode !== 'edit' || !editable) {
+    return;
+  }
+
+  const union = getFieldOptionGroupsUnion(fieldGroup);
+
+  if (!union) {
+    return;
+  }
+
+  const stroke = color ? getRecipientColorStyles(color).baseRing : '#e5e7eb';
+
+  let outline = fieldGroup.findOne<Konva.Rect>('.field-free-outline');
+
+  if (!outline) {
+    outline = new Konva.Rect({
+      name: 'field-free-outline',
+      listening: false,
+      dash: [4, 4],
+      strokeWidth: 1,
+      strokeScaleEnabled: false,
+    });
+
+    fieldGroup.add(outline);
+  }
+
+  outline.setAttrs({
+    x: union.x - 2,
+    y: union.y - 2,
+    width: union.width + 4,
+    height: union.height + 4,
+    stroke,
+  });
+
+  let moveHandle = fieldGroup.findOne<Konva.Group>('.field-free-move-handle');
+
+  if (!moveHandle) {
+    moveHandle = new Konva.Group({
+      name: 'field-free-move-handle',
+    });
+
+    moveHandle.add(
+      new Konva.Rect({
+        width: FREE_LAYOUT_HANDLE_SIZE,
+        height: FREE_LAYOUT_HANDLE_SIZE,
+        fill: stroke,
+        cornerRadius: 3,
+      }),
+    );
+
+    // Drag handle dot pattern.
+    for (const [dotX, dotY] of [
+      [6, 4],
+      [10, 4],
+      [6, 8],
+      [10, 8],
+      [6, 12],
+      [10, 12],
+    ]) {
+      moveHandle.add(
+        new Konva.Circle({
+          x: dotX,
+          y: dotY,
+          radius: 1.2,
+          fill: 'white',
+          listening: false,
+        }),
+      );
+    }
+
+    moveHandle.on('mouseenter', () => {
+      const container = moveHandle?.getStage()?.container();
+
+      if (container) {
+        container.style.cursor = 'move';
+      }
+    });
+
+    moveHandle.on('mouseleave', () => {
+      const container = moveHandle?.getStage()?.container();
+
+      if (container) {
+        container.style.cursor = '';
+      }
+    });
+
+    fieldGroup.add(moveHandle);
+  }
+
+  moveHandle.position({
+    x: union.x - 2 - FREE_LAYOUT_HANDLE_SIZE / 2,
+    y: union.y - 2 - FREE_LAYOUT_HANDLE_SIZE / 2,
+  });
+};
+
 export const createSpinner = ({
   fieldWidth,
   fieldHeight,
