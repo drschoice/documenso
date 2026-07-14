@@ -7,6 +7,8 @@ import { FIELD_MIN_LINE_HEIGHT } from '@documenso/lib/types/field-meta';
 import { FIELD_MAX_LINE_HEIGHT } from '@documenso/lib/types/field-meta';
 import { FIELD_MIN_LETTER_SPACING } from '@documenso/lib/types/field-meta';
 import { FIELD_MAX_LETTER_SPACING } from '@documenso/lib/types/field-meta';
+import { FIELD_MIN_BUTTON_SIZE } from '@documenso/lib/types/field-meta';
+import { FIELD_MAX_BUTTON_SIZE } from '@documenso/lib/types/field-meta';
 import { cn } from '@documenso/ui/lib/utils';
 import { Checkbox } from '@documenso/ui/primitives/checkbox';
 import {
@@ -61,6 +63,117 @@ export const EditorGenericFontSizeField = ({
                 field.onChange(Number(e.target.value));
               }}
             />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+export const EditorGenericButtonSizeField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  const { t } = useLingui();
+
+  return (
+    <FormField
+      control={formControl}
+      name="buttonSize"
+      render={({ field }) => (
+        <FormItem className={className}>
+          <FormLabel>
+            <Trans>Button Size</Trans>
+          </FormLabel>
+          <FormControl>
+            <Input
+              data-testid="field-form-buttonSize"
+              type="number"
+              min={FIELD_MIN_BUTTON_SIZE}
+              max={FIELD_MAX_BUTTON_SIZE}
+              className="bg-background"
+              placeholder={t`Defaults to font size`}
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => {
+                field.onChange(e.target.value === '' ? undefined : Number(e.target.value));
+              }}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+export const EditorGenericFreePlacementField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  return (
+    <FormField
+      control={formControl}
+      name="layout"
+      render={({ field }) => (
+        <FormItem className={cn('flex items-center space-x-2', className)}>
+          <FormControl>
+            <div className="flex items-center">
+              <Checkbox
+                data-testid="field-form-freePlacement"
+                id="field-free-placement"
+                checked={field.value === 'free'}
+                onCheckedChange={(checked) => field.onChange(checked ? 'free' : 'box')}
+              />
+
+              <label className="ml-2 text-sm text-muted-foreground" htmlFor="field-free-placement">
+                <Trans>Free placement</Trans>
+              </label>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+export const EditorGenericShowOptionTextField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  return (
+    <FormField
+      control={formControl}
+      name="showOptionText"
+      render={({ field }) => (
+        <FormItem className={cn('flex items-center space-x-2', className)}>
+          <FormControl>
+            <div className="flex items-center">
+              <Checkbox
+                data-testid="field-form-showOptionText"
+                id="field-show-option-text"
+                checked={field.value !== false}
+                onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+              />
+
+              <label
+                className="ml-2 text-sm text-muted-foreground"
+                htmlFor="field-show-option-text"
+              >
+                <Trans>Show option text</Trans>
+              </label>
+            </div>
           </FormControl>
           <FormMessage />
         </FormItem>

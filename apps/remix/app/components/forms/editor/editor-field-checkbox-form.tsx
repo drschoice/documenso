@@ -39,9 +39,12 @@ import {
 import { Separator } from '@documenso/ui/primitives/separator';
 
 import {
+  EditorGenericButtonSizeField,
   EditorGenericFontSizeField,
+  EditorGenericFreePlacementField,
   EditorGenericReadOnlyField,
   EditorGenericRequiredField,
+  EditorGenericShowOptionTextField,
 } from './editor-field-generic-field-forms';
 
 const ZCheckboxFieldFormSchema = ZCheckboxFieldMeta.pick({
@@ -53,6 +56,9 @@ const ZCheckboxFieldFormSchema = ZCheckboxFieldMeta.pick({
   values: true,
   readOnly: true,
   fontSize: true,
+  buttonSize: true,
+  layout: true,
+  showOptionText: true,
 })
   .extend({
     validationLength: z.coerce.number().optional(),
@@ -79,6 +85,7 @@ type TCheckboxFieldFormSchema = z.infer<typeof ZCheckboxFieldFormSchema>;
 type EditorFieldCheckboxFormProps = {
   value: CheckboxFieldMeta | undefined;
   onValueChange: (value: CheckboxFieldMeta) => void;
+  isEnvelopeV2?: boolean;
 };
 
 export const EditorFieldCheckboxForm = ({
@@ -87,6 +94,7 @@ export const EditorFieldCheckboxForm = ({
     direction: 'vertical',
   },
   onValueChange,
+  isEnvelopeV2 = false,
 }: EditorFieldCheckboxFormProps) => {
   const form = useForm<TCheckboxFieldFormSchema>({
     resolver: zodResolver(ZCheckboxFieldFormSchema),
@@ -100,6 +108,9 @@ export const EditorFieldCheckboxForm = ({
       required: value.required || false,
       readOnly: value.readOnly || false,
       fontSize: value.fontSize || DEFAULT_FIELD_FONT_SIZE,
+      buttonSize: value.buttonSize,
+      layout: value.layout || 'box',
+      showOptionText: value.showOptionText ?? true,
     },
   });
 
@@ -174,36 +185,44 @@ export const EditorFieldCheckboxForm = ({
         <fieldset className="flex flex-col gap-2">
           <EditorGenericFontSizeField formControl={form.control} />
 
-          <FormField
-            control={form.control}
-            name="direction"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  <Trans>Direction</Trans>
-                </FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger
-                      data-testid="field-form-direction"
-                      className="w-full bg-background text-muted-foreground"
-                    >
-                      <SelectValue placeholder={t`Select direction`} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    <SelectItem value="vertical">
-                      <Trans>Vertical</Trans>
-                    </SelectItem>
-                    <SelectItem value="horizontal">
-                      <Trans>Horizontal</Trans>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {isEnvelopeV2 && <EditorGenericButtonSizeField formControl={form.control} />}
+
+          {formValues.layout !== 'free' && (
+            <FormField
+              control={form.control}
+              name="direction"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    <Trans>Direction</Trans>
+                  </FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger
+                        data-testid="field-form-direction"
+                        className="w-full bg-background text-muted-foreground"
+                      >
+                        <SelectValue placeholder={t`Select direction`} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      <SelectItem value="vertical">
+                        <Trans>Vertical</Trans>
+                      </SelectItem>
+                      <SelectItem value="horizontal">
+                        <Trans>Horizontal</Trans>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isEnvelopeV2 && <EditorGenericFreePlacementField formControl={form.control} />}
+
+          {isEnvelopeV2 && <EditorGenericShowOptionTextField formControl={form.control} />}
 
           <div className="flex flex-row items-center justify-start gap-x-4">
             <div className="flex w-2/3 flex-col">

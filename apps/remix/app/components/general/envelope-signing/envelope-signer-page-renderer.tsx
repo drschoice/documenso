@@ -202,9 +202,20 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         }
       }
 
+      // Free-layout radio/checkbox options render as their own subgroups, so
+      // attach the spinner to the clicked option instead of the whole field
+      // union which may be mostly empty space.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const clickedOptionGroup = target.findAncestor('.field-option-group') as Konva.Group | null;
+      const spinnerParent = clickedOptionGroup ?? fieldGroup;
+
+      const { width: spinnerWidth, height: spinnerHeight } = clickedOptionGroup
+        ? clickedOptionGroup.getClientRect()
+        : { width: fieldWidth, height: fieldHeight };
+
       const loadingSpinnerGroup = createSpinner({
-        fieldWidth: fieldWidth / scale,
-        fieldHeight: fieldHeight / scale,
+        fieldWidth: spinnerWidth / scale,
+        fieldHeight: spinnerHeight / scale,
       });
 
       const parsedFoundField = ZFullFieldSchema.parse(foundField);
@@ -223,7 +234,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           handleCheckboxFieldClick({ field, clickedCheckboxIndex })
             .then(async (payload) => {
               if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
+                spinnerParent.add(loadingSpinnerGroup);
                 await signField(field.id, payload);
               }
             })
@@ -242,7 +253,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
             return;
           }
 
-          fieldGroup.add(loadingSpinnerGroup);
+          spinnerParent.add(loadingSpinnerGroup);
 
           // Uncheck the value if it's already pressed.
           const value =
