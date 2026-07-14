@@ -16,6 +16,9 @@ export const FIELD_MAX_LETTER_SPACING = 100;
 
 export const DEFAULT_FIELD_FONT_SIZE = 12;
 
+export const FIELD_MIN_BUTTON_SIZE = 4;
+export const FIELD_MAX_BUTTON_SIZE = 96;
+
 /**
  * Grouped field types that use the same generic text rendering function.
  */
@@ -143,18 +146,44 @@ export const ZNumberFieldMeta = ZBaseFieldMeta.extend({
 
 export type TNumberFieldMeta = z.infer<typeof ZNumberFieldMeta>;
 
+export const ZFieldOptionValue = z.object({
+  id: z.number(),
+  checked: z.boolean(),
+  value: z.string(),
+  /**
+   * Free-layout placement: offsets relative to the field's top-left corner, in
+   * page-percentage units (same denominators as Field.positionX/positionY).
+   * The anchor is the top-left of the option button's bounding square.
+   *
+   * Only used when the field meta `layout` is 'free'.
+   */
+  offsetX: z.number().min(-100).max(100).optional(),
+  offsetY: z.number().min(-100).max(100).optional(),
+});
+
+export type TFieldOptionValue = z.infer<typeof ZFieldOptionValue>;
+
+/**
+ * Shared radio/checkbox option properties.
+ *
+ * - `buttonSize`: diameter of the radio circle / side of the checkbox square in
+ *   unscaled PDF pixels. Falls back to `fontSize` when absent.
+ * - `layout`: 'box' (or absent) stacks options inside the field bounding box,
+ *   'free' places each option at its own offset from the field origin.
+ * - `showOptionText`: whether the option value is rendered next to the button.
+ *   Absent means shown.
+ */
+const ZOptionFieldMetaExtensions = {
+  values: z.array(ZFieldOptionValue).optional(),
+  buttonSize: z.number().min(FIELD_MIN_BUTTON_SIZE).max(FIELD_MAX_BUTTON_SIZE).optional(),
+  layout: z.enum(['box', 'free']).optional(),
+  showOptionText: z.boolean().optional(),
+  direction: z.enum(['vertical', 'horizontal']).optional().default('vertical'),
+};
+
 export const ZRadioFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('radio'),
-  values: z
-    .array(
-      z.object({
-        id: z.number(),
-        checked: z.boolean(),
-        value: z.string(),
-      }),
-    )
-    .optional(),
-  direction: z.enum(['vertical', 'horizontal']).optional().default('vertical'),
+  ...ZOptionFieldMetaExtensions,
   ...ZConditionalMetaExtensions,
 });
 
@@ -162,18 +191,9 @@ export type TRadioFieldMeta = z.infer<typeof ZRadioFieldMeta>;
 
 export const ZCheckboxFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('checkbox'),
-  values: z
-    .array(
-      z.object({
-        id: z.number(),
-        checked: z.boolean(),
-        value: z.string(),
-      }),
-    )
-    .optional(),
+  ...ZOptionFieldMetaExtensions,
   validationRule: z.string().optional(),
   validationLength: z.number().optional(),
-  direction: z.enum(['vertical', 'horizontal']).optional().default('vertical'),
   ...ZConditionalMetaExtensions,
 });
 

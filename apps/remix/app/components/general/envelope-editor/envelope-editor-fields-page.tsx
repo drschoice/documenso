@@ -21,6 +21,7 @@ import {
   type TDropdownFieldMeta,
   type TEmailFieldMeta,
   type TFieldMetaSchema,
+  type TFieldOptionValue,
   type TInitialsFieldMeta,
   type TNameFieldMeta,
   type TNumberFieldMeta,
@@ -220,7 +221,7 @@ export const EnvelopeEditorFieldsPage = () => {
     // form schemas use .pick() and don't include these keys, so they would
     // otherwise be silently dropped on every sidebar edit.
     const existingMeta = selectedField.fieldMeta as Record<string, unknown> | undefined;
-    const mergedMeta: TFieldMetaSchema =
+    let mergedMeta: TFieldMetaSchema =
       fieldMeta && existingMeta
         ? ({
             ...(existingMeta.stableId !== undefined ? { stableId: existingMeta.stableId } : {}),
@@ -230,6 +231,41 @@ export const EnvelopeEditorFieldsPage = () => {
             ...(fieldMeta as Record<string, unknown>),
           } as TFieldMetaSchema)
         : fieldMeta;
+
+    // Free-layout option offsets live on the canvas, not in the sidebar form,
+    // so the form may emit values without them (e.g. when the field was
+    // selected before the offsets were seeded). Preserve them by option id,
+    // and strip them when leaving free layout.
+    if (mergedMeta && (mergedMeta.type === 'radio' || mergedMeta.type === 'checkbox')) {
+      const isFreeLayout = mergedMeta.layout === 'free';
+
+      const existingValues =
+        existingMeta && (existingMeta.type === 'radio' || existingMeta.type === 'checkbox')
+          ? ((existingMeta.values as TFieldOptionValue[] | undefined) ?? [])
+          : [];
+
+      mergedMeta = {
+        ...mergedMeta,
+        values: mergedMeta.values?.map((value) => {
+          const { offsetX, offsetY, ...rest } = value;
+
+          if (!isFreeLayout) {
+            return rest;
+          }
+
+          const existingValue = existingValues.find((v) => v.id === value.id);
+
+          const resolvedOffsetX = offsetX ?? existingValue?.offsetX;
+          const resolvedOffsetY = offsetY ?? existingValue?.offsetY;
+
+          return {
+            ...rest,
+            ...(resolvedOffsetX !== undefined ? { offsetX: resolvedOffsetX } : {}),
+            ...(resolvedOffsetY !== undefined ? { offsetY: resolvedOffsetY } : {}),
+          };
+        }),
+      };
+    }
 
     const isMetaSame = isDeepEqual(selectedField.fieldMeta, mergedMeta);
 
@@ -559,6 +595,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldCheckboxForm
                         value={selectedField?.fieldMeta as TCheckboxFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .with(FieldType.DATE, () => (
@@ -601,6 +638,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldRadioForm
                         value={selectedField?.fieldMeta as TRadioFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .with(FieldType.TEXT, () => (

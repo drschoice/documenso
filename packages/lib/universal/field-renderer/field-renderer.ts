@@ -4,6 +4,7 @@ import type Konva from 'konva';
 
 import type { TRecipientColor } from '@documenso/ui/lib/recipient-colors';
 
+import { DEFAULT_STANDARD_FONT_SIZE } from '../../constants/pdf';
 import type { TFieldMetaSchema } from '../../types/field-meta';
 
 export const MIN_FIELD_HEIGHT_PX = 12;
@@ -69,6 +70,112 @@ export const convertPixelToPercentage = (options: ConvertPixelToPercentageOption
   const fieldHeight = (height / pageHeight) * 100;
 
   return { fieldX, fieldY, fieldWidth, fieldHeight };
+};
+
+/**
+ * Resolve the size of a radio button/checkbox square in pixels.
+ *
+ * Uses the explicit button size when set, otherwise falls back to the font
+ * size which was the original behaviour.
+ */
+export const resolveButtonSize = (
+  meta?: { buttonSize?: number; fontSize?: number } | null,
+): number => {
+  return meta?.buttonSize ?? meta?.fontSize ?? DEFAULT_STANDARD_FONT_SIZE;
+};
+
+type CalculateFreeItemPositionOptions = {
+  /**
+   * Offsets relative to the field's top-left corner, in page-percentage units.
+   *
+   * Undefined offsets (e.g. options created via the API) fall back to a
+   * deterministic vertical stack from the field origin.
+   */
+  offsetX: number | undefined;
+  offsetY: number | undefined;
+
+  /**
+   * The position of the item in the list, used for the fallback stack.
+   *
+   * Starts from 0
+   */
+  itemIndex: number;
+
+  /**
+   * The size of the item input, example checkbox box, radio button, etc.
+   */
+  itemSize: number;
+
+  /**
+   * The spacing between the item and text.
+   */
+  spacingBetweenItemAndText: number;
+
+  /**
+   * The font size of the item label.
+   */
+  fontSize: number;
+
+  /**
+   * The page width and height in pixels, used to convert percentage offsets.
+   */
+  pageWidth: number;
+  pageHeight: number;
+
+  type: 'checkbox' | 'radio';
+};
+
+/**
+ * Calculate the position of a free-layout field item.
+ *
+ * `anchorX`/`anchorY` position the option group relative to the field group,
+ * while the remaining coordinates are relative to the option group itself.
+ */
+export const calculateFreeItemPosition = (options: CalculateFreeItemPositionOptions) => {
+  const {
+    offsetX,
+    offsetY,
+    itemIndex,
+    itemSize,
+    spacingBetweenItemAndText,
+    fontSize,
+    pageWidth,
+    pageHeight,
+    type,
+  } = options;
+
+  const hasOffsets = offsetX !== undefined && offsetY !== undefined;
+
+  const anchorX = hasOffsets ? pageWidth * (offsetX / 100) : 0;
+  const anchorY = hasOffsets
+    ? pageHeight * (offsetY / 100)
+    : itemIndex * (itemSize + spacingBetweenItemAndText);
+
+  let itemInputX = 0;
+  let itemInputY = 0;
+
+  // Radio circles are positioned by their center point.
+  if (type === 'radio') {
+    itemInputX = itemSize / 2;
+    itemInputY = itemSize / 2;
+  }
+
+  const textHeight = Math.max(itemSize, fontSize);
+
+  const textX = itemSize + spacingBetweenItemAndText;
+  const textY = itemSize / 2 - textHeight / 2;
+
+  return {
+    anchorX,
+    anchorY,
+    itemInputX,
+    itemInputY,
+    textX,
+    textY,
+    // No width means Konva will auto-size the text to its content.
+    textWidth: undefined,
+    textHeight,
+  };
 };
 
 type CalculateMultiItemPositionOptions = {
