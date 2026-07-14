@@ -230,6 +230,24 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       return;
     }
 
+    // Never rebuild a field while it or one of its free-layout options is
+    // mid-drag (e.g. when dragging an unselected field selects it and re-runs
+    // the render effect). Rebuilding removes the dragged node, which makes
+    // Konva force-stop the drag and fire dragend on a half-detached group,
+    // corrupting the position sync. The dragend handlers re-render it anyway.
+    const existingFieldGroup = pageLayer.current.findOne<Konva.Group>(`#${field.formId}`);
+
+    const isFieldGroupDragging =
+      existingFieldGroup !== undefined &&
+      (existingFieldGroup.isDragging() ||
+        existingFieldGroup
+          .find<Konva.Group>('.field-option-group')
+          .some((optionGroup) => optionGroup.isDragging()));
+
+    if (isFieldGroupDragging) {
+      return;
+    }
+
     const recipient = envelope.recipients.find((r) => r.id === field.recipientId);
     const isFieldEditable =
       recipient !== undefined && canRecipientFieldsBeModified(recipient, envelope.fields);
