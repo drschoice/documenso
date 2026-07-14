@@ -38,6 +38,7 @@ export const renderCheckboxFieldElement = (
   const checkboxMeta: TCheckboxFieldMeta | null = (field.fieldMeta as TCheckboxFieldMeta) || null;
   const checkboxValues = checkboxMeta?.values || [];
   const isFreeLayout = checkboxMeta?.layout === 'free';
+  const showOptionText = checkboxMeta?.showOptionText !== false;
 
   const isFirstRender = !pageLayer.findOne(`#${field.renderId}`);
 
@@ -121,7 +122,8 @@ export const renderCheckboxFieldElement = (
           y: itemInputY,
         });
 
-        textElement.setAttrs({
+        // Text is not rendered when showOptionText is disabled.
+        textElement?.setAttrs({
           x: textX,
           y: textY,
           scaleX: 1,
@@ -212,29 +214,32 @@ export const renderCheckboxFieldElement = (
         visible: isCheckboxChecked,
       });
 
-      const text = new Konva.Text({
-        internalCheckboxIndex: index,
-        id: `checkbox-text-${index}`,
-        name: 'checkbox-text',
-        x: textX,
-        y: textY,
-        text: value,
-        height: textHeight,
-        fontSize,
-        fontFamily: konvaTextFontFamily,
-        fill: konvaTextFill,
-        verticalAlign: 'middle',
-        wrap: 'none',
-      });
+      const text = showOptionText
+        ? new Konva.Text({
+            internalCheckboxIndex: index,
+            id: `checkbox-text-${index}`,
+            name: 'checkbox-text',
+            x: textX,
+            y: textY,
+            text: value,
+            height: textHeight,
+            fontSize,
+            fontFamily: konvaTextFontFamily,
+            fill: konvaTextFill,
+            verticalAlign: 'middle',
+            wrap: 'none',
+          })
+        : null;
 
       const optionRectX = -checkboxOptionRectPadding;
-      const optionRectY = textY - checkboxOptionRectPadding;
-      const optionRectWidth =
-        itemSize +
-        spacingBetweenCheckboxAndText +
-        (value ? text.width() : 0) +
-        checkboxOptionRectPadding * 2;
-      const optionRectHeight = textHeight + checkboxOptionRectPadding * 2;
+      const optionRectY = (text ? textY : 0) - checkboxOptionRectPadding;
+      const optionRectWidth = text
+        ? itemSize +
+          spacingBetweenCheckboxAndText +
+          (value ? text.width() : 0) +
+          checkboxOptionRectPadding * 2
+        : itemSize + checkboxOptionRectPadding * 2;
+      const optionRectHeight = (text ? textHeight : itemSize) + checkboxOptionRectPadding * 2;
 
       const optionRect = createFieldOptionRect({
         attrs: { internalCheckboxIndex: index },
@@ -249,7 +254,10 @@ export const renderCheckboxFieldElement = (
       optionGroup.add(optionRect);
       optionGroup.add(square);
       optionGroup.add(checkmark);
-      optionGroup.add(text);
+
+      if (text) {
+        optionGroup.add(text);
+      }
 
       if (mode === 'edit' && editable) {
         optionGroup.draggable(true);
@@ -312,24 +320,27 @@ export const renderCheckboxFieldElement = (
       visible: isCheckboxChecked,
     });
 
-    const text = new Konva.Text({
-      internalCheckboxIndex: index,
-      id: `checkbox-text-${index}`,
-      name: 'checkbox-text',
-      x: textX,
-      y: textY,
-      text: value,
-      width: textWidth,
-      height: textHeight,
-      fontSize,
-      fontFamily: konvaTextFontFamily,
-      fill: konvaTextFill,
-      verticalAlign: 'middle',
-    });
-
     fieldGroup.add(square);
     fieldGroup.add(checkmark);
-    fieldGroup.add(text);
+
+    if (showOptionText) {
+      const text = new Konva.Text({
+        internalCheckboxIndex: index,
+        id: `checkbox-text-${index}`,
+        name: 'checkbox-text',
+        x: textX,
+        y: textY,
+        text: value,
+        width: textWidth,
+        height: textHeight,
+        fontSize,
+        fontFamily: konvaTextFontFamily,
+        fill: konvaTextFill,
+        verticalAlign: 'middle',
+      });
+
+      fieldGroup.add(text);
+    }
   });
 
   if (isFreeLayout) {

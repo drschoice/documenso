@@ -170,11 +170,14 @@ export type TFieldOptionValue = z.infer<typeof ZFieldOptionValue>;
  *   unscaled PDF pixels. Falls back to `fontSize` when absent.
  * - `layout`: 'box' (or absent) stacks options inside the field bounding box,
  *   'free' places each option at its own offset from the field origin.
+ * - `showOptionText`: whether the option value is rendered next to the button.
+ *   Absent means shown.
  */
 const ZOptionFieldMetaExtensions = {
   values: z.array(ZFieldOptionValue).optional(),
   buttonSize: z.number().min(FIELD_MIN_BUTTON_SIZE).max(FIELD_MAX_BUTTON_SIZE).optional(),
   layout: z.enum(['box', 'free']).optional(),
+  showOptionText: z.boolean().optional(),
   direction: z.enum(['vertical', 'horizontal']).optional().default('vertical'),
 };
 

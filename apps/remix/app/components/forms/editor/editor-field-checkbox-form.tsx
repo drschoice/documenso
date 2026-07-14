@@ -44,6 +44,7 @@ import {
   EditorGenericFreePlacementField,
   EditorGenericReadOnlyField,
   EditorGenericRequiredField,
+  EditorGenericShowOptionTextField,
 } from './editor-field-generic-field-forms';
 
 const ZCheckboxFieldFormSchema = ZCheckboxFieldMeta.pick({
@@ -57,6 +58,7 @@ const ZCheckboxFieldFormSchema = ZCheckboxFieldMeta.pick({
   fontSize: true,
   buttonSize: true,
   layout: true,
+  showOptionText: true,
 })
   .extend({
     validationLength: z.coerce.number().optional(),
@@ -108,6 +110,7 @@ export const EditorFieldCheckboxForm = ({
       fontSize: value.fontSize || DEFAULT_FIELD_FONT_SIZE,
       buttonSize: value.buttonSize,
       layout: value.layout || 'box',
+      showOptionText: value.showOptionText ?? true,
     },
   });
 
@@ -218,6 +221,8 @@ export const EditorFieldCheckboxForm = ({
           )}
 
           {isEnvelopeV2 && <EditorGenericFreePlacementField formControl={form.control} />}
+
+          {isEnvelopeV2 && <EditorGenericShowOptionTextField formControl={form.control} />}
 
           <div className="flex flex-row items-center justify-start gap-x-4">
             <div className="flex w-2/3 flex-col">

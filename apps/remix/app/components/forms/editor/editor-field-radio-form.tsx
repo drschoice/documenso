@@ -36,6 +36,7 @@ import {
   EditorGenericFreePlacementField,
   EditorGenericReadOnlyField,
   EditorGenericRequiredField,
+  EditorGenericShowOptionTextField,
 } from './editor-field-generic-field-forms';
 
 const ZRadioFieldFormSchema = ZRadioFieldMeta.pick({
@@ -47,6 +48,7 @@ const ZRadioFieldFormSchema = ZRadioFieldMeta.pick({
   fontSize: true,
   buttonSize: true,
   layout: true,
+  showOptionText: true,
 }).refine(
   (data) => {
     // There cannot be more than one checked option
@@ -95,6 +97,7 @@ export const EditorFieldRadioForm = ({
       fontSize: value.fontSize || DEFAULT_FIELD_FONT_SIZE,
       buttonSize: value.buttonSize,
       layout: value.layout || 'box',
+      showOptionText: value.showOptionText ?? true,
     },
   });
 
@@ -178,6 +181,8 @@ export const EditorFieldRadioForm = ({
           )}
 
           {isEnvelopeV2 && <EditorGenericFreePlacementField formControl={form.control} />}
+
+          {isEnvelopeV2 && <EditorGenericShowOptionTextField formControl={form.control} />}
 
           <EditorGenericRequiredField formControl={form.control} />
 

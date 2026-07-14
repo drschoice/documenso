@@ -35,6 +35,7 @@ export const renderRadioFieldElement = (
   const radioMeta: TRadioFieldMeta | null = (field.fieldMeta as TRadioFieldMeta) || null;
   const radioValues = radioMeta?.values || [];
   const isFreeLayout = radioMeta?.layout === 'free';
+  const showOptionText = radioMeta?.showOptionText !== false;
 
   const isFirstRender = !pageLayer.findOne(`#${field.renderId}`);
 
@@ -114,7 +115,8 @@ export const renderRadioFieldElement = (
           scaleY: 1,
         });
 
-        textElement.setAttrs({
+        // Text is not rendered when showOptionText is disabled.
+        textElement?.setAttrs({
           x: textX,
           y: textY,
           scaleX: 1,
@@ -197,29 +199,32 @@ export const renderRadioFieldElement = (
         visible: isRadioValueChecked,
       });
 
-      const text = new Konva.Text({
-        internalRadioIndex: index,
-        id: `radio-text-${index}`,
-        name: 'radio-text',
-        x: textX,
-        y: textY,
-        text: value,
-        height: textHeight,
-        fontSize,
-        fontFamily: konvaTextFontFamily,
-        fill: konvaTextFill,
-        verticalAlign: 'middle',
-        wrap: 'none',
-      });
+      const text = showOptionText
+        ? new Konva.Text({
+            internalRadioIndex: index,
+            id: `radio-text-${index}`,
+            name: 'radio-text',
+            x: textX,
+            y: textY,
+            text: value,
+            height: textHeight,
+            fontSize,
+            fontFamily: konvaTextFontFamily,
+            fill: konvaTextFill,
+            verticalAlign: 'middle',
+            wrap: 'none',
+          })
+        : null;
 
       const optionRectX = -radioOptionRectPadding;
-      const optionRectY = textY - radioOptionRectPadding;
-      const optionRectWidth =
-        itemSize +
-        spacingBetweenRadioAndText +
-        (value ? text.width() : 0) +
-        radioOptionRectPadding * 2;
-      const optionRectHeight = textHeight + radioOptionRectPadding * 2;
+      const optionRectY = (text ? textY : 0) - radioOptionRectPadding;
+      const optionRectWidth = text
+        ? itemSize +
+          spacingBetweenRadioAndText +
+          (value ? text.width() : 0) +
+          radioOptionRectPadding * 2
+        : itemSize + radioOptionRectPadding * 2;
+      const optionRectHeight = (text ? textHeight : itemSize) + radioOptionRectPadding * 2;
 
       const optionRect = createFieldOptionRect({
         attrs: { internalRadioIndex: index },
@@ -234,7 +239,10 @@ export const renderRadioFieldElement = (
       optionGroup.add(optionRect);
       optionGroup.add(circle);
       optionGroup.add(dot);
-      optionGroup.add(text);
+
+      if (text) {
+        optionGroup.add(text);
+      }
 
       if (mode === 'edit' && editable) {
         optionGroup.draggable(true);
@@ -295,24 +303,27 @@ export const renderRadioFieldElement = (
       visible: isRadioValueChecked,
     });
 
-    const text = new Konva.Text({
-      internalRadioIndex: index,
-      id: `radio-text-${index}`,
-      name: 'radio-text',
-      x: textX,
-      y: textY,
-      text: value,
-      width: textWidth,
-      height: textHeight,
-      fontSize,
-      fontFamily: konvaTextFontFamily,
-      fill: konvaTextFill,
-      verticalAlign: 'middle',
-    });
-
     fieldGroup.add(circle);
     fieldGroup.add(dot);
-    fieldGroup.add(text);
+
+    if (showOptionText) {
+      const text = new Konva.Text({
+        internalRadioIndex: index,
+        id: `radio-text-${index}`,
+        name: 'radio-text',
+        x: textX,
+        y: textY,
+        text: value,
+        width: textWidth,
+        height: textHeight,
+        fontSize,
+        fontFamily: konvaTextFontFamily,
+        fill: konvaTextFill,
+        verticalAlign: 'middle',
+      });
+
+      fieldGroup.add(text);
+    }
   });
 
   if (isFreeLayout) {

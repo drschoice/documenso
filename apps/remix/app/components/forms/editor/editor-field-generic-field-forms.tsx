@@ -145,6 +145,43 @@ export const EditorGenericFreePlacementField = ({
   );
 };
 
+export const EditorGenericShowOptionTextField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  return (
+    <FormField
+      control={formControl}
+      name="showOptionText"
+      render={({ field }) => (
+        <FormItem className={cn('flex items-center space-x-2', className)}>
+          <FormControl>
+            <div className="flex items-center">
+              <Checkbox
+                data-testid="field-form-showOptionText"
+                id="field-show-option-text"
+                checked={field.value !== false}
+                onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+              />
+
+              <label
+                className="ml-2 text-sm text-muted-foreground"
+                htmlFor="field-show-option-text"
+              >
+                <Trans>Show option text</Trans>
+              </label>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
 export const EditorGenericTextAlignField = ({
   formControl,
   className,
