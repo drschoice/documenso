@@ -69,8 +69,8 @@ export const upsertFieldRect = (
   fieldRect.setAttrs({
     width: fieldWidth,
     height: fieldHeight,
-    fill: DEFAULT_RECT_BACKGROUND,
-    stroke: color ? getRecipientColorStyles(color).baseRing : '#e5e7eb',
+    fill: color ? getRecipientColorStyles(color).fieldBackground : DEFAULT_RECT_BACKGROUND,
+    stroke: color ? getRecipientColorStyles(color).fieldBorder : '#e5e7eb',
     strokeWidth: 2,
     cornerRadius: 2,
     strokeScaleEnabled: false,
@@ -150,7 +150,9 @@ export const createFieldHoverInteraction = ({
     return;
   }
 
-  const hoverColor = getRecipientColorStyles(options.color).baseRingHover;
+  const { baseRingHover: hoverColor, fieldBackground: restingColor } = getRecipientColorStyles(
+    options.color,
+  );
 
   fieldGroup.on('mouseover', () => {
     const layer = fieldRect.getLayer();
@@ -174,7 +176,7 @@ export const createFieldHoverInteraction = ({
     new Konva.Tween({
       node: fieldRect,
       duration: 0.3,
-      fill: DEFAULT_RECT_BACKGROUND,
+      fill: restingColor,
     }).play();
   });
 
@@ -200,7 +202,7 @@ export const createFieldHoverInteraction = ({
     new Konva.Tween({
       node: fieldRect,
       duration: 0.3,
-      fill: DEFAULT_RECT_BACKGROUND,
+      fill: restingColor,
     }).play();
   });
 };

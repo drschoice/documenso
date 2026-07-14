@@ -8,6 +8,8 @@ export type RecipientColorStyles = {
   baseRing: string;
   baseRingHover: string;
   baseTextHover: string;
+  fieldBackground: string;
+  fieldBorder: string;
   fieldButton: string;
   fieldButtonText: string;
   fieldItem: string;
@@ -25,6 +27,8 @@ const RECIPIENT_COLOR_STYLES: Record<TRecipientColor, () => RecipientColorStyles
     baseRing: 'rgba(176, 176, 176, 1)',
     baseRingHover: 'rgba(176, 176, 176, 1)',
     baseTextHover: 'rgba(176, 176, 176, 1)',
+    fieldBackground: 'rgba(176, 176, 176, 0.2)',
+    fieldBorder: 'rgba(176, 176, 176, 0.6)',
     fieldButton: 'border-neutral-400 hover:border-neutral-400',
     fieldButtonText: '',
     fieldItem: 'group/field-item rounded-[2px]',
@@ -54,6 +58,8 @@ const generateStyles = (recipientColor: TRecipientColor): RecipientColorStyles =
     baseRing: color.toRgbString(),
     baseRingHover: color.alpha(0.3).toRgbString(),
     baseTextHover: color.toRgbString(),
+    fieldBackground: color.alpha(0.2).toRgbString(),
+    fieldBorder: color.alpha(0.6).toRgbString(),
     fieldButton: `${hover}:${border}-${name} ${hover}:${bg}-${name}/30`,
     fieldButtonText: `${groupHover}:${text}-${name}`,
     fieldItem: 'group/field-item rounded-[2px]',
