@@ -108,11 +108,12 @@ export const useEditorFields = ({
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
 
   /**
-   * Newly created radio/checkbox fields default to free placement in v2
-   * envelopes. Existing fields are untouched — an absent layout renders as
-   * the stacked box layout.
+   * Newly created radio/checkbox fields in v2 envelopes default to free
+   * placement with the option text hidden. Existing fields are untouched —
+   * an absent layout renders as the stacked box layout, and absent
+   * showOptionText renders the text.
    */
-  const withFreeLayoutDefault = (fieldData: Omit<TLocalField, 'formId'>) => {
+  const withOptionFieldDefaults = (fieldData: Omit<TLocalField, 'formId'>) => {
     if (
       envelope.internalVersion !== 2 ||
       (fieldData.type !== FieldType.RADIO && fieldData.type !== FieldType.CHECKBOX)
@@ -122,7 +123,7 @@ export const useEditorFields = ({
 
     const meta = fieldData.fieldMeta ?? FIELD_META_DEFAULT_VALUES[fieldData.type];
 
-    if (!meta || (meta.type !== 'radio' && meta.type !== 'checkbox') || meta.layout) {
+    if (!meta || (meta.type !== 'radio' && meta.type !== 'checkbox')) {
       return fieldData;
     }
 
@@ -130,7 +131,8 @@ export const useEditorFields = ({
       ...fieldData,
       fieldMeta: {
         ...meta,
-        layout: 'free' as const,
+        layout: meta.layout ?? ('free' as const),
+        showOptionText: meta.showOptionText ?? false,
       },
     };
   };
@@ -206,7 +208,7 @@ export const useEditorFields = ({
 
   const addField = useCallback(
     (fieldData: Omit<TLocalField, 'formId'>): TLocalField => {
-      const dataWithStableId = withStableId(withFreeLayoutDefault(fieldData));
+      const dataWithStableId = withStableId(withOptionFieldDefaults(fieldData));
 
       const field: TLocalField = {
         ...dataWithStableId,
