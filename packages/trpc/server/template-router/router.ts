@@ -10,6 +10,7 @@ import { sendDocument } from '@documenso/lib/server-only/document/send-document'
 import { createEnvelope } from '@documenso/lib/server-only/envelope/create-envelope';
 import { duplicateEnvelope } from '@documenso/lib/server-only/envelope/duplicate-envelope';
 import { updateEnvelope } from '@documenso/lib/server-only/envelope/update-envelope';
+import { createCompletedDocumentFromTemplate } from '@documenso/lib/server-only/template/create-completed-document-from-template';
 import {
   ZCreateDocumentFromDirectTemplateResponseSchema,
   createDocumentFromDirectTemplate,
@@ -35,6 +36,8 @@ import { authenticatedProcedure, maybeAuthenticatedProcedure, router } from '../
 import { getTemplatesByIdsRoute } from './get-templates-by-ids';
 import {
   ZBulkSendTemplateMutationSchema,
+  ZCreateCompletedDocumentFromTemplateRequestSchema,
+  ZCreateCompletedDocumentFromTemplateResponseSchema,
   ZCreateDocumentFromDirectTemplateRequestSchema,
   ZCreateDocumentFromTemplateRequestSchema,
   ZCreateDocumentFromTemplateResponseSchema,
@@ -605,6 +608,76 @@ export const templateRouter = router({
           throw new AppError('DOCUMENT_SEND_FAILED');
         });
       }
+
+      return getDocumentWithDetailsById({
+        id: {
+          type: 'envelopeId',
+          id: envelope.id,
+        },
+        userId: ctx.user.id,
+        teamId,
+      });
+    }),
+
+  /**
+   * @public
+   */
+  createCompletedDocumentFromTemplate: authenticatedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/template/use-and-complete',
+        summary: 'Use template and complete',
+        description:
+          'Create a document from a template with every field filled and signed, including signature, name, initials, email and date fields. Sealing is queued asynchronously and no emails are sent. Poll the document until its status is COMPLETED, then download the signed version. Recipients not listed in the request keep the placeholder name and email defined on the template.',
+        tags: ['Template'],
+      },
+    })
+    .input(ZCreateCompletedDocumentFromTemplateRequestSchema)
+    .output(ZCreateCompletedDocumentFromTemplateResponseSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { teamId } = ctx;
+      const {
+        templateId,
+        recipients,
+        fieldValues,
+        folderId,
+        externalId,
+        override,
+        attachments,
+        formValues,
+        customDocumentData,
+      } = input;
+
+      ctx.logger.info({
+        input: {
+          templateId,
+        },
+      });
+
+      const limits = await getServerLimits({ userId: ctx.user.id, teamId });
+
+      if (limits.remaining.documents === 0) {
+        throw new Error('You have reached your document limit.');
+      }
+
+      const envelope = await createCompletedDocumentFromTemplate({
+        id: {
+          type: 'templateId',
+          id: templateId,
+        },
+        teamId,
+        userId: ctx.user.id,
+        recipients,
+        fieldValues,
+        customDocumentData: customDocumentData || [],
+        requestMetadata: ctx.metadata,
+        folderId,
+        externalId,
+        override,
+        attachments,
+        formValues,
+      });
 
       return getDocumentWithDetailsById({
         id: {

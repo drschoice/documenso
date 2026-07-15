@@ -71,6 +71,8 @@ type FinalRecipient = Pick<
   fields: Field[];
 };
 
+export type FieldWithTemplateFieldId = Field & { templateFieldId: number };
+
 export type CreateDocumentFromTemplateOptions = {
   id: EnvelopeIdOptions;
   externalId?: string | null;
@@ -549,241 +551,283 @@ export const createDocumentFromTemplate = async ({
     }),
   });
 
-  const { envelope, createdEnvelope } = await prisma.$transaction(async (tx) => {
-    const envelope = await tx.envelope.create({
-      data: {
-        id: prefixedId('envelope'),
-        secondaryId: incrementedDocumentId.formattedDocumentId,
-        type: EnvelopeType.DOCUMENT,
-        internalVersion: template.internalVersion,
-        qrToken: prefixedId('qr'),
-        source: DocumentSource.TEMPLATE,
-        externalId: externalId || template.externalId,
-        templateId: legacyTemplateId, // The template this envelope was created from.
-        userId,
-        folderId,
-        teamId,
-        title: finalEnvelopeTitle,
-        envelopeItems: {
-          createMany: {
-            data: envelopeItemsToCreate,
+  const { envelope, createdEnvelope, fieldsWithTemplateFieldId } = await prisma.$transaction(
+    async (tx) => {
+      const envelope = await tx.envelope.create({
+        data: {
+          id: prefixedId('envelope'),
+          secondaryId: incrementedDocumentId.formattedDocumentId,
+          type: EnvelopeType.DOCUMENT,
+          internalVersion: template.internalVersion,
+          qrToken: prefixedId('qr'),
+          source: DocumentSource.TEMPLATE,
+          externalId: externalId || template.externalId,
+          templateId: legacyTemplateId, // The template this envelope was created from.
+          userId,
+          folderId,
+          teamId,
+          title: finalEnvelopeTitle,
+          envelopeItems: {
+            createMany: {
+              data: envelopeItemsToCreate,
+            },
+          },
+          authOptions: createDocumentAuthOptions({
+            globalAccessAuth: templateAuthOptions.globalAccessAuth,
+            globalActionAuth: templateAuthOptions.globalActionAuth,
+          }),
+          visibility: template.visibility || settings.documentVisibility,
+          useLegacyFieldInsertion: template.useLegacyFieldInsertion ?? false,
+          documentMetaId: documentMeta.id,
+          formValues: formValues ?? undefined,
+          recipients: {
+            createMany: {
+              data: allFinalRecipients.map((recipient) => {
+                const authOptions = ZRecipientAuthOptionsSchema.parse(recipient?.authOptions);
+
+                return {
+                  email: recipient.email,
+                  name: recipient.name,
+                  role: recipient.role,
+                  authOptions: createRecipientAuthOptions({
+                    accessAuth: authOptions.accessAuth,
+                    actionAuth: authOptions.actionAuth,
+                  }),
+                  sendStatus:
+                    recipient.role === RecipientRole.CC ? SendStatus.SENT : SendStatus.NOT_SENT,
+                  signingStatus:
+                    recipient.role === RecipientRole.CC
+                      ? SigningStatus.SIGNED
+                      : SigningStatus.NOT_SIGNED,
+                  signingOrder: recipient.signingOrder,
+                  token: recipient.token,
+                };
+              }),
+            },
           },
         },
-        authOptions: createDocumentAuthOptions({
-          globalAccessAuth: templateAuthOptions.globalAccessAuth,
-          globalActionAuth: templateAuthOptions.globalActionAuth,
+        include: {
+          recipients: {
+            orderBy: {
+              id: 'asc',
+            },
+          },
+          envelopeItems: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      let fieldsToCreate: Omit<Field, 'id' | 'secondaryId'>[] = [];
+
+      // Template field IDs in the same order as `fieldsToCreate`, used to map the
+      // created document fields back to the template fields they were copied from.
+      const templateFieldIds: number[] = [];
+
+      // Get all template field IDs first so we can validate later
+      const allTemplateFieldIds = finalRecipients.flatMap((recipient) =>
+        recipient.fields.map((field) => field.id),
+      );
+
+      if (prefillFields?.length) {
+        // Validate that all prefill field IDs exist in the template
+        const invalidFieldIds = prefillFields
+          .map((prefillField) => prefillField.id)
+          .filter((id) => !allTemplateFieldIds.includes(id));
+
+        if (invalidFieldIds.length > 0) {
+          throw new AppError(AppErrorCode.INVALID_BODY, {
+            message: `The following field IDs do not exist in the template: ${invalidFieldIds.join(', ')}`,
+          });
+        }
+
+        // Validate that all prefill fields have the correct type
+        for (const prefillField of prefillFields) {
+          const templateField = finalRecipients
+            .flatMap((recipient) => recipient.fields)
+            .find((field) => field.id === prefillField.id);
+
+          if (!templateField) {
+            // This should never happen due to the previous validation, but just in case
+            throw new AppError(AppErrorCode.INVALID_BODY, {
+              message: `Field with ID ${prefillField.id} not found in the template`,
+            });
+          }
+
+          const expectedType = templateField.type.toLowerCase();
+          const actualType = prefillField.type;
+
+          if (expectedType !== actualType) {
+            throw new AppError(AppErrorCode.INVALID_BODY, {
+              message: `Field type mismatch for field ${prefillField.id}: expected ${expectedType}, got ${actualType}`,
+            });
+          }
+        }
+      }
+
+      Object.values(allFinalRecipients).forEach(({ token, fields }) => {
+        const recipient = envelope.recipients.find((recipient) => recipient.token === token);
+
+        if (!recipient) {
+          throw new Error('Recipient not found.');
+        }
+
+        fieldsToCreate = fieldsToCreate.concat(
+          fields.map((field) => {
+            const prefillField = prefillFields?.find((value) => value.id === field.id);
+
+            const payload = {
+              envelopeItemId: oldEnvelopeItemToNewEnvelopeItemIdMap[field.envelopeItemId],
+              envelopeId: envelope.id,
+              recipientId: recipient.id,
+              type: field.type,
+              page: field.page,
+              positionX: field.positionX,
+              positionY: field.positionY,
+              width: field.width,
+              height: field.height,
+              customText: '',
+              inserted: false,
+              fieldMeta: field.fieldMeta,
+            };
+
+            if (prefillField) {
+              match(prefillField)
+                .with({ type: 'date' }, (selector) => {
+                  if (!selector.value) {
+                    throw new AppError(AppErrorCode.INVALID_BODY, {
+                      message: `Date value is required for field ${field.id}`,
+                    });
+                  }
+
+                  const date = new Date(selector.value);
+
+                  if (isNaN(date.getTime())) {
+                    throw new AppError(AppErrorCode.INVALID_BODY, {
+                      message: `Invalid date value for field ${field.id}: ${selector.value}`,
+                    });
+                  }
+
+                  payload.customText = DateTime.fromJSDate(date).toFormat(
+                    template.documentMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT,
+                  );
+
+                  payload.inserted = true;
+                })
+                .otherwise((selector) => {
+                  payload.fieldMeta = getUpdatedFieldMeta(field, selector);
+                });
+            }
+
+            return payload;
+          }),
+        );
+
+        templateFieldIds.push(...fields.map((field) => field.id));
+      });
+
+      await tx.field.createMany({
+        data: fieldsToCreate.map((field) => ({
+          ...field,
+          fieldMeta: field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined,
+        })),
+      });
+
+      // Postgres assigns serial IDs in VALUES order for a single multi-row insert, so the
+      // created fields ordered by ID line up with `fieldsToCreate`/`templateFieldIds`.
+      const createdFields = await tx.field.findMany({
+        where: {
+          envelopeId: envelope.id,
+        },
+        orderBy: {
+          id: 'asc',
+        },
+      });
+
+      if (createdFields.length !== templateFieldIds.length) {
+        throw new Error('Field count mismatch while mapping created fields to template fields');
+      }
+
+      const fieldsWithTemplateFieldId: FieldWithTemplateFieldId[] = createdFields.map(
+        (field, i) => {
+          const source = fieldsToCreate[i];
+
+          if (
+            field.type !== source.type ||
+            field.page !== source.page ||
+            field.recipientId !== source.recipientId
+          ) {
+            throw new Error('Field mismatch while mapping created fields to template fields');
+          }
+
+          return {
+            ...field,
+            templateFieldId: templateFieldIds[i],
+          };
+        },
+      );
+
+      await tx.documentAuditLog.create({
+        data: createDocumentAuditLogData({
+          type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_CREATED,
+          envelopeId: envelope.id,
+          metadata: requestMetadata,
+          data: {
+            title: envelope.title,
+            source: {
+              type: DocumentSource.TEMPLATE,
+              templateId: legacyTemplateId,
+            },
+          },
         }),
-        visibility: template.visibility || settings.documentVisibility,
-        useLegacyFieldInsertion: template.useLegacyFieldInsertion ?? false,
-        documentMetaId: documentMeta.id,
-        formValues: formValues ?? undefined,
-        recipients: {
-          createMany: {
-            data: allFinalRecipients.map((recipient) => {
-              const authOptions = ZRecipientAuthOptionsSchema.parse(recipient?.authOptions);
+      });
 
-              return {
-                email: recipient.email,
-                name: recipient.name,
-                role: recipient.role,
-                authOptions: createRecipientAuthOptions({
-                  accessAuth: authOptions.accessAuth,
-                  actionAuth: authOptions.actionAuth,
-                }),
-                sendStatus:
-                  recipient.role === RecipientRole.CC ? SendStatus.SENT : SendStatus.NOT_SENT,
-                signingStatus:
-                  recipient.role === RecipientRole.CC
-                    ? SigningStatus.SIGNED
-                    : SigningStatus.NOT_SIGNED,
-                signingOrder: recipient.signingOrder,
-                token: recipient.token,
-              };
-            }),
-          },
+      const templateAttachments = await tx.envelopeAttachment.findMany({
+        where: {
+          envelopeId: template.id,
         },
-      },
-      include: {
-        recipients: {
-          orderBy: {
-            id: 'asc',
-          },
-        },
-        envelopeItems: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
+      });
 
-    let fieldsToCreate: Omit<Field, 'id' | 'secondaryId'>[] = [];
+      const attachmentsToCreate = [
+        ...templateAttachments.map((attachment) => ({
+          envelopeId: envelope.id,
+          type: attachment.type,
+          label: attachment.label,
+          data: attachment.data,
+        })),
+        ...(attachments || []).map((attachment) => ({
+          envelopeId: envelope.id,
+          type: attachment.type || 'link',
+          label: attachment.label,
+          data: attachment.data,
+        })),
+      ];
 
-    // Get all template field IDs first so we can validate later
-    const allTemplateFieldIds = finalRecipients.flatMap((recipient) =>
-      recipient.fields.map((field) => field.id),
-    );
-
-    if (prefillFields?.length) {
-      // Validate that all prefill field IDs exist in the template
-      const invalidFieldIds = prefillFields
-        .map((prefillField) => prefillField.id)
-        .filter((id) => !allTemplateFieldIds.includes(id));
-
-      if (invalidFieldIds.length > 0) {
-        throw new AppError(AppErrorCode.INVALID_BODY, {
-          message: `The following field IDs do not exist in the template: ${invalidFieldIds.join(', ')}`,
+      if (attachmentsToCreate.length > 0) {
+        await tx.envelopeAttachment.createMany({
+          data: attachmentsToCreate,
         });
       }
 
-      // Validate that all prefill fields have the correct type
-      for (const prefillField of prefillFields) {
-        const templateField = finalRecipients
-          .flatMap((recipient) => recipient.fields)
-          .find((field) => field.id === prefillField.id);
-
-        if (!templateField) {
-          // This should never happen due to the previous validation, but just in case
-          throw new AppError(AppErrorCode.INVALID_BODY, {
-            message: `Field with ID ${prefillField.id} not found in the template`,
-          });
-        }
-
-        const expectedType = templateField.type.toLowerCase();
-        const actualType = prefillField.type;
-
-        if (expectedType !== actualType) {
-          throw new AppError(AppErrorCode.INVALID_BODY, {
-            message: `Field type mismatch for field ${prefillField.id}: expected ${expectedType}, got ${actualType}`,
-          });
-        }
-      }
-    }
-
-    Object.values(allFinalRecipients).forEach(({ token, fields }) => {
-      const recipient = envelope.recipients.find((recipient) => recipient.token === token);
-
-      if (!recipient) {
-        throw new Error('Recipient not found.');
-      }
-
-      fieldsToCreate = fieldsToCreate.concat(
-        fields.map((field) => {
-          const prefillField = prefillFields?.find((value) => value.id === field.id);
-
-          const payload = {
-            envelopeItemId: oldEnvelopeItemToNewEnvelopeItemIdMap[field.envelopeItemId],
-            envelopeId: envelope.id,
-            recipientId: recipient.id,
-            type: field.type,
-            page: field.page,
-            positionX: field.positionX,
-            positionY: field.positionY,
-            width: field.width,
-            height: field.height,
-            customText: '',
-            inserted: false,
-            fieldMeta: field.fieldMeta,
-          };
-
-          if (prefillField) {
-            match(prefillField)
-              .with({ type: 'date' }, (selector) => {
-                if (!selector.value) {
-                  throw new AppError(AppErrorCode.INVALID_BODY, {
-                    message: `Date value is required for field ${field.id}`,
-                  });
-                }
-
-                const date = new Date(selector.value);
-
-                if (isNaN(date.getTime())) {
-                  throw new AppError(AppErrorCode.INVALID_BODY, {
-                    message: `Invalid date value for field ${field.id}: ${selector.value}`,
-                  });
-                }
-
-                payload.customText = DateTime.fromJSDate(date).toFormat(
-                  template.documentMeta?.dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT,
-                );
-
-                payload.inserted = true;
-              })
-              .otherwise((selector) => {
-                payload.fieldMeta = getUpdatedFieldMeta(field, selector);
-              });
-          }
-
-          return payload;
-        }),
-      );
-    });
-
-    await tx.field.createMany({
-      data: fieldsToCreate.map((field) => ({
-        ...field,
-        fieldMeta: field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined,
-      })),
-    });
-
-    await tx.documentAuditLog.create({
-      data: createDocumentAuditLogData({
-        type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_CREATED,
-        envelopeId: envelope.id,
-        metadata: requestMetadata,
-        data: {
-          title: envelope.title,
-          source: {
-            type: DocumentSource.TEMPLATE,
-            templateId: legacyTemplateId,
-          },
+      const createdEnvelope = await tx.envelope.findFirst({
+        where: {
+          id: envelope.id,
         },
-      }),
-    });
-
-    const templateAttachments = await tx.envelopeAttachment.findMany({
-      where: {
-        envelopeId: template.id,
-      },
-    });
-
-    const attachmentsToCreate = [
-      ...templateAttachments.map((attachment) => ({
-        envelopeId: envelope.id,
-        type: attachment.type,
-        label: attachment.label,
-        data: attachment.data,
-      })),
-      ...(attachments || []).map((attachment) => ({
-        envelopeId: envelope.id,
-        type: attachment.type || 'link',
-        label: attachment.label,
-        data: attachment.data,
-      })),
-    ];
-
-    if (attachmentsToCreate.length > 0) {
-      await tx.envelopeAttachment.createMany({
-        data: attachmentsToCreate,
+        include: {
+          documentMeta: true,
+          recipients: true,
+        },
       });
-    }
 
-    const createdEnvelope = await tx.envelope.findFirst({
-      where: {
-        id: envelope.id,
-      },
-      include: {
-        documentMeta: true,
-        recipients: true,
-      },
-    });
+      if (!createdEnvelope) {
+        throw new Error('Document not found');
+      }
 
-    if (!createdEnvelope) {
-      throw new Error('Document not found');
-    }
-
-    return { envelope, createdEnvelope };
-  });
+      return { envelope, createdEnvelope, fieldsWithTemplateFieldId };
+    },
+  );
 
   // Trigger webhook outside the transaction to avoid holding the connection
   // open during network I/O.
@@ -802,5 +846,8 @@ export const createDocumentFromTemplate = async ({
     }),
   ]);
 
-  return envelope;
+  return {
+    ...envelope,
+    fields: fieldsWithTemplateFieldId,
+  };
 };
