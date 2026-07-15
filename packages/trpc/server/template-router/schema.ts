@@ -32,6 +32,7 @@ import {
   ZTemplateManySchema,
   ZTemplateSchema,
 } from '@documenso/lib/types/template';
+import { ZTemplateFieldFillValueSchema } from '@documenso/lib/types/template-field-fill';
 import { zEmail } from '@documenso/lib/utils/zod';
 import { LegacyTemplateDirectLinkSchema } from '@documenso/prisma/types/template-legacy-schema';
 import { ZDocumentExternalIdSchema } from '@documenso/trpc/server/document-router/schema';
@@ -184,6 +185,22 @@ export const ZCreateDocumentFromTemplateRequestSchema = z.object({
 });
 
 export const ZCreateDocumentFromTemplateResponseSchema = ZDocumentSchema;
+
+export const ZCreateCompletedDocumentFromTemplateRequestSchema =
+  ZCreateDocumentFromTemplateRequestSchema.omit({
+    distributeDocument: true,
+    prefillFields: true,
+    customDocumentDataId: true,
+  }).extend({
+    fieldValues: z
+      .array(ZTemplateFieldFillValueSchema)
+      .describe(
+        'The values to fill the template fields with, keyed by template field ID. All field types are supported, including signature, name, initials, email and date fields. Fields without an explicit value fall back to derived defaults (recipient name/email/initials, current date, field meta default values). Signature fields always require an explicit value, which is inserted as a typed signature.',
+      )
+      .optional(),
+  });
+
+export const ZCreateCompletedDocumentFromTemplateResponseSchema = ZDocumentSchema;
 
 export const ZDuplicateTemplateMutationSchema = z.object({
   templateId: z.number(),

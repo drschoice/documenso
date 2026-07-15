@@ -38,6 +38,7 @@ import { signEnvelopeFieldRoute } from './sign-envelope-field';
 import { signingStatusEnvelopeRoute } from './signing-status-envelope';
 import { updateEnvelopeRoute } from './update-envelope';
 import { updateEnvelopeItemsRoute } from './update-envelope-items';
+import { useAndCompleteEnvelopeRoute } from './use-and-complete-envelope';
 import { useEnvelopeRoute } from './use-envelope';
 
 /**
@@ -93,6 +94,7 @@ export const envelopeRouter = router({
   getMany: getEnvelopesByIdsRoute,
   create: createEnvelopeRoute,
   use: useEnvelopeRoute,
+  useAndComplete: useAndCompleteEnvelopeRoute,
   update: updateEnvelopeRoute,
   delete: deleteEnvelopeRoute,
   duplicate: duplicateEnvelopeRoute,
