@@ -12,6 +12,7 @@ import {
   ZSignatureFieldMeta,
   ZTextFieldMeta,
   ZVisibilityBlock,
+  getCombFieldCells,
 } from './field-meta';
 
 describe('field-meta visibility extension', () => {
@@ -103,5 +104,63 @@ describe('field-meta visibility extension', () => {
         rules: [{ operator: 'equals', triggerFieldStableId: '', value: 'x' }],
       }),
     ).toThrow();
+  });
+});
+
+describe('field-meta comb extension', () => {
+  const validCells = [{ id: 1 }, { id: 2, offsetX: 1.5, offsetY: 2 }];
+
+  it.each([
+    ['text', ZTextFieldMeta],
+    ['number', ZNumberFieldMeta],
+  ])('accepts comb layout, cells and cellSize on %s fields', (type, schema) => {
+    const parsed = schema.parse({
+      type,
+      layout: 'cells',
+      cells: validCells,
+      cellSize: 18,
+    });
+
+    expect(parsed.layout).toBe('cells');
+    expect(parsed.cells).toEqual(validCells);
+    expect(parsed.cellSize).toBe(18);
+  });
+
+  it('rejects more than 100 cells', () => {
+    const cells = Array.from({ length: 101 }, (_, i) => ({ id: i + 1 }));
+
+    expect(() => ZTextFieldMeta.parse({ type: 'text', layout: 'cells', cells })).toThrow();
+  });
+
+  it.each([[3], [97]])('rejects cellSize out of bounds (%s)', (cellSize) => {
+    expect(() => ZTextFieldMeta.parse({ type: 'text', cellSize })).toThrow();
+  });
+
+  it.each([[-101], [101]])('rejects cell offsets out of bounds (%s)', (offset) => {
+    expect(() =>
+      ZTextFieldMeta.parse({
+        type: 'text',
+        cells: [{ id: 1, offsetX: offset, offsetY: 0 }],
+      }),
+    ).toThrow();
+  });
+
+  it('returns the cells for comb text/number metas', () => {
+    expect(getCombFieldCells({ type: 'text', layout: 'cells', cells: validCells })).toEqual(
+      validCells,
+    );
+    expect(getCombFieldCells({ type: 'number', layout: 'cells', cells: validCells })).toEqual(
+      validCells,
+    );
+  });
+
+  it('returns null when the field is not in comb layout', () => {
+    expect(getCombFieldCells({ type: 'text', cells: validCells })).toBeNull();
+    expect(getCombFieldCells({ type: 'text', layout: 'box', cells: validCells })).toBeNull();
+    expect(getCombFieldCells({ type: 'text', layout: 'cells', cells: [] })).toBeNull();
+    expect(getCombFieldCells({ type: 'text', layout: 'cells' })).toBeNull();
+    expect(getCombFieldCells({ type: 'radio', layout: 'free', direction: 'vertical' })).toBeNull();
+    expect(getCombFieldCells(undefined)).toBeNull();
+    expect(getCombFieldCells(null)).toBeNull();
   });
 });

@@ -31,6 +31,7 @@ import {
   ZNameFieldMeta,
   ZNumberFieldMeta,
   ZRadioFieldMeta,
+  ZSignatureFieldMeta,
   ZTextFieldMeta,
 } from '../../types/field-meta';
 import { getPageSize } from './get-page-size';
@@ -147,6 +148,9 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
         type: P.union(FieldType.SIGNATURE, FieldType.FREE_SIGNATURE),
       },
       async (field) => {
+        const signatureMeta = ZSignatureFieldMeta.safeParse(field.fieldMeta);
+        const textAlign = signatureMeta.success ? (signatureMeta.data.textAlign ?? 'left') : 'left';
+
         if (field.signature?.signatureImageAsBase64) {
           const image = await pdf.embedPng(field.signature?.signatureImageAsBase64 ?? '');
 
@@ -159,6 +163,13 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
           imageHeight = imageHeight * scalingFactor;
 
           let imageX = fieldX + (fieldWidth - imageWidth) / 2;
+
+          if (textAlign === 'left') {
+            imageX = fieldX;
+          } else if (textAlign === 'right') {
+            imageX = fieldX + fieldWidth - imageWidth;
+          }
+
           let imageY = fieldY + (fieldHeight - imageHeight) / 2;
 
           // Invert the Y axis since PDFs use a bottom-left coordinate system
@@ -202,6 +213,13 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
           textHeight = font.heightAtSize(fontSize);
 
           let textX = fieldX + (fieldWidth - textWidth) / 2;
+
+          if (textAlign === 'left') {
+            textX = fieldX;
+          } else if (textAlign === 'right') {
+            textX = fieldX + fieldWidth - textWidth;
+          }
+
           let textY = fieldY + (fieldHeight - textHeight) / 2;
 
           // Invert the Y axis since PDFs use a bottom-left coordinate system

@@ -84,6 +84,68 @@ export const resolveButtonSize = (
   return meta?.buttonSize ?? meta?.fontSize ?? DEFAULT_STANDARD_FONT_SIZE;
 };
 
+export const COMB_CELL_GAP = 2;
+
+/**
+ * Resolve the side of a comb character cell square in pixels.
+ *
+ * Uses the explicit cell size when set, otherwise derives it from the font
+ * size so the glyph has breathing room inside the cell.
+ */
+export const resolveCellSize = (
+  meta?: { cellSize?: number; fontSize?: number } | null,
+): number => {
+  return meta?.cellSize ?? Math.ceil((meta?.fontSize ?? DEFAULT_STANDARD_FONT_SIZE) * 1.5);
+};
+
+type CalculateCombCellPositionOptions = {
+  /**
+   * Offsets relative to the field's top-left corner, in page-percentage units.
+   *
+   * Undefined offsets (e.g. cells created via the API, or the render frame
+   * before the editor seeds them) fall back to a horizontal row from the
+   * field origin.
+   */
+  offsetX: number | undefined;
+  offsetY: number | undefined;
+
+  /**
+   * The position of the cell in the list, used for the fallback row.
+   *
+   * Starts from 0
+   */
+  cellIndex: number;
+
+  /**
+   * The side of the cell square in pixels.
+   */
+  cellSize: number;
+
+  /**
+   * The page width and height in pixels, used to convert percentage offsets.
+   */
+  pageWidth: number;
+  pageHeight: number;
+};
+
+/**
+ * Calculate the position of a comb character cell.
+ *
+ * `anchorX`/`anchorY` position the cell group relative to the field group.
+ */
+export const calculateCombCellPosition = (options: CalculateCombCellPositionOptions) => {
+  const { offsetX, offsetY, cellIndex, cellSize, pageWidth, pageHeight } = options;
+
+  const hasOffsets = offsetX !== undefined && offsetY !== undefined;
+
+  const anchorX = hasOffsets
+    ? pageWidth * (offsetX / 100)
+    : cellIndex * (cellSize + COMB_CELL_GAP);
+  const anchorY = hasOffsets ? pageHeight * (offsetY / 100) : 0;
+
+  return { anchorX, anchorY };
+};
+
 type CalculateFreeItemPositionOptions = {
   /**
    * Offsets relative to the field's top-left corner, in page-percentage units.

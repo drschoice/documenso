@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { TNumberFieldMeta } from '@documenso/lib/types/field-meta';
+import { getCombFieldCells } from '@documenso/lib/types/field-meta';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -34,6 +35,22 @@ export const SignFieldNumberDialog = createCallable<SignFieldNumberDialogProps, 
   ({ call, fieldMeta }) => {
     const { t } = useLingui();
 
+    // The cell count is the effective character limit for comb fields,
+    // including any format separators.
+    const combCellCount = getCombFieldCells(fieldMeta)?.length ?? 0;
+
+    const validateCellLimit = (value: string, ctx: z.RefinementCtx) => {
+      if (combCellCount > 0 && value.length > combCellCount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.too_big,
+          type: 'string',
+          maximum: combCellCount,
+          inclusive: true,
+          message: t`Number cannot exceed ${combCellCount} characters`,
+        });
+      }
+    };
+
     // Needs to be inside dialog for translation purposes.
     const createNumberFieldSchema = (fieldMeta: TNumberFieldMeta) => {
       const { numberFormat, minValue, maxValue } = fieldMeta;
@@ -42,20 +59,25 @@ export const SignFieldNumberDialog = createCallable<SignFieldNumberDialogProps, 
         const foundRegex = numberFormatValues.find((item) => item.value === numberFormat)?.regex;
 
         if (foundRegex) {
-          return z.string().refine(
-            (value) => {
-              return foundRegex.test(value.toString());
-            },
-            {
-              message: t`Number needs to be formatted as ${numberFormat}`,
-            },
-          );
+          return z
+            .string()
+            .refine(
+              (value) => {
+                return foundRegex.test(value.toString());
+              },
+              {
+                message: t`Number needs to be formatted as ${numberFormat}`,
+              },
+            )
+            .superRefine(validateCellLimit);
         }
       }
 
       // Not gong to work with min/max numbers + number format
       // Since currently doesn't work in V1 going to ignore for now.
       return z.string().superRefine((value, ctx) => {
+        validateCellLimit(value, ctx);
+
         const isValidNumber = /^[0-9,.]+$/.test(value.toString());
 
         if (!isValidNumber) {
@@ -127,6 +149,7 @@ export const SignFieldNumberDialog = createCallable<SignFieldNumberDialogProps, 
                       <FormControl>
                         <Input
                           placeholder={fieldMeta.placeholder ?? t`Enter your number here`}
+                          maxLength={combCellCount > 0 ? combCellCount : undefined}
                           className={cn('w-full rounded-md', {
                             'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
                               fieldState.error,

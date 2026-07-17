@@ -5,7 +5,14 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import { FileTextIcon, PencilIcon, SparklesIcon } from 'lucide-react';
+import {
+  AlignCenterIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  FileTextIcon,
+  PencilIcon,
+  SparklesIcon,
+} from 'lucide-react';
 import { useRevalidator, useSearchParams } from 'react-router';
 import { isDeepEqual } from 'remeda';
 import { match } from 'ts-pattern';
@@ -20,8 +27,10 @@ import {
   type TDateFieldMeta,
   type TDropdownFieldMeta,
   type TEmailFieldMeta,
+  type TFieldCellValue,
   type TFieldMetaSchema,
   type TFieldOptionValue,
+  type TFieldTextAlignSchema,
   type TInitialsFieldMeta,
   type TNameFieldMeta,
   type TNumberFieldMeta,
@@ -101,6 +110,7 @@ export const EnvelopeEditorFieldsPage = () => {
 
   const [isAiFieldDialogOpen, setIsAiFieldDialogOpen] = useState(false);
   const [isAiEnableDialogOpen, setIsAiEnableDialogOpen] = useState(false);
+  const [bulkAlignNonce, setBulkAlignNonce] = useState(0);
   const { revalidate } = useRevalidator();
 
   const [pageCount, setPageCount] = useState<number>(0);
@@ -267,6 +277,40 @@ export const EnvelopeEditorFieldsPage = () => {
       };
     }
 
+    // Comb cell offsets live on the canvas as well: the text/number forms only
+    // emit cell ids, so restore the offsets by id and strip them when leaving
+    // the comb layout.
+    if (mergedMeta && (mergedMeta.type === 'text' || mergedMeta.type === 'number')) {
+      const isCombLayout = mergedMeta.layout === 'cells';
+
+      const existingCells =
+        existingMeta && (existingMeta.type === 'text' || existingMeta.type === 'number')
+          ? ((existingMeta.cells as TFieldCellValue[] | undefined) ?? [])
+          : [];
+
+      mergedMeta = {
+        ...mergedMeta,
+        cells: mergedMeta.cells?.map((cell) => {
+          const { offsetX, offsetY, ...rest } = cell;
+
+          if (!isCombLayout) {
+            return rest;
+          }
+
+          const existingCell = existingCells.find((c) => c.id === cell.id);
+
+          const resolvedOffsetX = offsetX ?? existingCell?.offsetX;
+          const resolvedOffsetY = offsetY ?? existingCell?.offsetY;
+
+          return {
+            ...rest,
+            ...(resolvedOffsetX !== undefined ? { offsetX: resolvedOffsetX } : {}),
+            ...(resolvedOffsetY !== undefined ? { offsetY: resolvedOffsetY } : {}),
+          };
+        }),
+      };
+    }
+
     const isMetaSame = isDeepEqual(selectedField.fieldMeta, mergedMeta);
 
     if (!isMetaSame) {
@@ -274,6 +318,38 @@ export const EnvelopeEditorFieldsPage = () => {
         fieldMeta: mergedMeta,
       });
     }
+  };
+
+  const onBulkAlignFields = (textAlign: TFieldTextAlignSchema) => {
+    editorFields.updateAllFields((field) => {
+      const recipient = envelope.recipients.find((r) => r.id === field.recipientId);
+
+      // Skip fields whose recipient can no longer be modified.
+      if (recipient && !canRecipientFieldsBeModified(recipient, envelope.fields)) {
+        return field;
+      }
+
+      const meta = field.fieldMeta ?? FIELD_META_DEFAULT_VALUES[field.type];
+
+      // Only meta types that support textAlign.
+      if (
+        !meta ||
+        (meta.type !== 'text' &&
+          meta.type !== 'number' &&
+          meta.type !== 'name' &&
+          meta.type !== 'email' &&
+          meta.type !== 'date' &&
+          meta.type !== 'initials' &&
+          meta.type !== 'signature')
+      ) {
+        return field;
+      }
+
+      return { ...field, fieldMeta: { ...meta, textAlign } };
+    });
+
+    // Remount the open per-field form so it picks up the new alignment.
+    setBulkAlignNonce((nonce) => nonce + 1);
   };
 
   const onFieldDetectionComplete = (fields: NormalizedFieldWithContext[]) => {
@@ -479,6 +555,50 @@ export const EnvelopeEditorFieldsPage = () => {
               selectedEnvelopeItemId={currentEnvelopeItem?.id ?? null}
             />
 
+            <div className="mt-4">
+              <p className="mb-2 text-xs text-foreground/70">
+                <Trans>Align all fields</Trans>
+              </p>
+
+              <div className="flex flex-row gap-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  data-testid="envelope-editor-bulk-align-left"
+                  title={_(msg`Align all fields left`)}
+                  onClick={() => onBulkAlignFields('left')}
+                >
+                  <AlignLeftIcon className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  data-testid="envelope-editor-bulk-align-center"
+                  title={_(msg`Align all fields center`)}
+                  onClick={() => onBulkAlignFields('center')}
+                >
+                  <AlignCenterIcon className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  data-testid="envelope-editor-bulk-align-right"
+                  title={_(msg`Align all fields right`)}
+                  onClick={() => onBulkAlignFields('right')}
+                >
+                  <AlignRightIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
             {editorConfig.fields?.allowAIDetection && (
               <>
                 <Button
@@ -521,7 +641,7 @@ export const EnvelopeEditorFieldsPage = () => {
           </section>
 
           {/* Field details section. */}
-          <AnimateGenericFadeInOut key={editorFields.selectedField?.formId}>
+          <AnimateGenericFadeInOut key={`${editorFields.selectedField?.formId}-${bulkAlignNonce}`}>
             {selectedField && (
               <section>
                 <Separator className="my-4" />
@@ -632,6 +752,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldNumberForm
                         value={selectedField?.fieldMeta as TNumberFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .with(FieldType.RADIO, () => (
@@ -645,6 +766,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldTextForm
                         value={selectedField?.fieldMeta as TTextFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .otherwise(() => null)}

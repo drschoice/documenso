@@ -19,6 +19,9 @@ export const DEFAULT_FIELD_FONT_SIZE = 12;
 export const FIELD_MIN_BUTTON_SIZE = 4;
 export const FIELD_MAX_BUTTON_SIZE = 96;
 
+export const FIELD_MIN_CELL_COUNT = 1;
+export const FIELD_MAX_CELL_COUNT = 100;
+
 /**
  * Grouped field types that use the same generic text rendering function.
  */
@@ -115,6 +118,39 @@ export const ZDateFieldMeta = ZBaseFieldMeta.extend({
 
 export type TDateFieldMeta = z.infer<typeof ZDateFieldMeta>;
 
+/**
+ * A single character cell of a comb ('cells' layout) text/number field.
+ *
+ * Offsets are relative to the field's top-left corner, in page-percentage
+ * units (same denominators as Field.positionX/positionY). The anchor is the
+ * top-left of the cell square.
+ *
+ * Only used when the field meta `layout` is 'cells'.
+ */
+export const ZFieldCellValue = z.object({
+  id: z.number(),
+  offsetX: z.number().min(-100).max(100).optional(),
+  offsetY: z.number().min(-100).max(100).optional(),
+});
+
+export type TFieldCellValue = z.infer<typeof ZFieldCellValue>;
+
+/**
+ * Shared text/number comb properties.
+ *
+ * - `layout`: 'box' (or absent) renders the regular single text box, 'cells'
+ *   renders one freely-placeable square cell per character.
+ * - `cells`: per-cell placement. The array length is the effective character
+ *   limit when the layout is 'cells'.
+ * - `cellSize`: side of each cell square in unscaled PDF pixels. Falls back to
+ *   `ceil(fontSize * 1.5)` when absent.
+ */
+const ZCombFieldMetaExtensions = {
+  layout: z.enum(['box', 'cells']).optional(),
+  cells: z.array(ZFieldCellValue).max(FIELD_MAX_CELL_COUNT).optional(),
+  cellSize: z.number().min(FIELD_MIN_BUTTON_SIZE).max(FIELD_MAX_BUTTON_SIZE).optional(),
+};
+
 export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('text'),
   text: z.string().optional(),
@@ -126,6 +162,7 @@ export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   lineHeight: ZFieldMetaLineHeight.nullish(),
   letterSpacing: ZFieldMetaLetterSpacing.nullish(),
   verticalAlign: ZFieldMetaVerticalAlign.nullish(),
+  ...ZCombFieldMetaExtensions,
   ...ZConditionalMetaExtensions,
 });
 
@@ -141,10 +178,31 @@ export const ZNumberFieldMeta = ZBaseFieldMeta.extend({
   lineHeight: ZFieldMetaLineHeight.nullish(),
   letterSpacing: ZFieldMetaLetterSpacing.nullish(),
   verticalAlign: ZFieldMetaVerticalAlign.nullish(),
+  ...ZCombFieldMetaExtensions,
   ...ZConditionalMetaExtensions,
 });
 
 export type TNumberFieldMeta = z.infer<typeof ZNumberFieldMeta>;
+
+/**
+ * Returns the character cells of a comb text/number field, or null when the
+ * field is not in comb ('cells') layout.
+ */
+export const getCombFieldCells = (
+  meta: TFieldMetaSchema | TFieldMetaNotOptionalSchema | null | undefined,
+): TFieldCellValue[] | null => {
+  if (
+    meta &&
+    (meta.type === 'text' || meta.type === 'number') &&
+    meta.layout === 'cells' &&
+    meta.cells &&
+    meta.cells.length > 0
+  ) {
+    return meta.cells;
+  }
+
+  return null;
+};
 
 export const ZFieldOptionValue = z.object({
   id: z.number(),
@@ -210,6 +268,7 @@ export type TDropdownFieldMeta = z.infer<typeof ZDropdownFieldMeta>;
 
 export const ZSignatureFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('signature'),
+  textAlign: ZFieldTextAlignSchema.optional(),
 }).strict();
 
 export type TSignatureFieldMeta = z.infer<typeof ZSignatureFieldMeta>;
@@ -413,6 +472,7 @@ export const FIELD_DROPDOWN_META_DEFAULT_VALUES: TDropdownFieldMeta = {
 export const FIELD_SIGNATURE_META_DEFAULT_VALUES: TSignatureFieldMeta = {
   type: 'signature',
   fontSize: DEFAULT_SIGNATURE_TEXT_FONT_SIZE,
+  textAlign: FIELD_DEFAULT_GENERIC_ALIGN,
 };
 
 export const FIELD_META_DEFAULT_VALUES: Record<FieldType, TFieldMetaSchema> = {

@@ -2,6 +2,7 @@ import Konva from 'konva';
 
 import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../../constants/pdf';
 import { AppError } from '../../errors/app-error';
+import { FIELD_DEFAULT_GENERIC_ALIGN } from '../../types/field-meta';
 import {
   createFieldHoverInteraction,
   upsertFieldGroup,
@@ -20,7 +21,12 @@ void (async () => {
   }
 })();
 
-const getImageDimensions = (img: HTMLImageElement, fieldWidth: number, fieldHeight: number) => {
+const getImageDimensions = (
+  img: HTMLImageElement,
+  fieldWidth: number,
+  fieldHeight: number,
+  textAlign: 'left' | 'center' | 'right' = FIELD_DEFAULT_GENERIC_ALIGN,
+) => {
   let imageWidth = img.width;
   let imageHeight = img.height;
 
@@ -29,7 +35,14 @@ const getImageDimensions = (img: HTMLImageElement, fieldWidth: number, fieldHeig
   imageWidth = imageWidth * scalingFactor;
   imageHeight = imageHeight * scalingFactor;
 
-  const imageX = (fieldWidth - imageWidth) / 2;
+  let imageX = (fieldWidth - imageWidth) / 2;
+
+  if (textAlign === 'left') {
+    imageX = 0;
+  } else if (textAlign === 'right') {
+    imageX = fieldWidth - imageWidth;
+  }
+
   const imageY = (fieldHeight - imageHeight) / 2;
 
   return {
@@ -48,6 +61,11 @@ const createFieldSignature = (
 
   const { fieldWidth, fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
   const fontSize = field.fieldMeta?.fontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
+
+  const textAlign: 'left' | 'center' | 'right' =
+    field.fieldMeta?.type === 'signature'
+      ? field.fieldMeta.textAlign || FIELD_DEFAULT_GENERIC_ALIGN
+      : FIELD_DEFAULT_GENERIC_ALIGN;
 
   const fieldText = new Konva.Text({
     id: `${field.renderId}-text`,
@@ -97,7 +115,7 @@ const createFieldSignature = (
         img.onload = () => {
           image.setAttrs({
             image: img,
-            ...getImageDimensions(img, fieldWidth, fieldHeight),
+            ...getImageDimensions(img, fieldWidth, fieldHeight, textAlign),
           });
         };
 
@@ -115,7 +133,7 @@ const createFieldSignature = (
 
         const image = new Konva.Image({
           image: img,
-          ...getImageDimensions(img, fieldWidth, fieldHeight),
+          ...getImageDimensions(img, fieldWidth, fieldHeight, textAlign),
         });
 
         return image;
@@ -131,7 +149,7 @@ const createFieldSignature = (
     text: textToRender,
     fontSize,
     fontFamily: 'Caveat, sans-serif',
-    align: 'center',
+    align: textAlign,
     width: fieldWidth,
     height: fieldHeight,
   } satisfies Partial<Konva.TextConfig>);

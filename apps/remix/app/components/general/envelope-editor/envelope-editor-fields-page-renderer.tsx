@@ -8,6 +8,8 @@ import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Transformer } from 'konva/lib/shapes/Transformer';
 import {
+  AlignCenterVerticalIcon,
+  AlignHorizontalDistributeCenterIcon,
   CopyPlusIcon,
   Settings2Icon,
   SquareStackIcon,
@@ -22,19 +24,21 @@ import {
   type PageRenderData,
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
-import { FIELD_META_DEFAULT_VALUES } from '@documenso/lib/types/field-meta';
+import { FIELD_META_DEFAULT_VALUES, getCombFieldCells } from '@documenso/lib/types/field-meta';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
   getFieldOptionGroupsUnion,
   upsertFreeLayoutDecorations,
 } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import {
+  COMB_CELL_GAP,
   MIN_FIELD_HEIGHT_PX,
   MIN_FIELD_WIDTH_PX,
   calculateFieldPosition,
   calculateMultiItemPosition,
   convertPixelToPercentage,
   resolveButtonSize,
+  resolveCellSize,
 } from '@documenso/lib/universal/field-renderer/field-renderer';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
@@ -62,13 +66,22 @@ const ADVANCED_FIELD_TYPES = new Set([
 ]);
 
 /**
- * Returns the field meta when the field is a free-layout radio/checkbox field,
- * otherwise null.
+ * Returns the field meta when the field has freely-placed parts: a free-layout
+ * radio/checkbox field, or a comb ('cells' layout) text/number field.
+ * Otherwise null.
  */
 const getFreeLayoutMeta = (field: TLocalField | undefined) => {
   const meta = field?.fieldMeta;
 
-  if (meta && (meta.type === 'radio' || meta.type === 'checkbox') && meta.layout === 'free') {
+  if (!meta) {
+    return null;
+  }
+
+  if ((meta.type === 'radio' || meta.type === 'checkbox') && meta.layout === 'free') {
+    return meta;
+  }
+
+  if ((meta.type === 'text' || meta.type === 'number') && meta.layout === 'cells') {
     return meta;
   }
 
@@ -128,29 +141,37 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     const pageWidth = unscaledViewport.width;
     const pageHeight = unscaledViewport.height;
 
-    const values = (meta.values ?? []).map((value, index) => {
-      const optionGroup = fieldGroup.findOne<Konva.Group>(`#${fieldFormId}-option-${index}`);
+    const applyItemOffsets = <T extends { offsetX?: number; offsetY?: number }>(
+      items: T[],
+    ): T[] =>
+      items.map((item, index) => {
+        const optionGroup = fieldGroup.findOne<Konva.Group>(`#${fieldFormId}-option-${index}`);
 
-      if (!optionGroup) {
-        return value;
-      }
+        if (!optionGroup) {
+          return item;
+        }
 
-      const anchorX = fieldGroup.x() + optionGroup.x();
-      const anchorY = fieldGroup.y() + optionGroup.y();
+        const anchorX = fieldGroup.x() + optionGroup.x();
+        const anchorY = fieldGroup.y() + optionGroup.y();
 
-      return {
-        ...value,
-        offsetX: ((anchorX - union.x) / pageWidth) * 100,
-        offsetY: ((anchorY - union.y) / pageHeight) * 100,
-      };
-    });
+        return {
+          ...item,
+          offsetX: ((anchorX - union.x) / pageWidth) * 100,
+          offsetY: ((anchorY - union.y) / pageHeight) * 100,
+        };
+      });
+
+    const fieldMeta =
+      meta.type === 'radio' || meta.type === 'checkbox'
+        ? { ...meta, values: applyItemOffsets(meta.values ?? []) }
+        : { ...meta, cells: applyItemOffsets(meta.cells ?? []) };
 
     editorFields.updateFieldByFormId(fieldFormId, {
       positionX: (union.x / pageWidth) * 100,
       positionY: (union.y / pageHeight) * 100,
       width: (union.width / pageWidth) * 100,
       height: (union.height / pageHeight) * 100,
-      fieldMeta: { ...meta, values },
+      fieldMeta,
     });
   };
 
@@ -288,7 +309,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     fieldGroup.on('transformend', handleResizeOrMove);
     fieldGroup.on('dragend', handleResizeOrMove);
 
-    // Free-layout radio/checkbox options are individually draggable.
+    // Free-layout radio/checkbox options and comb text/number cells are
+    // individually draggable.
     fieldGroup.find<Konva.Group>('.field-option-group').forEach((optionGroup) => {
       optionGroup.on('dragmove', () => {
         upsertFreeLayoutDecorations({
@@ -583,17 +605,90 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
    *   from the current stacked layout so nothing visually jumps.
    * - New options were added while in free layout: place them below the
    *   bottom-most placed option.
+   *
+   * Comb text/number cells follow the same pattern, except cells seed as a
+   * horizontal row and new cells append to the right of the right-most cell.
    */
   useEffect(() => {
     for (const field of localPageFields) {
       const meta = getFreeLayoutMeta(field);
-      const values = meta?.values ?? [];
+
+      if (!meta) {
+        continue;
+      }
+
+      if (meta.type === 'text' || meta.type === 'number') {
+        const cells = meta.cells ?? [];
+
+        const isMissingCellOffsets = cells.some(
+          (cell) => cell.offsetX === undefined || cell.offsetY === undefined,
+        );
+
+        if (cells.length === 0 || !isMissingCellOffsets) {
+          continue;
+        }
+
+        const stepPercentX =
+          ((resolveCellSize(meta) + COMB_CELL_GAP) / unscaledViewport.width) * 100;
+
+        // Track the right-most placed cell so new cells are appended after it.
+        let hasPlacedCells = false;
+        let nextAppendX = 0;
+        let nextAppendY = 0;
+
+        for (const cell of cells) {
+          if (cell.offsetX !== undefined && cell.offsetY !== undefined) {
+            const rightOfCell = cell.offsetX + stepPercentX;
+
+            if (!hasPlacedCells || rightOfCell > nextAppendX) {
+              nextAppendX = rightOfCell;
+              nextAppendY = cell.offsetY;
+            }
+
+            hasPlacedCells = true;
+          }
+        }
+
+        const seededCells = cells.map((cell, index) => {
+          if (cell.offsetX !== undefined && cell.offsetY !== undefined) {
+            return cell;
+          }
+
+          // Just toggled to comb: seed a horizontal row from the field origin
+          // so the cells appear where the field currently sits.
+          if (!hasPlacedCells) {
+            return {
+              ...cell,
+              offsetX: index * stepPercentX,
+              offsetY: 0,
+            };
+          }
+
+          const seededCell = {
+            ...cell,
+            offsetX: nextAppendX,
+            offsetY: nextAppendY,
+          };
+
+          nextAppendX += stepPercentX;
+
+          return seededCell;
+        });
+
+        editorFields.updateFieldByFormId(field.formId, {
+          fieldMeta: { ...meta, cells: seededCells },
+        });
+
+        continue;
+      }
+
+      const values = meta.values ?? [];
 
       const isMissingOffsets = values.some(
         (value) => value.offsetX === undefined || value.offsetY === undefined,
       );
 
-      if (!meta || values.length === 0 || !isMissingOffsets) {
+      if (values.length === 0 || !isMissingOffsets) {
         continue;
       }
 
@@ -758,6 +853,93 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     setSelectedFields([]);
   };
 
+  /**
+   * One-click alignment for the selected comb field's cells:
+   *
+   * - 'row': align every cell to the first cell's row.
+   * - 'distribute': also space the cells evenly between the left-most and
+   *   right-most cell, in index order.
+   *
+   * The field origin and bounds are re-normalized against the new cell union
+   * in page-percentage space (mirrors syncFreeLayoutField without Konva).
+   */
+  const alignSelectedCombCells = (alignMode: 'row' | 'distribute') => {
+    if (selectedKonvaFieldGroups.length !== 1) {
+      return;
+    }
+
+    const fieldFormId = selectedKonvaFieldGroups[0].id();
+    const localField = editorFields.getFieldByFormId(fieldFormId);
+    const meta = localField?.fieldMeta;
+
+    if (
+      !localField ||
+      !meta ||
+      (meta.type !== 'text' && meta.type !== 'number') ||
+      meta.layout !== 'cells'
+    ) {
+      return;
+    }
+
+    const cells = meta.cells ?? [];
+
+    // Offsets are seeded by an effect right after comb is enabled, so bail on
+    // the rare frame where they are still missing.
+    if (
+      cells.length < 2 ||
+      cells.some((cell) => cell.offsetX === undefined || cell.offsetY === undefined)
+    ) {
+      return;
+    }
+
+    const cellSize = resolveCellSize(meta);
+    const rowY = cells[0].offsetY ?? 0;
+
+    let updatedCells = cells.map((cell) => ({ ...cell, offsetY: rowY }));
+
+    if (alignMode === 'distribute') {
+      const xs = cells.map((cell) => cell.offsetX ?? 0);
+      const spanStart = Math.min(...xs);
+      const spanEnd = Math.max(...xs);
+
+      // Preserve the overall span; fall back to the default pitch when the
+      // cells are stacked on top of each other.
+      let step = (spanEnd - spanStart) / (cells.length - 1);
+
+      if (step <= 0.0001) {
+        step = ((cellSize + COMB_CELL_GAP) / unscaledViewport.width) * 100;
+      }
+
+      updatedCells = updatedCells.map((cell, index) => ({
+        ...cell,
+        offsetX: spanStart + index * step,
+      }));
+    }
+
+    const minX = Math.min(...updatedCells.map((cell) => cell.offsetX ?? 0));
+    const minY = Math.min(...updatedCells.map((cell) => cell.offsetY ?? 0));
+    const maxX = Math.max(...updatedCells.map((cell) => cell.offsetX ?? 0));
+    const maxY = Math.max(...updatedCells.map((cell) => cell.offsetY ?? 0));
+
+    const cellWidthPercent = (cellSize / unscaledViewport.width) * 100;
+    const cellHeightPercent = (cellSize / unscaledViewport.height) * 100;
+
+    editorFields.updateFieldByFormId(fieldFormId, {
+      positionX: Number(localField.positionX) + minX,
+      positionY: Number(localField.positionY) + minY,
+      width: maxX - minX + cellWidthPercent,
+      height: maxY - minY + cellHeightPercent,
+      fieldMeta: {
+        ...meta,
+        cells: updatedCells.map((cell) => ({
+          ...cell,
+          offsetX: (cell.offsetX ?? 0) - minX,
+          offsetY: (cell.offsetY ?? 0) - minY,
+        })),
+      },
+    });
+  };
+
   const changeSelectedFieldsRecipients = (recipientId: number) => {
     const fields = selectedKonvaFieldGroups
       .map((field) => editorFields.getFieldByFormId(field.id()))
@@ -856,6 +1038,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
             handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
             handleDeleteSelectedFields={deletedSelectedFields}
             handleChangeRecipient={changeSelectedFieldsRecipients}
+            handleAlignCombCells={alignSelectedCombCells}
             selectedFieldFormId={selectedKonvaFieldGroups.map((field) => field.id())}
             style={{
               position: 'absolute',
@@ -918,6 +1101,7 @@ type FieldActionButtonsProps = React.HTMLAttributes<HTMLDivElement> & {
   handleDuplicateSelectedFieldsOnAllPages: () => void;
   handleDeleteSelectedFields: () => void;
   handleChangeRecipient: (recipientId: number) => void;
+  handleAlignCombCells: (alignMode: 'row' | 'distribute') => void;
   selectedFieldFormId: string[];
 };
 
@@ -926,6 +1110,7 @@ const FieldActionButtons = ({
   handleDuplicateSelectedFieldsOnAllPages,
   handleDeleteSelectedFields,
   handleChangeRecipient,
+  handleAlignCombCells,
   selectedFieldFormId,
   ...props
 }: FieldActionButtonsProps) => {
@@ -985,6 +1170,10 @@ const FieldActionButtons = ({
   const isAdvancedField =
     singleSelectedLocalField !== null && ADVANCED_FIELD_TYPES.has(singleSelectedLocalField.type);
 
+  const isCombField =
+    singleSelectedLocalField !== null &&
+    getCombFieldCells(singleSelectedLocalField.fieldMeta) !== null;
+
   const toFieldFormType = (localField: TLocalField): FieldFormType => {
     const recipient = envelope.recipients.find((r) => r.id === localField.recipientId);
 
@@ -1029,6 +1218,28 @@ const FieldActionButtons = ({
           >
             <Settings2Icon className="h-3 w-3" />
           </button>
+        )}
+
+        {isCombField && (
+          <>
+            <button
+              title={t`Align cells into a row`}
+              className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+              onClick={() => handleAlignCombCells('row')}
+              onTouchEnd={() => handleAlignCombCells('row')}
+            >
+              <AlignCenterVerticalIcon className="h-3 w-3" />
+            </button>
+
+            <button
+              title={t`Distribute cells evenly`}
+              className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+              onClick={() => handleAlignCombCells('distribute')}
+              onTouchEnd={() => handleAlignCombCells('distribute')}
+            >
+              <AlignHorizontalDistributeCenterIcon className="h-3 w-3" />
+            </button>
+          </>
         )}
 
         <button
