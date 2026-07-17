@@ -556,6 +556,91 @@ const assertAllFieldTypesPersistedInDatabase = async ({
   expect(dropdownValues[1].value).toBe('Blue');
 };
 
+// --- Comb (character cells) text field flow ---
+
+type TCombFieldFlowResult = {
+  externalId: string;
+};
+
+const runCombFieldFlow = async (surface: TEnvelopeEditorSurface): Promise<TCombFieldFlowResult> => {
+  const externalId = `e2e-comb-fields-${nanoid()}`;
+  const root = surface.root;
+
+  if (surface.isEmbedded && !surface.envelopeId) {
+    await addEnvelopeItemPdf(root, 'embedded-fields.pdf');
+  }
+
+  await updateExternalId(surface, externalId);
+  await setupRecipientsForFieldPlacement(surface);
+
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await expect(root.locator('.konva-container canvas').first()).toBeVisible();
+
+  // Place a text field and enable the comb (character cells) layout.
+  await placeFieldOnPdf(root, 'Text', { x: 120, y: 300 });
+  await root.locator('[data-testid="field-form-combMode"]').click();
+
+  // The character limit input is replaced by the cell count in comb layout.
+  await expect(root.locator('[data-testid="field-form-characterLimit"]')).toHaveCount(0);
+
+  await root.locator('[data-testid="field-form-cellCount"]').fill('6');
+  await root.locator('[data-testid="field-form-cellSize"]').fill('20');
+
+  // One draggable cell group is rendered per configured cell.
+  await root.waitForTimeout(300);
+  const cellCount = await getKonvaElementCountForPage(root, 1, '.field-option-group');
+  expect(cellCount).toBe(6);
+
+  // Wait briefly for auto-save to fire.
+  await root.waitForTimeout(500);
+
+  // Navigate away and back to verify persistence.
+  await clickEnvelopeEditorStep(root, 'upload');
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await root.locator('.konva-container canvas').first().waitFor({ state: 'visible' });
+
+  const persistedCellCount = await getKonvaElementCountForPage(root, 1, '.field-option-group');
+  expect(persistedCellCount).toBe(6);
+
+  return { externalId };
+};
+
+const assertCombFieldPersistedInDatabase = async ({
+  surface,
+  externalId,
+}: {
+  surface: TEnvelopeEditorSurface;
+  externalId: string;
+}) => {
+  const envelope = await prisma.envelope.findFirstOrThrow({
+    where: {
+      externalId,
+      userId: surface.userId,
+      teamId: surface.teamId,
+      type: surface.envelopeType,
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { fields: true },
+  });
+
+  const textField = envelope.fields.find((field) => field.type === FieldType.TEXT);
+  expect(textField).toBeDefined();
+
+  const fieldMeta = textField!.fieldMeta as Record<string, unknown>;
+  expect(fieldMeta.type).toBe('text');
+  expect(fieldMeta.layout).toBe('cells');
+  expect(fieldMeta.cellSize).toBe(20);
+
+  const cells = fieldMeta.cells as Array<{ id: number; offsetX?: number; offsetY?: number }>;
+  expect(cells).toHaveLength(6);
+
+  // Every cell should have seeded numeric offsets.
+  for (const cell of cells) {
+    expect(typeof cell.offsetX).toBe('number');
+    expect(typeof cell.offsetY).toBe('number');
+  }
+};
+
 // --- Duplicate and delete fields flow ---
 
 type TDuplicateDeleteFlowResult = {
@@ -769,6 +854,16 @@ test.describe('document editor', () => {
     const result = await runAllFieldTypesFlow(surface);
 
     await assertAllFieldTypesPersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
+  test('place and configure a comb text field', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+    const result = await runCombFieldFlow(surface);
+
+    await assertCombFieldPersistedInDatabase({
       surface,
       ...result,
     });

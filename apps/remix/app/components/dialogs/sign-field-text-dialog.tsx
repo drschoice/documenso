@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { msg } from '@lingui/core/macro';
 import { Plural, useLingui } from '@lingui/react/macro';
@@ -7,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { TTextFieldMeta } from '@documenso/lib/types/field-meta';
+import { getCombFieldCells } from '@documenso/lib/types/field-meta';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -26,12 +29,6 @@ import {
 } from '@documenso/ui/primitives/form/form';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 
-const ZSignFieldTextFormSchema = z.object({
-  text: z.string().min(1, { message: msg`Text is required`.id }),
-});
-
-type TSignFieldTextFormSchema = z.infer<typeof ZSignFieldTextFormSchema>;
-
 export type SignFieldTextDialogProps = {
   fieldMeta?: TTextFieldMeta;
 };
@@ -39,6 +36,35 @@ export type SignFieldTextDialogProps = {
 export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, string | null>(
   ({ call, fieldMeta }) => {
     const { t } = useLingui();
+
+    // The cell count is the effective character limit for comb fields.
+    const combCellCount = getCombFieldCells(fieldMeta)?.length ?? 0;
+    const isCombField = combCellCount > 0;
+
+    const characterLimit = isCombField ? combCellCount : (fieldMeta?.characterLimit ?? 0);
+
+    const ZSignFieldTextFormSchema = useMemo(
+      () =>
+        z.object({
+          text: z
+            .string()
+            .min(1, { message: msg`Text is required`.id })
+            .superRefine((value, ctx) => {
+              if (characterLimit > 0 && value.length > characterLimit) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.too_big,
+                  type: 'string',
+                  maximum: characterLimit,
+                  inclusive: true,
+                  message: t`Text cannot exceed ${characterLimit} characters`,
+                });
+              }
+            }),
+        }),
+      [characterLimit],
+    );
+
+    type TSignFieldTextFormSchema = z.infer<typeof ZSignFieldTextFormSchema>;
 
     const form = useForm<TSignFieldTextFormSchema>({
       resolver: zodResolver(ZSignFieldTextFormSchema),
@@ -73,25 +99,32 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, stri
                         <Textarea
                           id="custom-text"
                           placeholder={fieldMeta?.placeholder ?? t`Enter your text here`}
+                          maxLength={characterLimit > 0 ? characterLimit : undefined}
                           className={cn('w-full rounded-md', {
                             'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
                               fieldState.error,
                           })}
                           {...field}
+                          onChange={(e) => {
+                            // Comb cells are single-line, one character each.
+                            if (isCombField) {
+                              e.target.value = e.target.value.replace(/[\r\n]+/g, '');
+                            }
+
+                            field.onChange(e);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
-                      {fieldMeta?.characterLimit !== undefined &&
-                        fieldMeta?.characterLimit > 0 &&
-                        !fieldState.error && (
-                          <div className="text-sm text-muted-foreground">
-                            <Plural
-                              value={fieldMeta?.characterLimit - (field.value?.length ?? 0)}
-                              one="# character remaining"
-                              other="# characters remaining"
-                            />
-                          </div>
-                        )}
+                      {characterLimit > 0 && !fieldState.error && (
+                        <div className="text-sm text-muted-foreground">
+                          <Plural
+                            value={characterLimit - (field.value?.length ?? 0)}
+                            one="# character remaining"
+                            other="# characters remaining"
+                          />
+                        </div>
+                      )}
                     </FormItem>
                   )}
                 />

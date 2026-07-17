@@ -27,6 +27,7 @@ import {
   type TDateFieldMeta,
   type TDropdownFieldMeta,
   type TEmailFieldMeta,
+  type TFieldCellValue,
   type TFieldMetaSchema,
   type TFieldOptionValue,
   type TFieldTextAlignSchema,
@@ -266,6 +267,40 @@ export const EnvelopeEditorFieldsPage = () => {
 
           const resolvedOffsetX = offsetX ?? existingValue?.offsetX;
           const resolvedOffsetY = offsetY ?? existingValue?.offsetY;
+
+          return {
+            ...rest,
+            ...(resolvedOffsetX !== undefined ? { offsetX: resolvedOffsetX } : {}),
+            ...(resolvedOffsetY !== undefined ? { offsetY: resolvedOffsetY } : {}),
+          };
+        }),
+      };
+    }
+
+    // Comb cell offsets live on the canvas as well: the text/number forms only
+    // emit cell ids, so restore the offsets by id and strip them when leaving
+    // the comb layout.
+    if (mergedMeta && (mergedMeta.type === 'text' || mergedMeta.type === 'number')) {
+      const isCombLayout = mergedMeta.layout === 'cells';
+
+      const existingCells =
+        existingMeta && (existingMeta.type === 'text' || existingMeta.type === 'number')
+          ? ((existingMeta.cells as TFieldCellValue[] | undefined) ?? [])
+          : [];
+
+      mergedMeta = {
+        ...mergedMeta,
+        cells: mergedMeta.cells?.map((cell) => {
+          const { offsetX, offsetY, ...rest } = cell;
+
+          if (!isCombLayout) {
+            return rest;
+          }
+
+          const existingCell = existingCells.find((c) => c.id === cell.id);
+
+          const resolvedOffsetX = offsetX ?? existingCell?.offsetX;
+          const resolvedOffsetY = offsetY ?? existingCell?.offsetY;
 
           return {
             ...rest,
@@ -717,6 +752,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldNumberForm
                         value={selectedField?.fieldMeta as TNumberFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .with(FieldType.RADIO, () => (
@@ -730,6 +766,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       <EditorFieldTextForm
                         value={selectedField?.fieldMeta as TTextFieldMeta | undefined}
                         onValueChange={(value) => updateSelectedFieldMeta(value)}
+                        isEnvelopeV2={envelope.internalVersion === 2}
                       />
                     ))
                     .otherwise(() => null)}

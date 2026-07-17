@@ -11,6 +11,8 @@ import {
   FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN,
   FIELD_DEFAULT_LETTER_SPACING,
   FIELD_DEFAULT_LINE_HEIGHT,
+  FIELD_MAX_CELL_COUNT,
+  FIELD_MIN_CELL_COUNT,
   type TNumberFieldMeta as NumberFieldMeta,
   ZNumberFieldMeta,
 } from '@documenso/lib/types/field-meta';
@@ -34,6 +36,9 @@ import {
 import { Separator } from '@documenso/ui/primitives/separator';
 
 import {
+  EditorGenericCellCountField,
+  EditorGenericCellSizeField,
+  EditorGenericCombModeField,
   EditorGenericFontSizeField,
   EditorGenericLabelField,
   EditorGenericLetterSpacingField,
@@ -58,7 +63,22 @@ const ZNumberFieldFormSchema = ZNumberFieldMeta.pick({
   readOnly: true,
   minValue: true,
   maxValue: true,
+  layout: true,
+  cells: true,
+  cellSize: true,
 })
+  .refine(
+    (data) => {
+      // The value cannot exceed the cell count in comb layout
+      return (
+        data.layout !== 'cells' || !data.value || [...data.value].length <= (data.cells ?? []).length
+      );
+    },
+    {
+      message: 'Value cannot exceed the number of cells',
+      path: ['value'],
+    },
+  )
   .refine(
     (data) => {
       // Minimum value cannot be greater than maximum value
@@ -92,6 +112,7 @@ type TNumberFieldFormSchema = z.infer<typeof ZNumberFieldFormSchema>;
 type EditorFieldNumberFormProps = {
   value: NumberFieldMeta | undefined;
   onValueChange: (value: NumberFieldMeta) => void;
+  isEnvelopeV2?: boolean;
 };
 
 export const EditorFieldNumberForm = ({
@@ -99,6 +120,7 @@ export const EditorFieldNumberForm = ({
     type: 'number',
   },
   onValueChange,
+  isEnvelopeV2,
 }: EditorFieldNumberFormProps) => {
   const { t } = useLingui();
 
@@ -119,6 +141,11 @@ export const EditorFieldNumberForm = ({
       readOnly: value.readOnly || false,
       minValue: value.minValue,
       maxValue: value.maxValue,
+      layout: value.layout ?? 'box',
+      // Offsets are owned by the canvas, so only the cell ids round-trip
+      // through the form. They are restored by id on merge.
+      cells: (value.cells ?? []).map(({ id }) => ({ id })),
+      cellSize: value.cellSize,
     },
   });
 
@@ -127,6 +154,20 @@ export const EditorFieldNumberForm = ({
   const formValues = useWatch({
     control,
   });
+
+  const isCombLayout = formValues.layout === 'cells';
+
+  // Seed the cells the first time comb layout is enabled.
+  useEffect(() => {
+    if (formValues.layout === 'cells' && (formValues.cells ?? []).length === 0) {
+      const cellCount = Math.max(FIELD_MIN_CELL_COUNT, Math.min(FIELD_MAX_CELL_COUNT, 5));
+
+      form.setValue(
+        'cells',
+        Array.from({ length: cellCount }, (_, index) => ({ id: index + 1 })),
+      );
+    }
+  }, [formValues.layout]);
 
   // Dupecode/Inefficient: Done because native isValid won't work for our usecase.
   useEffect(() => {
@@ -150,11 +191,27 @@ export const EditorFieldNumberForm = ({
         <fieldset className="flex flex-col gap-2">
           <EditorGenericFontSizeField className="w-full" formControl={form.control} />
 
-          <div className="flex w-full flex-row gap-x-4">
-            <EditorGenericTextAlignField className="w-full" formControl={form.control} />
+          {isEnvelopeV2 && (
+            <div className="mt-1">
+              <EditorGenericCombModeField formControl={form.control} />
+            </div>
+          )}
 
-            <EditorGenericVerticalAlignField className="w-full" formControl={form.control} />
-          </div>
+          {isEnvelopeV2 && isCombLayout && (
+            <div className="flex w-full flex-row gap-x-4">
+              <EditorGenericCellCountField className="w-full" formControl={form.control} />
+
+              <EditorGenericCellSizeField className="w-full" formControl={form.control} />
+            </div>
+          )}
+
+          {!isCombLayout && (
+            <div className="flex w-full flex-row gap-x-4">
+              <EditorGenericTextAlignField className="w-full" formControl={form.control} />
+
+              <EditorGenericVerticalAlignField className="w-full" formControl={form.control} />
+            </div>
+          )}
 
           <EditorGenericLabelField formControl={form.control} />
 
@@ -237,11 +294,13 @@ export const EditorFieldNumberForm = ({
             )}
           />
 
-          <div className="flex w-full flex-row gap-x-4">
-            <EditorGenericLineHeightField className="w-full" formControl={form.control} />
+          {!isCombLayout && (
+            <div className="flex w-full flex-row gap-x-4">
+              <EditorGenericLineHeightField className="w-full" formControl={form.control} />
 
-            <EditorGenericLetterSpacingField className="w-full" formControl={form.control} />
-          </div>
+              <EditorGenericLetterSpacingField className="w-full" formControl={form.control} />
+            </div>
+          )}
 
           <div className="mt-1">
             <EditorGenericRequiredField formControl={form.control} />

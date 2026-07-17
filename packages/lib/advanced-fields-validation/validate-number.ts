@@ -1,6 +1,7 @@
 import { numberFormatValues } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
 
 import type { TNumberFieldMeta as NumberFieldMeta } from '../types/field-meta';
+import { getCombFieldCells } from '../types/field-meta';
 
 export const validateNumberField = (
   value: string,
@@ -10,6 +11,16 @@ export const validateNumberField = (
   const errors = [];
 
   const { minValue, maxValue, readOnly, required, numberFormat, fontSize } = fieldMeta || {};
+
+  // The cell count is the effective character limit for comb fields,
+  // including any format separators.
+  const combCellCount = getCombFieldCells(fieldMeta)?.length ?? 0;
+
+  if (combCellCount > 0 && value.length > combCellCount) {
+    errors.push(
+      `Value length (${value.length}) exceeds the number of cells (${combCellCount})`,
+    );
+  }
 
   if (numberFormat && value.length > 0) {
     const foundRegex = numberFormatValues.find((item) => item.value === numberFormat)?.regex;

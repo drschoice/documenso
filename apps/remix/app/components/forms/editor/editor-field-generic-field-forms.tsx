@@ -9,6 +9,9 @@ import { FIELD_MIN_LETTER_SPACING } from '@documenso/lib/types/field-meta';
 import { FIELD_MAX_LETTER_SPACING } from '@documenso/lib/types/field-meta';
 import { FIELD_MIN_BUTTON_SIZE } from '@documenso/lib/types/field-meta';
 import { FIELD_MAX_BUTTON_SIZE } from '@documenso/lib/types/field-meta';
+import { FIELD_MIN_CELL_COUNT } from '@documenso/lib/types/field-meta';
+import { FIELD_MAX_CELL_COUNT } from '@documenso/lib/types/field-meta';
+import type { TFieldCellValue } from '@documenso/lib/types/field-meta';
 import { cn } from '@documenso/ui/lib/utils';
 import { Checkbox } from '@documenso/ui/primitives/checkbox';
 import {
@@ -137,6 +140,149 @@ export const EditorGenericFreePlacementField = ({
                 <Trans>Free placement</Trans>
               </label>
             </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+export const EditorGenericCombModeField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  return (
+    <FormField
+      control={formControl}
+      name="layout"
+      render={({ field }) => (
+        <FormItem className={cn('flex items-center space-x-2', className)}>
+          <FormControl>
+            <div className="flex items-center">
+              <Checkbox
+                data-testid="field-form-combMode"
+                id="field-comb-mode"
+                checked={field.value === 'cells'}
+                onCheckedChange={(checked) => field.onChange(checked ? 'cells' : 'box')}
+              />
+
+              <label className="ml-2 text-sm text-muted-foreground" htmlFor="field-comb-mode">
+                <Trans>Character cells (comb)</Trans>
+              </label>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+export const EditorGenericCellCountField = ({
+  formControl,
+  className,
+  onCellCountChange,
+}: {
+  formControl: FormControlType;
+  className?: string;
+  onCellCountChange?: (count: number) => void;
+}) => {
+  const { t } = useLingui();
+
+  return (
+    <FormField
+      control={formControl}
+      name="cells"
+      render={({ field }) => {
+        const cells: TFieldCellValue[] = field.value ?? [];
+
+        return (
+          <FormItem className={className}>
+            <FormLabel>
+              <Trans>Cell Count</Trans>
+            </FormLabel>
+            <FormControl>
+              <Input
+                data-testid="field-form-cellCount"
+                type="number"
+                min={FIELD_MIN_CELL_COUNT}
+                max={FIELD_MAX_CELL_COUNT}
+                className="bg-background"
+                placeholder={t`Number of cells`}
+                name={field.name}
+                value={cells.length || ''}
+                onBlur={field.onBlur}
+                onChange={(e) => {
+                  const parsedCount = parseInt(e.target.value, 10);
+
+                  if (isNaN(parsedCount)) {
+                    return;
+                  }
+
+                  const count = Math.max(
+                    FIELD_MIN_CELL_COUNT,
+                    Math.min(FIELD_MAX_CELL_COUNT, parsedCount),
+                  );
+
+                  // Shrinking drops the highest cells, growing appends new
+                  // ones with fresh ids so existing placements are kept.
+                  let resizedCells = cells.slice(0, count);
+
+                  let maxId = cells.reduce((acc, cell) => Math.max(acc, cell.id), 0);
+
+                  while (resizedCells.length < count) {
+                    resizedCells = [...resizedCells, { id: ++maxId }];
+                  }
+
+                  field.onChange(resizedCells);
+                  onCellCountChange?.(count);
+                }}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
+  );
+};
+
+export const EditorGenericCellSizeField = ({
+  formControl,
+  className,
+}: {
+  formControl: FormControlType;
+  className?: string;
+}) => {
+  const { t } = useLingui();
+
+  return (
+    <FormField
+      control={formControl}
+      name="cellSize"
+      render={({ field }) => (
+        <FormItem className={className}>
+          <FormLabel>
+            <Trans>Cell Size</Trans>
+          </FormLabel>
+          <FormControl>
+            <Input
+              data-testid="field-form-cellSize"
+              type="number"
+              min={FIELD_MIN_BUTTON_SIZE}
+              max={FIELD_MAX_BUTTON_SIZE}
+              className="bg-background"
+              placeholder={t`Defaults to 1.5 × font size`}
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => {
+                field.onChange(e.target.value === '' ? undefined : Number(e.target.value));
+              }}
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
