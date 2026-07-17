@@ -637,6 +637,100 @@ const assertDuplicateDeleteFieldPersistedInDatabase = async ({
   expect(envelope.fields[0].type).toBe(FieldType.SIGNATURE);
 };
 
+// --- Bulk field alignment flow ---
+
+type TBulkAlignmentFlowResult = {
+  externalId: string;
+};
+
+const runBulkAlignmentFlow = async (
+  surface: TEnvelopeEditorSurface,
+): Promise<TBulkAlignmentFlowResult> => {
+  const externalId = `e2e-bulk-align-${nanoid()}`;
+  const root = surface.root;
+
+  if (surface.isEmbedded && !surface.envelopeId) {
+    await addEnvelopeItemPdf(root, 'embedded-fields.pdf');
+  }
+
+  await updateExternalId(surface, externalId);
+  await setupRecipientsForFieldPlacement(surface);
+
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await expect(root.locator('.konva-container canvas').first()).toBeVisible();
+
+  await placeFieldOnPdf(root, 'Signature', { x: 120, y: 100 });
+  await placeFieldOnPdf(root, 'Email', { x: 120, y: 200 });
+  await placeFieldOnPdf(root, 'Date', { x: 120, y: 300 });
+
+  // Place Text last so its form stays open, then give it a per-field alignment.
+  await placeFieldOnPdf(root, 'Text', { x: 120, y: 400 });
+  await root.locator('[data-testid="field-form-textAlign"]').click();
+  await root.getByRole('option', { name: 'Center' }).click();
+
+  // Bulk align right. The open Text form should remount and reflect the new value.
+  await root.locator('[data-testid="envelope-editor-bulk-align-right"]').click();
+  await expect(root.locator('[data-testid="field-form-textAlign"]')).toContainText('Right');
+
+  // Per-field override still works after a bulk apply: set Date back to center.
+  await selectFieldOnCanvas(root, { x: 120, y: 300 });
+  await root.locator('[data-testid="field-form-textAlign"]').click();
+  await root.getByRole('option', { name: 'Center' }).click();
+
+  // Wait briefly for auto-save to fire on the last configured field.
+  await root.waitForTimeout(500);
+
+  // Navigate away and back to verify persistence.
+  await clickEnvelopeEditorStep(root, 'upload');
+  await clickEnvelopeEditorStep(root, 'addFields');
+  const fieldCount = await getKonvaElementCountForPage(root, 1, '.field-group');
+  expect(fieldCount).toBe(4);
+
+  return { externalId };
+};
+
+const assertBulkAlignmentPersistedInDatabase = async ({
+  surface,
+  externalId,
+}: {
+  surface: TEnvelopeEditorSurface;
+  externalId: string;
+}) => {
+  const envelope = await prisma.envelope.findFirstOrThrow({
+    where: {
+      externalId,
+      userId: surface.userId,
+      teamId: surface.teamId,
+      type: surface.envelopeType,
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { fields: true },
+  });
+
+  expect(envelope.fields).toHaveLength(4);
+
+  const fieldsByType = new Map(envelope.fields.map((f) => [f.type, f]));
+
+  const meta = (type: FieldType): Record<string, unknown> => {
+    const field = fieldsByType.get(type);
+    expect(field).toBeDefined();
+    const fieldMeta = field!.fieldMeta;
+    expect(typeof fieldMeta).toBe('object');
+    expect(fieldMeta).not.toBeNull();
+    return fieldMeta as Record<string, unknown>;
+  };
+
+  // Bulk-applied alignment.
+  expect(meta(FieldType.EMAIL).textAlign).toBe('right');
+  expect(meta(FieldType.TEXT).textAlign).toBe('right');
+
+  // Per-field override applied after the bulk action.
+  expect(meta(FieldType.DATE).textAlign).toBe('center');
+
+  // Signature fields support alignment and follow the bulk action.
+  expect(meta(FieldType.SIGNATURE).textAlign).toBe('right');
+};
+
 // --- Test describe blocks ---
 
 test.describe('document editor', () => {
@@ -675,6 +769,16 @@ test.describe('document editor', () => {
     const result = await runAllFieldTypesFlow(surface);
 
     await assertAllFieldTypesPersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
+  test('bulk align all fields with per-field override', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+    const result = await runBulkAlignmentFlow(surface);
+
+    await assertBulkAlignmentPersistedInDatabase({
       surface,
       ...result,
     });

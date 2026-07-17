@@ -210,6 +210,7 @@ export type TDropdownFieldMeta = z.infer<typeof ZDropdownFieldMeta>;
 
 export const ZSignatureFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('signature'),
+  textAlign: ZFieldTextAlignSchema.optional(),
 }).strict();
 
 export type TSignatureFieldMeta = z.infer<typeof ZSignatureFieldMeta>;
@@ -413,6 +414,7 @@ export const FIELD_DROPDOWN_META_DEFAULT_VALUES: TDropdownFieldMeta = {
 export const FIELD_SIGNATURE_META_DEFAULT_VALUES: TSignatureFieldMeta = {
   type: 'signature',
   fontSize: DEFAULT_SIGNATURE_TEXT_FONT_SIZE,
+  textAlign: FIELD_DEFAULT_GENERIC_ALIGN,
 };
 
 export const FIELD_META_DEFAULT_VALUES: Record<FieldType, TFieldMetaSchema> = {

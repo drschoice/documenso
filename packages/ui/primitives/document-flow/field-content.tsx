@@ -154,11 +154,16 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
     field.signature?.signatureImageAsBase64 &&
     field.inserted
   ) {
+    const signatureAlign = fieldMeta?.type === 'signature' ? fieldMeta.textAlign : undefined;
+
     return (
       <img
         src={field.signature.signatureImageAsBase64}
         alt="Signature"
-        className="h-full w-full object-contain"
+        className={cn('h-full w-full object-contain', {
+          'object-left': signatureAlign === 'left',
+          'object-right': signatureAlign === 'right',
+        })}
       />
     );
   }
@@ -190,7 +195,8 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
     }
   }
 
-  const textAlign = fieldMeta && 'textAlign' in fieldMeta ? fieldMeta.textAlign : 'left';
+  const textAlign =
+    fieldMeta && 'textAlign' in fieldMeta && fieldMeta.textAlign ? fieldMeta.textAlign : 'left';
 
   return (
     <div className="flex h-full w-full items-center overflow-hidden">
@@ -198,7 +204,7 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
         className={cn(
           'w-full whitespace-pre-wrap text-left text-[clamp(0.07rem,25cqw,0.825rem)] text-foreground duration-200',
           {
-            '!text-center': textAlign === 'center' || !textToDisplay,
+            '!text-center': textAlign === 'center',
             '!text-right': textAlign === 'right',
             'font-signature text-[clamp(0.07rem,25cqw,1.125rem)]': isSignatureField,
           },

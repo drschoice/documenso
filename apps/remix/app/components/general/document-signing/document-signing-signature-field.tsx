@@ -9,12 +9,14 @@ import { useRevalidator } from 'react-router';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
+import { ZSignatureFieldMeta } from '@documenso/lib/types/field-meta';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
 import { trpc } from '@documenso/trpc/react';
 import type {
   TRemovedSignedFieldWithTokenMutationSchema,
   TSignFieldWithTokenMutationSchema,
 } from '@documenso/trpc/server/field-router/schema';
+import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@documenso/ui/primitives/dialog';
 import { SignaturePad } from '@documenso/ui/primitives/signature-pad';
@@ -73,6 +75,9 @@ export const DocumentSigningSignatureField = ({
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
   const { signature } = field;
+
+  const parsedFieldMeta = ZSignatureFieldMeta.safeParse(field.fieldMeta);
+  const textAlign = parsedFieldMeta.success ? (parsedFieldMeta.data.textAlign ?? 'left') : 'left';
 
   const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
 
@@ -254,7 +259,10 @@ export const DocumentSigningSignatureField = ({
         <img
           src={signature.signatureImageAsBase64}
           alt={`Signature for ${recipient.name}`}
-          className="h-full w-full object-contain"
+          className={cn('h-full w-full object-contain', {
+            'object-left': textAlign === 'left',
+            'object-right': textAlign === 'right',
+          })}
         />
       )}
 
@@ -262,7 +270,13 @@ export const DocumentSigningSignatureField = ({
         <div ref={containerRef} className="flex h-full w-full items-center justify-center p-2">
           <p
             ref={signatureRef}
-            className="w-full overflow-hidden break-all text-center font-signature leading-tight text-muted-foreground duration-200"
+            className={cn(
+              'w-full overflow-hidden break-all text-center font-signature leading-tight text-muted-foreground duration-200',
+              {
+                '!text-left': textAlign === 'left',
+                '!text-right': textAlign === 'right',
+              },
+            )}
             style={{ fontSize: `${fontSize}rem` }}
           >
             {signature?.typedSignature}

@@ -6,13 +6,21 @@ import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
 import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
-import { type TSignatureFieldMeta, ZSignatureFieldMeta } from '@documenso/lib/types/field-meta';
+import {
+  FIELD_DEFAULT_GENERIC_ALIGN,
+  type TSignatureFieldMeta,
+  ZSignatureFieldMeta,
+} from '@documenso/lib/types/field-meta';
 import { Form } from '@documenso/ui/primitives/form/form';
 
-import { EditorGenericFontSizeField } from './editor-field-generic-field-forms';
+import {
+  EditorGenericFontSizeField,
+  EditorGenericTextAlignField,
+} from './editor-field-generic-field-forms';
 
 const ZSignatureFieldFormSchema = ZSignatureFieldMeta.pick({
   fontSize: true,
+  textAlign: true,
 });
 
 type TSignatureFieldFormSchema = z.infer<typeof ZSignatureFieldFormSchema>;
@@ -33,6 +41,7 @@ export const EditorFieldSignatureForm = ({
     mode: 'onChange',
     defaultValues: {
       fontSize: value.fontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE,
+      textAlign: value.textAlign ?? FIELD_DEFAULT_GENERIC_ALIGN,
     },
   });
 
@@ -64,6 +73,8 @@ export const EditorFieldSignatureForm = ({
               <Trans>The typed signature font size</Trans>
             </p>
           </div>
+
+          <EditorGenericTextAlignField formControl={form.control} />
         </fieldset>
       </form>
     </Form>

@@ -86,6 +86,7 @@ type UseEditorFieldsResponse = {
   setFieldId: (formId: string, id: number) => void;
   removeFieldsByFormId: (formIds: string[]) => void;
   updateFieldByFormId: (formId: string, updates: Partial<TLocalField>) => void;
+  updateAllFields: (updater: (field: TLocalField) => TLocalField) => void;
   duplicateField: (field: TLocalField, recipientId?: number) => TLocalField;
   duplicateFieldToAllPages: (field: TLocalField, recipientId?: number) => TLocalField[];
 
@@ -172,6 +173,7 @@ export const useEditorFields = ({
     append,
     remove,
     update,
+    replace,
     fields: localFields,
   } = useFieldArray({
     control: form.control,
@@ -269,6 +271,20 @@ export const useEditorFields = ({
       }
     },
     [localFields, update, triggerFieldsUpdate],
+  );
+
+  /**
+   * Applies an updater to every local field in a single state pass.
+   * The updater must return the field unchanged when it doesn't apply.
+   */
+  const updateAllFields = useCallback(
+    (updater: (field: TLocalField) => TLocalField) => {
+      const { fields } = form.getValues();
+
+      replace(fields.map(updater));
+      triggerFieldsUpdate();
+    },
+    [replace, triggerFieldsUpdate],
   );
 
   const duplicateField = useCallback(
@@ -383,6 +399,7 @@ export const useEditorFields = ({
     setFieldId,
     removeFieldsByFormId,
     updateFieldByFormId,
+    updateAllFields,
     duplicateField,
     duplicateFieldToAllPages,
 

@@ -41,9 +41,9 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
   const textY = 0;
   const textFontSize = fieldMeta?.fontSize || DEFAULT_STANDARD_FONT_SIZE;
 
-  // By default, render the field name or label centered
+  // By default, render the field name or label using the field's text alignment.
   let textToRender: string = fieldMeta?.label || fieldTypeName;
-  let textAlign: 'left' | 'center' | 'right' = 'center';
+  let textAlign: 'left' | 'center' | 'right' = fieldMeta?.textAlign || FIELD_DEFAULT_GENERIC_ALIGN;
   let textVerticalAlign: 'top' | 'middle' | 'bottom' = FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN;
   let textLineHeight = FIELD_DEFAULT_LINE_HEIGHT;
   let textLetterSpacing = FIELD_DEFAULT_LETTER_SPACING;
