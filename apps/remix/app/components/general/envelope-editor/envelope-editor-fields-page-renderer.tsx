@@ -966,6 +966,15 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       .map((field) => editorFields.getFieldByFormId(field.id()))
       .filter((field) => field !== undefined);
 
+    // Diagnostic breadcrumb for the field-duplication bug: record every
+    // duplicate action so an accidental trigger can be traced in the console.
+    console.info('[field-duplicate] duplicate', {
+      envelopeId: envelope.id,
+      count: fields.length,
+      formIds: fields.map((field) => field.formId),
+      types: fields.map((field) => field.type),
+    });
+
     for (const field of fields) {
       editorFields.duplicateField(field);
     }
@@ -975,6 +984,15 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     const fields = selectedKonvaFieldGroups
       .map((field) => editorFields.getFieldByFormId(field.id()))
       .filter((field) => field !== undefined);
+
+    // Diagnostic breadcrumb for the field-duplication bug: record every
+    // duplicate-on-all-pages action so an accidental trigger can be traced.
+    console.info('[field-duplicate] duplicate-all-pages', {
+      envelopeId: envelope.id,
+      count: fields.length,
+      formIds: fields.map((field) => field.formId),
+      types: fields.map((field) => field.type),
+    });
 
     for (const field of fields) {
       editorFields.duplicateFieldToAllPages(field);
