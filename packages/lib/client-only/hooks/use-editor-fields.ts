@@ -8,6 +8,10 @@ import { z } from 'zod';
 
 import { getPdfPagesCount } from '@documenso/lib/constants/pdf-viewer';
 import type { TEditorEnvelope } from '@documenso/lib/types/envelope-editor';
+import {
+  getFieldStableId,
+  removeRulesForTrigger,
+} from '@documenso/lib/universal/field-visibility/authoring';
 import { FIELD_META_DEFAULT_VALUES, ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { nanoid } from '@documenso/lib/universal/id';
 
@@ -171,7 +175,6 @@ export const useEditorFields = ({
 
   const {
     append,
-    remove,
     update,
     replace,
     fields: localFields,
@@ -228,16 +231,42 @@ export const useEditorFields = ({
 
   const removeFieldsByFormId = useCallback(
     (formIds: string[]) => {
-      const indexes = formIds
-        .map((formId) => localFields.findIndex((field) => field.formId === formId))
-        .filter((index) => index !== -1);
+      const { fields } = form.getValues();
+      const removeSet = new Set(formIds);
 
-      if (indexes.length > 0) {
-        remove(indexes);
-        triggerFieldsUpdate();
+      const removed = fields.filter((field) => removeSet.has(field.formId));
+
+      if (removed.length === 0) {
+        return;
       }
+
+      // Fields being removed may be visibility triggers. Strip any dependent
+      // rules that reference their stableId in the SAME pass — otherwise the
+      // next autosave fails validation (FIELD_VISIBILITY_TRIGGER_NOT_FOUND) and
+      // blocks saving the whole envelope.
+      const removedTriggerStableIds = removed
+        .map((field) => getFieldStableId(field.fieldMeta))
+        .filter((id): id is string => !!id);
+
+      const survivors = fields.filter((field) => !removeSet.has(field.formId));
+
+      const cleaned =
+        removedTriggerStableIds.length > 0
+          ? survivors.map((field) => {
+              let meta = field.fieldMeta;
+
+              for (const stableId of removedTriggerStableIds) {
+                meta = removeRulesForTrigger(meta, stableId);
+              }
+
+              return meta === field.fieldMeta ? field : { ...field, fieldMeta: meta };
+            })
+          : survivors;
+
+      replace(cleaned);
+      triggerFieldsUpdate();
     },
-    [localFields, remove, triggerFieldsUpdate],
+    [form, replace, triggerFieldsUpdate],
   );
 
   const setFieldId = (formId: string, id: number) => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { Trans, useLingui } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
@@ -20,13 +20,6 @@ import {
 import { Switch } from '@documenso/ui/primitives/switch';
 
 import { numberFormatValues } from './constants';
-import { VisibilitySection } from './visibility-section';
-
-type FieldMetaWithValues = {
-  stableId?: string;
-  label?: string;
-  values?: Array<{ value: string }>;
-};
 
 type NumberFieldAdvancedSettingsProps = {
   fieldState: NumberFieldMeta;
@@ -49,8 +42,6 @@ export const NumberFieldAdvancedSettings = ({
   fieldState,
   handleFieldChange,
   handleErrors,
-  sameRecipientFields,
-  currentFieldId,
 }: NumberFieldAdvancedSettingsProps) => {
   const { t } = useLingui();
 
@@ -237,24 +228,6 @@ export const NumberFieldAdvancedSettings = ({
           </div>
         </div>
       )}
-
-      <VisibilitySection
-        currentFieldId={currentFieldId ?? null}
-        currentFieldType={FieldType.NUMBER}
-        triggerCandidates={(sameRecipientFields ?? []).map((f) => {
-          const meta = f.fieldMeta as FieldMetaWithValues | null;
-          return {
-            id: f.id,
-            type: f.type,
-            stableId: meta?.stableId,
-            label: meta?.label,
-            page: f.page,
-            values: meta?.values,
-          };
-        })}
-        value={fieldState.visibility}
-        onChange={(next) => handleFieldChange('visibility', next)}
-      />
     </div>
   );
 };

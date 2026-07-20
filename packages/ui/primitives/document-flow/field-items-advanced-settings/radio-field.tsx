@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 import { ChevronDown, ChevronUp, Trash } from 'lucide-react';
 
 import { validateRadioField } from '@documenso/lib/advanced-fields-validation/validate-radio';
@@ -14,14 +14,6 @@ import { Checkbox } from '@documenso/ui/primitives/checkbox';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
 import { Switch } from '@documenso/ui/primitives/switch';
-
-import { VisibilitySection } from './visibility-section';
-
-type FieldMetaWithValues = {
-  stableId?: string;
-  label?: string;
-  values?: Array<{ value: string }>;
-};
 
 export type RadioFieldAdvancedSettingsProps = {
   fieldState: RadioFieldMeta;
@@ -44,8 +36,6 @@ export const RadioFieldAdvancedSettings = ({
   fieldState,
   handleFieldChange,
   handleErrors,
-  sameRecipientFields,
-  currentFieldId,
 }: RadioFieldAdvancedSettingsProps) => {
   const { _ } = useLingui();
 
@@ -222,24 +212,6 @@ export const RadioFieldAdvancedSettings = ({
           </Button>
         </div>
       )}
-
-      <VisibilitySection
-        currentFieldId={currentFieldId ?? null}
-        currentFieldType={FieldType.RADIO}
-        triggerCandidates={(sameRecipientFields ?? []).map((f) => {
-          const meta = f.fieldMeta as FieldMetaWithValues | null;
-          return {
-            id: f.id,
-            type: f.type,
-            stableId: meta?.stableId,
-            label: meta?.label,
-            page: f.page,
-            values: meta?.values,
-          };
-        })}
-        value={fieldState.visibility}
-        onChange={(next) => handleFieldChange('visibility', next)}
-      />
     </div>
   );
 };

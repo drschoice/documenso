@@ -92,6 +92,7 @@ export type TFieldTextAlignSchema = z.infer<typeof ZFieldTextAlignSchema>;
 export const ZInitialsFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('initials'),
   textAlign: ZFieldTextAlignSchema.optional(),
+  ...ZConditionalMetaExtensions,
 }).strict();
 
 export type TInitialsFieldMeta = z.infer<typeof ZInitialsFieldMeta>;
@@ -99,6 +100,7 @@ export type TInitialsFieldMeta = z.infer<typeof ZInitialsFieldMeta>;
 export const ZNameFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('name'),
   textAlign: ZFieldTextAlignSchema.optional(),
+  ...ZConditionalMetaExtensions,
 }).strict();
 
 export type TNameFieldMeta = z.infer<typeof ZNameFieldMeta>;
@@ -106,6 +108,7 @@ export type TNameFieldMeta = z.infer<typeof ZNameFieldMeta>;
 export const ZEmailFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('email'),
   textAlign: ZFieldTextAlignSchema.optional(),
+  ...ZConditionalMetaExtensions,
 }).strict();
 
 export type TEmailFieldMeta = z.infer<typeof ZEmailFieldMeta>;
@@ -114,6 +117,7 @@ export const ZDateFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('date'),
   textAlign: ZFieldTextAlignSchema.optional(),
   value: z.string().optional(),
+  ...ZConditionalMetaExtensions,
 });
 
 export type TDateFieldMeta = z.infer<typeof ZDateFieldMeta>;
@@ -269,6 +273,7 @@ export type TDropdownFieldMeta = z.infer<typeof ZDropdownFieldMeta>;
 export const ZSignatureFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('signature'),
   textAlign: ZFieldTextAlignSchema.optional(),
+  ...ZConditionalMetaExtensions,
 }).strict();
 
 export type TSignatureFieldMeta = z.infer<typeof ZSignatureFieldMeta>;

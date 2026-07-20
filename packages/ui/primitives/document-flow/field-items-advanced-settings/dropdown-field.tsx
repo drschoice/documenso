@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 import { ChevronDown, ChevronUp, Trash } from 'lucide-react';
 
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
@@ -20,14 +20,6 @@ import {
   SelectValue,
 } from '@documenso/ui/primitives/select';
 import { Switch } from '@documenso/ui/primitives/switch';
-
-import { VisibilitySection } from './visibility-section';
-
-type FieldMetaWithValues = {
-  stableId?: string;
-  label?: string;
-  values?: Array<{ value: string }>;
-};
 
 type DropdownFieldAdvancedSettingsProps = {
   fieldState: DropdownFieldMeta;
@@ -50,8 +42,6 @@ export const DropdownFieldAdvancedSettings = ({
   fieldState,
   handleFieldChange,
   handleErrors,
-  sameRecipientFields,
-  currentFieldId,
 }: DropdownFieldAdvancedSettingsProps) => {
   const { _ } = useLingui();
 
@@ -211,24 +201,6 @@ export const DropdownFieldAdvancedSettings = ({
           </Button>
         </div>
       )}
-
-      <VisibilitySection
-        currentFieldId={currentFieldId ?? null}
-        currentFieldType={FieldType.DROPDOWN}
-        triggerCandidates={(sameRecipientFields ?? []).map((f) => {
-          const meta = f.fieldMeta as FieldMetaWithValues | null;
-          return {
-            id: f.id,
-            type: f.type,
-            stableId: meta?.stableId,
-            label: meta?.label,
-            page: f.page,
-            values: meta?.values,
-          };
-        })}
-        value={fieldState.visibility}
-        onChange={(next) => handleFieldChange('visibility', next)}
-      />
     </div>
   );
 };

@@ -13,6 +13,7 @@ import {
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
 import { ZDateFieldMeta, ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
+import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
@@ -210,6 +211,29 @@ export const EnvelopeEditorPreviewPage = () => {
   }, [fields, envelope, envelope.recipients, envelope.documentMeta, fakerInstance]);
 
   /**
+   * Apply conditional-visibility to the placeholder data so the preview reflects
+   * what a recipient actually sees: fields whose rule isn't met by the
+   * placeholder trigger value are hidden, just like at signing time.
+   */
+  const visibleFields = useMemo(() => {
+    if (fieldsWithPlaceholders.length === 0) {
+      return fieldsWithPlaceholders;
+    }
+
+    const visibility = evaluateAllVisibility(
+      fieldsWithPlaceholders.map((field) => ({
+        id: field.id,
+        type: field.type,
+        customText: typeof field.customText === 'string' ? field.customText : '',
+        inserted: field.inserted,
+        fieldMeta: field.fieldMeta,
+      })),
+    );
+
+    return fieldsWithPlaceholders.filter((field) => visibility.get(field.id) !== false);
+  }, [fieldsWithPlaceholders]);
+
+  /**
    * Set the selected recipient to the first recipient in the envelope.
    */
   useEffect(() => {
@@ -223,7 +247,7 @@ export const EnvelopeEditorPreviewPage = () => {
       envelope={envelope}
       envelopeItems={envelope.envelopeItems}
       token={undefined}
-      fields={fieldsWithPlaceholders}
+      fields={visibleFields}
       recipients={envelope.recipients.map((recipient) => ({
         ...recipient,
         signingStatus: SigningStatus.SIGNED,
