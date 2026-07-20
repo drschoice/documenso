@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { msg } from '@lingui/core/macro';
 import { useLingui as useLinguiReact } from '@lingui/react';
-import { useLingui } from '@lingui/react/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { FieldType } from '@prisma/client';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -44,7 +44,16 @@ import { renderField } from '@documenso/lib/universal/field-renderer/render-fiel
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
+import { Button } from '@documenso/ui/primitives/button';
 import { CommandDialog } from '@documenso/ui/primitives/command';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@documenso/ui/primitives/dialog';
 import type { FieldFormType } from '@documenso/ui/primitives/document-flow/add-fields';
 import { FieldAdvancedSettings } from '@documenso/ui/primitives/document-flow/field-item-advanced-settings';
 import { FRIENDLY_FIELD_TYPE } from '@documenso/ui/primitives/document-flow/types';
@@ -1119,6 +1128,9 @@ const FieldActionButtons = ({
 
   const [showRecipientSelector, setShowRecipientSelector] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [confirmDuplicateAction, setConfirmDuplicateAction] = useState<
+    'duplicate' | 'duplicateAllPages' | null
+  >(null);
 
   const { editorFields, envelope } = useCurrentEnvelopeEditor();
 
@@ -1254,8 +1266,8 @@ const FieldActionButtons = ({
         <button
           title={t`Duplicate`}
           className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
-          onClick={handleDuplicateSelectedFields}
-          onTouchEnd={handleDuplicateSelectedFields}
+          onClick={() => setConfirmDuplicateAction('duplicate')}
+          onTouchEnd={() => setConfirmDuplicateAction('duplicate')}
         >
           <CopyPlusIcon className="h-3 w-3" />
         </button>
@@ -1263,8 +1275,8 @@ const FieldActionButtons = ({
         <button
           title={t`Duplicate on all pages`}
           className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
-          onClick={handleDuplicateSelectedFieldsOnAllPages}
-          onTouchEnd={handleDuplicateSelectedFieldsOnAllPages}
+          onClick={() => setConfirmDuplicateAction('duplicateAllPages')}
+          onTouchEnd={() => setConfirmDuplicateAction('duplicateAllPages')}
         >
           <SquareStackIcon className="h-3 w-3" />
         </button>
@@ -1278,6 +1290,70 @@ const FieldActionButtons = ({
           <TrashIcon className="h-3 w-3" />
         </button>
       </div>
+
+      <Dialog
+        open={confirmDuplicateAction !== null}
+        onOpenChange={(open) => !open && setConfirmDuplicateAction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmDuplicateAction === 'duplicateAllPages' ? (
+                <Trans>Duplicate on all pages?</Trans>
+              ) : (
+                <Trans>Duplicate field?</Trans>
+              )}
+            </DialogTitle>
+
+            <DialogDescription>
+              {confirmDuplicateAction === 'duplicateAllPages' ? (
+                selectedFieldFormId.length === 1 ? (
+                  <Trans>
+                    This will place a copy of the selected field on every page of the document.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    This will place a copy of the {selectedFieldFormId.length} selected fields on
+                    every page of the document.
+                  </Trans>
+                )
+              ) : selectedFieldFormId.length === 1 ? (
+                <Trans>This will create a copy of the selected field on this page.</Trans>
+              ) : (
+                <Trans>
+                  This will create a copy of the {selectedFieldFormId.length} selected fields on
+                  this page.
+                </Trans>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmDuplicateAction(null)}
+            >
+              <Trans>Cancel</Trans>
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => {
+                if (confirmDuplicateAction === 'duplicateAllPages') {
+                  handleDuplicateSelectedFieldsOnAllPages();
+                } else {
+                  handleDuplicateSelectedFields();
+                }
+
+                setConfirmDuplicateAction(null);
+              }}
+            >
+              <Trans>Duplicate</Trans>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CommandDialog
         position="start"
