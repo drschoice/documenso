@@ -22,6 +22,11 @@ import { useCurrentEnvelopeRender } from '@documenso/lib/client-only/providers/e
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
 import type { NormalizedFieldWithContext } from '@documenso/lib/server-only/ai/envelope/detect-fields/types';
 import {
+  getFieldStableId,
+  removeValuesFromRules,
+  renameValueInRules,
+} from '@documenso/lib/universal/field-visibility/authoring';
+import {
   FIELD_META_DEFAULT_VALUES,
   type TCheckboxFieldMeta,
   type TDateFieldMeta,
@@ -52,6 +57,7 @@ import { AiFeaturesEnableDialog } from '~/components/dialogs/ai-features-enable-
 import { AiFieldDetectionDialog } from '~/components/dialogs/ai-field-detection-dialog';
 import { EnvelopeItemEditDialog } from '~/components/dialogs/envelope-item-edit-dialog';
 import { EditorFieldCheckboxForm } from '~/components/forms/editor/editor-field-checkbox-form';
+import { EditorFieldConditionalVisibilitySection } from '~/components/forms/editor/editor-field-conditional-visibility-section';
 import { EditorFieldDateForm } from '~/components/forms/editor/editor-field-date-form';
 import { EditorFieldDropdownForm } from '~/components/forms/editor/editor-field-dropdown-form';
 import { EditorFieldEmailForm } from '~/components/forms/editor/editor-field-email-form';
@@ -69,6 +75,71 @@ import { EnvelopeEditorFieldsPageRenderer } from './envelope-editor-fields-page-
 import { EnvelopeEditorPageThumbnails } from './envelope-editor-page-thumbnails';
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
 import { EnvelopeRecipientSelector } from './envelope-recipient-selector';
+
+type OptionValueDiff = { renames: Array<[string, string]>; deletes: string[] };
+
+/**
+ * Diff a trigger field's option values between its previous and next meta so we
+ * can cascade the change onto dependent visibility rules. Radio/checkbox options
+ * carry a stable numeric `id` (robust to reorder); dropdown options do not, so
+ * we diff positionally for in-place edits and by set-difference for removals.
+ */
+const diffTriggerOptionValues = (
+  oldMeta: TFieldMetaSchema,
+  newMeta: TFieldMetaSchema,
+): OptionValueDiff => {
+  const empty: OptionValueDiff = { renames: [], deletes: [] };
+
+  if (!oldMeta || !newMeta || oldMeta.type !== newMeta.type) {
+    return empty;
+  }
+
+  if (
+    (oldMeta.type === 'radio' || oldMeta.type === 'checkbox') &&
+    (newMeta.type === 'radio' || newMeta.type === 'checkbox')
+  ) {
+    const oldById = new Map((oldMeta.values ?? []).map((v) => [v.id, v.value] as const));
+    const newById = new Map((newMeta.values ?? []).map((v) => [v.id, v.value] as const));
+
+    const renames: Array<[string, string]> = [];
+    const deletes: string[] = [];
+
+    for (const [id, oldValue] of oldById) {
+      const newValue = newById.get(id);
+
+      if (newValue === undefined) {
+        deletes.push(oldValue);
+      } else if (newValue !== oldValue) {
+        renames.push([oldValue, newValue]);
+      }
+    }
+
+    return { renames, deletes };
+  }
+
+  if (oldMeta.type === 'dropdown' && newMeta.type === 'dropdown') {
+    const oldValues = (oldMeta.values ?? []).map((v) => v.value);
+    const newValues = (newMeta.values ?? []).map((v) => v.value);
+
+    if (oldValues.length === newValues.length) {
+      const renames: Array<[string, string]> = [];
+
+      for (let i = 0; i < oldValues.length; i += 1) {
+        if (oldValues[i] !== newValues[i]) {
+          renames.push([oldValues[i], newValues[i]]);
+        }
+      }
+
+      return { renames, deletes: [] };
+    }
+
+    const newSet = new Set(newValues);
+
+    return { renames: [], deletes: oldValues.filter((v) => !newSet.has(v)) };
+  }
+
+  return empty;
+};
 
 const FieldSettingsTypeTranslations: Record<FieldType, MessageDescriptor> = {
   [FieldType.SIGNATURE]: msg`Signature Settings`,
@@ -278,11 +349,54 @@ export const EnvelopeEditorFieldsPage = () => {
 
     const isMetaSame = isDeepEqual(selectedField.fieldMeta, mergedMeta);
 
-    if (!isMetaSame) {
-      editorFields.updateFieldByFormId(selectedField.formId, {
-        fieldMeta: mergedMeta,
-      });
+    if (isMetaSame) {
+      return;
     }
+
+    // When a trigger's options are renamed/removed, cascade the change onto the
+    // dependent fields' visibility rules so no rule is left referencing a stale
+    // value — otherwise the next autosave fails FIELD_VISIBILITY_VALUE_INVALID
+    // for the whole envelope. Fold the trigger's own update into the same pass.
+    const triggerStableId = getFieldStableId(selectedField.fieldMeta);
+    const isTrigger =
+      selectedField.type === FieldType.RADIO ||
+      selectedField.type === FieldType.CHECKBOX ||
+      selectedField.type === FieldType.DROPDOWN;
+
+    const { renames, deletes } =
+      triggerStableId && isTrigger
+        ? diffTriggerOptionValues(selectedField.fieldMeta, mergedMeta)
+        : { renames: [], deletes: [] };
+
+    if (triggerStableId && (renames.length > 0 || deletes.length > 0)) {
+      editorFields.updateAllFields((field) => {
+        if (field.formId === selectedField.formId) {
+          return { ...field, fieldMeta: mergedMeta };
+        }
+
+        if (field.recipientId !== selectedField.recipientId) {
+          return field;
+        }
+
+        let meta = field.fieldMeta;
+
+        for (const [oldValue, newValue] of renames) {
+          meta = renameValueInRules(meta, triggerStableId, oldValue, newValue);
+        }
+
+        if (deletes.length > 0) {
+          meta = removeValuesFromRules(meta, triggerStableId, deletes);
+        }
+
+        return meta === field.fieldMeta ? field : { ...field, fieldMeta: meta };
+      });
+
+      return;
+    }
+
+    editorFields.updateFieldByFormId(selectedField.formId, {
+      fieldMeta: mergedMeta,
+    });
   };
 
   const onBulkAlignFields = (textAlign: TFieldTextAlignSchema) => {
@@ -735,6 +849,13 @@ export const EnvelopeEditorFieldsPage = () => {
                       />
                     ))
                     .otherwise(() => null)}
+
+                  {envelope.internalVersion === 2 &&
+                    (selectedField.type === FieldType.RADIO ||
+                      selectedField.type === FieldType.CHECKBOX ||
+                      selectedField.type === FieldType.DROPDOWN) && (
+                      <EditorFieldConditionalVisibilitySection triggerField={selectedField} />
+                    )}
                 </div>
               </section>
             )}

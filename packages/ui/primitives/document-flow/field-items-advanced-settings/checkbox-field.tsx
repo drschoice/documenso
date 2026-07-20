@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 import { ChevronDown, ChevronUp, Trash } from 'lucide-react';
 
 import { validateCheckboxField } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
@@ -23,13 +23,6 @@ import {
 import { Switch } from '@documenso/ui/primitives/switch';
 
 import { checkboxValidationLength, checkboxValidationRules } from './constants';
-import { VisibilitySection } from './visibility-section';
-
-type FieldMetaWithValues = {
-  stableId?: string;
-  label?: string;
-  values?: Array<{ value: string }>;
-};
 
 type CheckboxFieldAdvancedSettingsProps = {
   fieldState: CheckboxFieldMeta;
@@ -52,8 +45,6 @@ export const CheckboxFieldAdvancedSettings = ({
   fieldState,
   handleFieldChange,
   handleErrors,
-  sameRecipientFields,
-  currentFieldId,
 }: CheckboxFieldAdvancedSettingsProps) => {
   const { _ } = useLingui();
 
@@ -293,24 +284,6 @@ export const CheckboxFieldAdvancedSettings = ({
           </Button>
         </div>
       )}
-
-      <VisibilitySection
-        currentFieldId={currentFieldId ?? null}
-        currentFieldType={FieldType.CHECKBOX}
-        triggerCandidates={(sameRecipientFields ?? []).map((f) => {
-          const meta = f.fieldMeta as FieldMetaWithValues | null;
-          return {
-            id: f.id,
-            type: f.type,
-            stableId: meta?.stableId,
-            label: meta?.label,
-            page: f.page,
-            values: meta?.values,
-          };
-        })}
-        value={fieldState.visibility}
-        onChange={(next) => handleFieldChange('visibility', next)}
-      />
     </div>
   );
 };

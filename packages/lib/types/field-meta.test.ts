@@ -38,6 +38,13 @@ describe('field-meta visibility extension', () => {
     ['radio', ZRadioFieldMeta],
     ['checkbox', ZCheckboxFieldMeta],
     ['dropdown', ZDropdownFieldMeta],
+    // Any field type can be a conditionally-shown dependent, so signature/
+    // initials/name/email/date accept a visibility block too.
+    ['signature', ZSignatureFieldMeta],
+    ['date', ZDateFieldMeta],
+    ['initials', ZInitialsFieldMeta],
+    ['name', ZNameFieldMeta],
+    ['email', ZEmailFieldMeta],
   ])('accepts visibility on %s fields', (type, schema) => {
     expect(() =>
       schema.parse({ type, stableId: 'id1', visibility: validBlock }),
@@ -46,12 +53,11 @@ describe('field-meta visibility extension', () => {
 
   it.each([
     ['signature', ZSignatureFieldMeta],
-    ['date', ZDateFieldMeta],
     ['initials', ZInitialsFieldMeta],
     ['name', ZNameFieldMeta],
     ['email', ZEmailFieldMeta],
-  ])('rejects visibility on %s fields', (type, schema) => {
-    expect(() => schema.parse({ type, visibility: validBlock })).toThrow();
+  ])('still rejects unknown keys on strict %s meta', (type, schema) => {
+    expect(() => schema.parse({ type, bogusKey: true })).toThrow();
   });
 
   it('requires value when operator is equals', () => {

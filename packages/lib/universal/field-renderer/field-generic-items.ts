@@ -312,6 +312,102 @@ export const upsertFreeLayoutDecorations = ({
   });
 };
 
+/**
+ * A memoized 8×8 diagonal-stripe tile used as a Konva `fillPatternImage`.
+ * Created lazily so this module stays importable in non-DOM (server render)
+ * contexts — the striping helpers below are only ever called from the editor.
+ */
+const stripeTileCache = new Map<string, HTMLCanvasElement>();
+
+const getStripeTile = (stroke: string): HTMLCanvasElement | null => {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const cached = stripeTileCache.get(stroke);
+
+  if (cached) {
+    return cached;
+  }
+
+  const size = 8;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return null;
+  }
+
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.stroke();
+
+  stripeTileCache.set(stroke, canvas);
+
+  return canvas;
+};
+
+const VISIBILITY_STRIPES_NAME = 'field-visibility-stripes';
+
+/**
+ * Editor-only overlay marking a field that is under a conditional-visibility
+ * rule with semi-transparent diagonal stripes. `active` renders a stronger blue
+ * highlight for the dependents of the condition currently being authored;
+ * otherwise a muted grey. `listening: false` keeps clicks flowing through to
+ * the field for selection / pick-mode toggling.
+ */
+export const upsertVisibilityStripes = ({
+  fieldGroup,
+  footprint,
+  active,
+}: {
+  fieldGroup: Konva.Group;
+  footprint: { x: number; y: number; width: number; height: number };
+  active: boolean;
+}) => {
+  const tile = getStripeTile(active ? '#2563eb' : '#64748b');
+
+  if (!tile) {
+    return;
+  }
+
+  let stripes = fieldGroup.findOne<Konva.Rect>(`.${VISIBILITY_STRIPES_NAME}`);
+
+  if (!stripes) {
+    stripes = new Konva.Rect({
+      name: VISIBILITY_STRIPES_NAME,
+      listening: false,
+      cornerRadius: 2,
+    });
+
+    fieldGroup.add(stripes);
+  }
+
+  stripes.setAttrs({
+    x: footprint.x,
+    y: footprint.y,
+    width: footprint.width,
+    height: footprint.height,
+    // Konva types `fillPatternImage` as HTMLImageElement, but a canvas is a
+    // valid CanvasImageSource for the underlying createPattern call.
+    fillPatternImage: tile as unknown as HTMLImageElement,
+    fillPatternRepeat: 'repeat',
+    opacity: active ? 0.5 : 0.28,
+  } satisfies Partial<Konva.RectConfig>);
+
+  stripes.moveToTop();
+};
+
+export const removeVisibilityStripes = (fieldGroup: Konva.Group) => {
+  fieldGroup.findOne<Konva.Rect>(`.${VISIBILITY_STRIPES_NAME}`)?.destroy();
+};
+
 export const createSpinner = ({
   fieldWidth,
   fieldHeight,

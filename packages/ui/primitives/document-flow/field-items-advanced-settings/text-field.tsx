@@ -1,5 +1,5 @@
 import { Trans, useLingui } from '@lingui/react/macro';
-import { FieldType } from '@prisma/client';
+import type { FieldType } from '@prisma/client';
 
 import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
 import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
@@ -15,14 +15,6 @@ import {
 } from '@documenso/ui/primitives/select';
 import { Switch } from '@documenso/ui/primitives/switch';
 import { Textarea } from '@documenso/ui/primitives/textarea';
-
-import { VisibilitySection } from './visibility-section';
-
-type FieldMetaWithValues = {
-  stableId?: string;
-  label?: string;
-  values?: Array<{ value: string }>;
-};
 
 type TextFieldAdvancedSettingsProps = {
   fieldState: TextFieldMeta;
@@ -45,8 +37,6 @@ export const TextFieldAdvancedSettings = ({
   fieldState,
   handleFieldChange,
   handleErrors,
-  sameRecipientFields,
-  currentFieldId,
 }: TextFieldAdvancedSettingsProps) => {
   const { t } = useLingui();
 
@@ -190,24 +180,6 @@ export const TextFieldAdvancedSettings = ({
           </Label>
         </div>
       </div>
-
-      <VisibilitySection
-        currentFieldId={currentFieldId ?? null}
-        currentFieldType={FieldType.TEXT}
-        triggerCandidates={(sameRecipientFields ?? []).map((f) => {
-          const meta = f.fieldMeta as FieldMetaWithValues | null;
-          return {
-            id: f.id,
-            type: f.type,
-            stableId: meta?.stableId,
-            label: meta?.label,
-            page: f.page,
-            values: meta?.values,
-          };
-        })}
-        value={fieldState.visibility}
-        onChange={(next) => handleFieldChange('visibility', next)}
-      />
     </div>
   );
 };

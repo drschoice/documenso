@@ -19,7 +19,10 @@ import {
 
 import type { TLocalField } from '@documenso/lib/client-only/hooks/use-editor-fields';
 import { usePageRenderer } from '@documenso/lib/client-only/hooks/use-page-renderer';
-import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
+import {
+  type VisibilityPickModeTarget,
+  useCurrentEnvelopeEditor,
+} from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import {
   type PageRenderData,
   useCurrentEnvelopeRender,
@@ -27,8 +30,18 @@ import {
 import { FIELD_META_DEFAULT_VALUES, getCombFieldCells } from '@documenso/lib/types/field-meta';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
+  VISIBILITY_ELIGIBLE_FIELD_TYPES,
+  addDependentRule,
+  getFieldStableId,
+  hasDependentRule,
+  removeDependentRule,
+  wouldCreateVisibilityCycle,
+} from '@documenso/lib/universal/field-visibility/authoring';
+import {
   getFieldOptionGroupsUnion,
+  removeVisibilityStripes,
   upsertFreeLayoutDecorations,
+  upsertVisibilityStripes,
 } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import {
   COMB_CELL_GAP,
@@ -58,6 +71,7 @@ import type { FieldFormType } from '@documenso/ui/primitives/document-flow/add-f
 import { FieldAdvancedSettings } from '@documenso/ui/primitives/document-flow/field-item-advanced-settings';
 import { FRIENDLY_FIELD_TYPE } from '@documenso/ui/primitives/document-flow/types';
 import { Sheet, SheetContent, SheetTitle } from '@documenso/ui/primitives/sheet';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
 import { EnvelopeRecipientSelectorCommand } from './envelope-recipient-selector';
@@ -99,12 +113,21 @@ const getFreeLayoutMeta = (field: TLocalField | undefined) => {
 
 export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
   const { t, i18n } = useLingui();
-  const { envelope, editorFields, getRecipientColorKey } = useCurrentEnvelopeEditor();
+  const { toast } = useToast();
+  const { envelope, editorFields, getRecipientColorKey, visibilityPickMode } =
+    useCurrentEnvelopeEditor();
   const { currentEnvelopeItem, setRenderError } = useCurrentEnvelopeRender();
 
   const interactiveTransformer = useRef<Transformer | null>(null);
 
   const [selectedKonvaFieldGroups, setSelectedKonvaFieldGroups] = useState<Konva.Group[]>([]);
+
+  // Konva event handlers are attached at render time and are NOT re-attached on
+  // every pick-mode change, so they must read the latest state via refs.
+  const pickModeRef = useRef(visibilityPickMode);
+  pickModeRef.current = visibilityPickMode;
+  const editorFieldsRef = useRef(editorFields);
+  editorFieldsRef.current = editorFields;
 
   const [isFieldChanging, setIsFieldChanging] = useState(false);
   const [pendingFieldCreation, setPendingFieldCreation] = useState<Konva.Rect | null>(null);
@@ -123,6 +146,138 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       ),
     [editorFields.localFields, pageNumber, currentEnvelopeItem?.id],
   );
+
+  /**
+   * While "select fields" (visibility pick-mode) is active, a click on an
+   * eligible field toggles it into/out of the condition being authored instead
+   * of selecting it. Returns true when the click was consumed by pick-mode.
+   */
+  const handlePickClick = (fieldGroup: Konva.Group): boolean => {
+    const active = pickModeRef.current.active;
+
+    if (!active) {
+      return false;
+    }
+
+    const ef = editorFieldsRef.current;
+    const dependent = ef.getFieldByFormId(fieldGroup.id());
+
+    // Consume the click either way so pick-mode never falls through to select.
+    if (!dependent) {
+      return true;
+    }
+
+    const eligible =
+      dependent.recipientId === active.triggerRecipientId &&
+      dependent.formId !== active.triggerFormId &&
+      VISIBILITY_ELIGIBLE_FIELD_TYPES.has(dependent.type);
+
+    if (!eligible) {
+      return true;
+    }
+
+    const has = hasDependentRule(dependent.fieldMeta, active.triggerStableId, active.value);
+
+    // Guard against circular rules when ADDING — the server rejects cycles on
+    // save (FIELD_VISIBILITY_CYCLE), which would block the whole envelope.
+    if (!has) {
+      const dependentStableId = getFieldStableId(dependent.fieldMeta);
+
+      if (dependentStableId) {
+        const metaByStableId = new Map<string, TFieldMetaSchema>();
+
+        for (const f of ef.localFields) {
+          const sid = getFieldStableId(f.fieldMeta);
+
+          if (sid) {
+            metaByStableId.set(sid, f.fieldMeta);
+          }
+        }
+
+        if (
+          wouldCreateVisibilityCycle(metaByStableId, dependentStableId, active.triggerStableId)
+        ) {
+          toast({
+            title: t`Can't show this field here`,
+            description: t`This would create a circular visibility rule.`,
+            variant: 'destructive',
+          });
+
+          return true;
+        }
+      }
+    }
+
+    // Fields that don't carry meta by default (e.g. signature/name/date) need a
+    // base meta of the right type to attach the visibility block to.
+    const baseMeta = dependent.fieldMeta ?? FIELD_META_DEFAULT_VALUES[dependent.type];
+
+    const nextMeta = has
+      ? removeDependentRule(dependent.fieldMeta, {
+          triggerStableId: active.triggerStableId,
+          value: active.value,
+        })
+      : addDependentRule(baseMeta, {
+          triggerStableId: active.triggerStableId,
+          value: active.value,
+          operator: active.operator,
+        });
+
+    if (nextMeta !== dependent.fieldMeta) {
+      ef.updateFieldByFormId(dependent.formId, { fieldMeta: nextMeta });
+    }
+
+    return true;
+  };
+
+  /**
+   * Footprint (in the field group's local coordinates) to draw the
+   * conditional-visibility stripe overlay over. Free-layout/comb fields use the
+   * union of their placed parts; box fields use the field rect at the origin.
+   */
+  const getFieldStripeFootprint = (field: TLocalField, fieldGroup: Konva.Group) => {
+    if (getFreeLayoutMeta(field)) {
+      return getFieldOptionGroupsUnion(fieldGroup);
+    }
+
+    const { fieldWidth, fieldHeight } = calculateFieldPosition(
+      field,
+      unscaledViewport.width,
+      unscaledViewport.height,
+    );
+
+    return { x: 0, y: 0, width: fieldWidth, height: fieldHeight };
+  };
+
+  /**
+   * Draw (or remove) the editor-only conditional-visibility stripes for a field.
+   * `activeTarget` is the condition currently being authored, if any — its
+   * dependents get the stronger highlight.
+   */
+  const applyFieldStripes = (
+    field: TLocalField,
+    fieldGroup: Konva.Group,
+    activeTarget: VisibilityPickModeTarget | null,
+  ) => {
+    const hasVisibility = Boolean(
+      (field.fieldMeta as { visibility?: unknown } | undefined)?.visibility,
+    );
+
+    if (!hasVisibility) {
+      removeVisibilityStripes(fieldGroup);
+      return;
+    }
+
+    const active =
+      activeTarget !== null &&
+      hasDependentRule(field.fieldMeta, activeTarget.triggerStableId, activeTarget.value);
+
+    const footprint = getFieldStripeFootprint(field, fieldGroup);
+
+    if (footprint) {
+      upsertVisibilityStripes({ fieldGroup, footprint, active });
+    }
+  };
 
   /**
    * Re-normalize a free-layout field after any of its parts moved:
@@ -185,6 +340,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   };
 
   const handleResizeOrMove = (event: KonvaEventObject<Event>) => {
+    // Never persist a move/resize while picking dependent fields.
+    if (pickModeRef.current.active) {
+      return;
+    }
+
     const isDragEvent = event.type === 'dragend';
 
     const fieldGroup = event.target as Konva.Group;
@@ -300,6 +460,9 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       mode: 'edit',
     });
 
+    // Mark fields under a conditional-visibility rule with editor-only stripes.
+    applyFieldStripes(field, fieldGroup, pickModeRef.current.active);
+
     if (!isFieldEditable) {
       return;
     }
@@ -310,6 +473,12 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Set up field selection.
     fieldGroup.on('click', () => {
+      // In "select fields" mode, a click toggles this field as a dependent.
+      if (handlePickClick(fieldGroup)) {
+        pageLayer.current?.batchDraw();
+        return;
+      }
+
       removePendingField();
       setSelectedFields([fieldGroup]);
       pageLayer.current?.batchDraw();
@@ -367,6 +536,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Handle stage click to deselect.
     currentStage.on('mousedown', (e) => {
+      // Keep the trigger selected (and the sidebar open) while picking fields.
+      if (pickModeRef.current.active) {
+        return;
+      }
+
       removePendingField();
 
       if (e.target === stage.current) {
@@ -377,6 +551,10 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // When an item is dragged, select it automatically.
     const onDragStartOrEnd = (e: KonvaEventObject<Event>) => {
+      if (pickModeRef.current.active) {
+        return;
+      }
+
       removePendingField();
 
       // Free-layout option drags select the parent field group.
@@ -466,6 +644,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     let y2: number;
 
     currentStage.on('mousedown touchstart', (e) => {
+      // Disable marquee-select / field-creation while picking fields.
+      if (pickModeRef.current.active) {
+        return;
+      }
+
       // do nothing if we mousedown on any shape
       if (e.target !== currentStage) {
         return;
@@ -561,6 +744,12 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Clicks should select/deselect shapes
     currentStage.on('click tap', function (e) {
+      // In pick-mode the per-field click handler owns the click (it toggles the
+      // dependent). Block all selection/deselection here to avoid double-handling.
+      if (pickModeRef.current.active) {
+        return;
+      }
+
       // if we are selecting with rect, do nothing
       if (
         selectionRectangle.visible() &&
@@ -817,6 +1006,42 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     pageLayer.current.batchDraw();
   }, [localPageFields, selectedKonvaFieldGroups]);
 
+  /**
+   * Re-apply conditional-visibility stripes and freeze field dragging whenever
+   * the active pick-mode condition changes — without a full field rebuild — so
+   * the "current condition" highlight tracks the sidebar and clicks don't turn
+   * into accidental moves while picking. Declared after the render effect so its
+   * draggable(false) wins when both run on a localPageFields change.
+   */
+  useEffect(() => {
+    if (!pageLayer.current) {
+      return;
+    }
+
+    const active = visibilityPickMode.active;
+
+    for (const field of localPageFields) {
+      const fieldGroup = pageLayer.current.findOne<Konva.Group>(`#${field.formId}`);
+
+      if (!fieldGroup) {
+        continue;
+      }
+
+      const recipient = envelope.recipients.find((r) => r.id === field.recipientId);
+      const editable =
+        recipient !== undefined && canRecipientFieldsBeModified(recipient, envelope.fields);
+
+      fieldGroup.draggable(editable && !active);
+      fieldGroup
+        .find<Konva.Group>('.field-option-group')
+        .forEach((optionGroup) => optionGroup.draggable(editable && !active));
+
+      applyFieldStripes(field, fieldGroup, active);
+    }
+
+    pageLayer.current.batchDraw();
+  }, [visibilityPickMode.active, localPageFields]);
+
   const setSelectedFields = (nodes: Konva.Node[]) => {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const fieldGroups = nodes.filter(
@@ -1055,11 +1280,16 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     return null;
   }
 
+  const isPickingOnThisPage =
+    visibilityPickMode.active !== null &&
+    localPageFields.some((field) => field.formId === visibilityPickMode.active?.triggerFormId);
+
   return (
     <>
       {selectedKonvaFieldGroups.length > 0 &&
         interactiveTransformer.current &&
-        !isFieldChanging && (
+        !isFieldChanging &&
+        !visibilityPickMode.active && (
           <FieldActionButtons
             handleDuplicateSelectedFields={duplicatedSelectedFields}
             handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
@@ -1114,6 +1344,23 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
               {t(field.name)}
             </button>
           ))}
+        </div>
+      )}
+
+      {isPickingOnThisPage && (
+        <div
+          style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}
+          className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
+        >
+          <span>
+            <Trans>
+              Click fields to show when{' '}
+              <span className="font-semibold">“{visibilityPickMode.active?.value}”</span> is selected
+            </Trans>
+          </span>
+          <Button type="button" size="sm" onClick={() => visibilityPickMode.exit()}>
+            <Trans>Done</Trans>
+          </Button>
         </div>
       )}
 

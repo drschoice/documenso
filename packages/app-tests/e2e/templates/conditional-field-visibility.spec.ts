@@ -403,42 +403,35 @@ test.describe('Conditional field visibility', () => {
     '[CONDITIONAL][UI]: create template with conditional fields via the editor',
     async ({ page }) => {
       /**
-       * TODO: Un-skip once the following selector gaps are resolved.
+       * TODO: Un-skip once the Konva-canvas drive is stabilised.
+       *
+       * Conditional visibility is now authored TRIGGER-CENTRICally in the v2
+       * editor: you select the radio/checkbox/dropdown (the trigger), then per
+       * option choose which fields to reveal via a canvas "pick-mode". The
+       * underlying storage / evaluation (exercised by the DB-seeded tests above)
+       * is unchanged — only the authoring UI differs.
        *
        * 1. PLACING FIELDS ON THE PDF CANVAS
-       *    The field placement widget works via drag-and-drop onto a virtualised
-       *    PDF canvas rendered inside `[data-pdf-content]`. The exact interaction
-       *    pattern used by other tests is:
-       *
-       *      await page.getByRole('button', { name: 'Radio' }).click();
+       *    Fields are placed onto a Konva canvas. Pattern used by other tests:
+       *      await page.getByRole('button', { name: /radio/i }).click();
        *      await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
+       *    See `packages/app-tests/e2e/document-flow/autosave-fields-step.spec.ts`.
        *
-       *    See `packages/app-tests/e2e/document-flow/autosave-fields-step.spec.ts`
-       *    for the full pattern.  The radio-field button may be labelled differently
-       *    from "Radio" — check with:
-       *      page.getByTestId('field-type-radio') or page.getByRole('button', { name: /radio/i })
+       * 2. CONFIGURING THE TRIGGER
+       *    Selecting the radio opens its settings in the right sidebar. Set its
+       *    options (Married, Single) via the `field-form-values-*` inputs, then
+       *    the trigger-centric "Conditional visibility" section renders below
+       *    (test-id `conditional-visibility-section`) with one row per option.
        *
-       * 2. OPENING ADVANCED SETTINGS FOR A FIELD
-       *    After placing a field a sidebar opens automatically.  The footer of that
-       *    sidebar has a test-id `field-advanced-settings-footer`.  The
-       *    VisibilitySection is rendered at the bottom of the advanced-settings
-       *    panel.  The "Add rule" button is:
-       *      page.getByRole('button', { name: 'Add rule' })
-       *
-       * 3. SELECTING THE TRIGGER FIELD IN THE VISIBILITY SECTION
-       *    After clicking "Add rule" a row appears with two Selects:
-       *      - Select 1: trigger field  (SelectTrigger w-48)
-       *      - Select 2: operator       (SelectTrigger w-40)
-       *      - Select 3 (conditional): value  (SelectTrigger w-40)
-       *    Use page.locator('button[role="combobox"]').nth(N) to identify them by
-       *    position, or add data-testid attributes to the VisibilitySection selects.
+       * 3. SELECTING DEPENDENT FIELDS FOR AN OPTION
+       *    Click the per-option "Select fields" button
+       *    (`visibility-select-fields-<index>`) to enter pick-mode, then click
+       *    the dependent field(s) on the canvas to toggle them into the
+       *    condition. Click the button again (now "Done") to exit pick-mode. The
+       *    click writes a `visibility` rule onto the dependent field's meta.
        *
        * 4. SAVING AND USING THE TEMPLATE
-       *    Follows the existing pattern in `create-document-from-template.spec.ts`:
-       *      await page.getByRole('button', { name: 'Save template' }).click();
-       *      await page.waitForURL(`/t/${team.url}/templates`);
-       *      await page.getByRole('button', { name: 'Use Template' }).click();
-       *      await page.getByRole('button', { name: 'Create as draft' }).click();
+       *    Follows the existing pattern in `create-document-from-template.spec.ts`.
        *
        * 5. COMPLETING THE SIGNING FLOW
        *    Follow the same pattern used in the database-seeded tests above.
@@ -464,27 +457,21 @@ test.describe('Conditional field visibility', () => {
       await page.getByPlaceholder('Name').fill('Test Signer');
       await page.getByRole('button', { name: 'Continue' }).click();
 
-      // TODO: Add radio field "Marital Status" at (100, 100)
-      // await page.getByRole('button', { name: /radio/i }).click();
-      // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
-
-      // TODO: Configure radio options (Married, Single) in the sidebar
-      // TODO: Set the label to "marital_status"
-
-      // TODO: Close advanced settings
-      // await page.getByTestId('field-advanced-settings-footer').getByRole('button', { name: 'Save' }).click();
-
-      // TODO: Add text field "Spouse Name" at (100, 200)
+      // TODO: Add text field "Spouse Name" at (100, 200) — the dependent
       // await page.getByRole('button', { name: /text/i }).click();
       // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 200 } });
 
-      // TODO: Configure visibility rule in advanced settings:
-      //   - Click "Add rule"
-      //   - Select "marital_status · radio · p.1" as trigger
-      //   - Select "equals" as operator
-      //   - Select "Married" as value
-      // await page.getByRole('button', { name: 'Add rule' }).click();
-      // ...
+      // TODO: Add radio field "Marital Status" at (100, 100) — the trigger
+      // await page.getByRole('button', { name: /radio/i }).click();
+      // await page.locator(PDF_VIEWER_PAGE_SELECTOR).click({ position: { x: 100, y: 100 } });
+
+      // TODO: With the radio selected, set its options (Married, Single) via the
+      //       `field-form-values-*` inputs in the sidebar.
+
+      // TODO: In the trigger-centric visibility section, reveal spouse_name for "Married":
+      //   - await page.getByTestId('visibility-select-fields-0').click(); // "Married" row
+      //   - click the spouse_name field on the canvas to toggle it in
+      //   - await page.getByTestId('visibility-select-fields-0').click(); // "Done"
 
       // TODO: Save template and create document
       // await page.getByRole('button', { name: 'Save template' }).click();

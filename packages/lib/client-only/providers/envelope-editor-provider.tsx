@@ -27,6 +27,30 @@ import { useEnvelopeAutosave } from '../hooks/use-envelope-autosave';
 
 export type EnvelopeEditorStep = 'upload' | 'addFields' | 'preview';
 
+/**
+ * The active "select fields" target while authoring a conditional-visibility
+ * condition. While set, clicking an eligible field on the canvas toggles it
+ * into/out of the condition that reveals it (see the fields-page renderer).
+ */
+export type VisibilityPickModeTarget = {
+  /** formId of the trigger field being authored. */
+  triggerFormId: string;
+  /** stableId of the trigger (what dependent rules reference). */
+  triggerStableId: string;
+  /** Only same-recipient fields are eligible dependents. */
+  triggerRecipientId: number;
+  /** The trigger option value this condition reveals for. */
+  value: string;
+  /** Operator to write onto dependents (`equals` radio/dropdown, `contains` checkbox). */
+  operator: 'equals' | 'contains';
+};
+
+export type VisibilityPickMode = {
+  active: VisibilityPickModeTarget | null;
+  enter: (target: VisibilityPickModeTarget) => void;
+  exit: () => void;
+};
+
 type UpdateEnvelopePayload = Pick<TUpdateEnvelopeRequest, 'data' | 'meta'>;
 
 type EnvelopeEditorProviderValue = {
@@ -48,6 +72,8 @@ type EnvelopeEditorProviderValue = {
 
   editorFields: ReturnType<typeof useEditorFields>;
   editorRecipients: ReturnType<typeof useEditorRecipients>;
+
+  visibilityPickMode: VisibilityPickMode;
 
   isAutosaving: boolean;
   flushAutosave: () => Promise<TEditorEnvelope>;
@@ -103,6 +129,8 @@ export const EnvelopeEditorProvider = ({
 
   const [envelope, _setEnvelope] = useState(initialEnvelope);
   const [autosaveError, setAutosaveError] = useState<boolean>(false);
+  const [visibilityPickTarget, setVisibilityPickTarget] =
+    useState<VisibilityPickModeTarget | null>(null);
 
   const envelopeRef = useRef(initialEnvelope);
 
@@ -397,6 +425,15 @@ export const EnvelopeEditorProvider = ({
     return isFieldsMutationPending || isRecipientsMutationPending || isEnvelopeMutationPending;
   }, [isFieldsMutationPending, isRecipientsMutationPending, isEnvelopeMutationPending]);
 
+  const visibilityPickMode = useMemo<VisibilityPickMode>(
+    () => ({
+      active: visibilityPickTarget,
+      enter: (target) => setVisibilityPickTarget(target),
+      exit: () => setVisibilityPickTarget(null),
+    }),
+    [visibilityPickTarget],
+  );
+
   const relativePath = useMemo(() => {
     let documentRootPath = formatDocumentsPath(envelope.team.url);
     let templateRootPath = formatTemplatesPath(envelope.team.url);
@@ -483,6 +520,7 @@ export const EnvelopeEditorProvider = ({
         setRecipientsAsync,
         editorFields,
         editorRecipients,
+        visibilityPickMode,
         autosaveError,
         flushAutosave,
         isAutosaving,
