@@ -16,20 +16,22 @@ import {
 } from '@documenso/ui/primitives/dialog';
 import { Spinner } from '@documenso/ui/primitives/spinner';
 
+import { EnvelopeAddPageDialog } from '~/components/dialogs/envelope-add-page-dialog';
+
 type EnvelopeEditorPageThumbnailsProps = {
   pageCount: number;
   pageImages: Map<number, string>;
   isLoading?: boolean;
+  envelopeItem: { id: string; title: string };
   onDeletePage: (pageNumber: number) => void;
-  onAddBlankPage: () => void;
 };
 
 export const EnvelopeEditorPageThumbnails = ({
   pageCount,
   pageImages,
   isLoading,
+  envelopeItem,
   onDeletePage,
-  onAddBlankPage,
 }: EnvelopeEditorPageThumbnailsProps) => {
   const [pageToDelete, setPageToDelete] = useState<number | null>(null);
 
@@ -83,18 +85,22 @@ export const EnvelopeEditorPageThumbnails = ({
         );
       })}
 
-      {/* Add blank page */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isLoading}
-        onClick={onAddBlankPage}
-        className="mt-1 flex w-full flex-col items-center gap-1 border-dashed px-1 py-2 text-[10px] text-muted-foreground hover:text-foreground"
-      >
-        {isLoading ? <Spinner className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-        <Trans>Add page</Trans>
-      </Button>
+      {/* Add page (blank or from an uploaded file) */}
+      <EnvelopeAddPageDialog
+        envelopeItem={envelopeItem}
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="mt-1 flex w-full flex-col items-center gap-1 border-dashed px-1 py-2 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            {isLoading ? <Spinner className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+            <Trans>Add page</Trans>
+          </Button>
+        }
+      />
 
       <Dialog open={pageToDelete !== null} onOpenChange={(open) => !open && setPageToDelete(null)}>
         <DialogContent>

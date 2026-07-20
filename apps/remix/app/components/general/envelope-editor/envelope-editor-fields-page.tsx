@@ -117,7 +117,6 @@ export const EnvelopeEditorFieldsPage = () => {
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const [isPageOperationLoading, setIsPageOperationLoading] = useState(false);
 
-  const { mutateAsync: addBlankPage } = trpc.envelope.item.addBlankPage.useMutation();
   const { mutateAsync: deletePage } = trpc.envelope.item.deletePage.useMutation();
 
   // Reset page images whenever the current envelope item changes (PDF replaced).
@@ -136,40 +135,6 @@ export const EnvelopeEditorFieldsPage = () => {
 
   const onPageCountChange = (count: number) => {
     setPageCount(count);
-  };
-
-  const onAddBlankPage = async () => {
-    if (!currentEnvelopeItem) {
-      return;
-    }
-
-    setIsPageOperationLoading(true);
-
-    try {
-      const addPromise = addBlankPage({
-        envelopeId: envelope.id,
-        envelopeItemId: currentEnvelopeItem.id,
-      });
-
-      registerPendingMutation(addPromise);
-
-      const { data } = await addPromise;
-
-      setLocalEnvelope({
-        envelopeItems: envelope.envelopeItems.map((item) =>
-          item.id === data.id ? { ...item, documentDataId: data.documentDataId } : item,
-        ),
-      });
-    } catch {
-      toast({
-        title: _(msg`Failed to add page`),
-        description: _(msg`Something went wrong while adding the page`),
-        duration: 5000,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsPageOperationLoading(false);
-    }
   };
 
   const onDeletePage = async (pageNumber: number) => {
@@ -421,8 +386,8 @@ export const EnvelopeEditorFieldsPage = () => {
           pageCount={pageCount}
           pageImages={pageImages}
           isLoading={isPageOperationLoading}
+          envelopeItem={{ id: currentEnvelopeItem.id, title: currentEnvelopeItem.title }}
           onDeletePage={(pageNumber) => void onDeletePage(pageNumber)}
-          onAddBlankPage={() => void onAddBlankPage()}
         />
       )}
 
