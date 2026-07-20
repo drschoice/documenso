@@ -35,6 +35,7 @@ import {
   type ValidatableField,
   validateFieldVisibility,
 } from '../envelope/validate-field-visibility';
+import { logSuspectedDuplicateFields } from './detect-suspected-duplicate-fields';
 
 export interface SetFieldsForDocumentOptions {
   userId: number;
@@ -88,6 +89,15 @@ export const setFieldsForDocument = async ({
   }
 
   const existingFields = envelope.fields;
+
+  logSuspectedDuplicateFields({
+    existingFields,
+    incomingFields: fields,
+    envelopeId: envelope.id,
+    envelopeType: 'document',
+    userId,
+    teamId,
+  });
 
   const removedFields = existingFields.filter(
     (existingField) => !fields.find((field) => field.id === existingField.id),
