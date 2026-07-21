@@ -57,6 +57,7 @@ import { renderField } from '@documenso/lib/universal/field-renderer/render-fiel
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
+import { getRecipientColorStyles } from '@documenso/ui/lib/recipient-colors';
 import { Button } from '@documenso/ui/primitives/button';
 import { CommandDialog } from '@documenso/ui/primitives/command';
 import {
@@ -275,7 +276,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     const footprint = getFieldStripeFootprint(field, fieldGroup);
 
     if (footprint) {
-      upsertVisibilityStripes({ fieldGroup, footprint, active });
+      // Match the field's own border color so the stripes read as one field.
+      const colorKey = getRecipientColorKey(field.recipientId);
+      const color = colorKey ? getRecipientColorStyles(colorKey).fieldBorder : '#e5e7eb';
+
+      upsertVisibilityStripes({ fieldGroup, footprint, active, color });
     }
   };
 
@@ -1086,6 +1091,43 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     setSelectedFields([]);
   };
+
+  /**
+   * Reflect a selection made OUTSIDE the canvas (e.g. the dependency notice's
+   * "jump to controlling field" button) onto the canvas transformer. Selection
+   * is otherwise canvas-driven, so without this the sidebar could point at one
+   * field while the highlight stayed on another.
+   *
+   * Select-only by design: it never clears, so a multi-field marquee selection
+   * (which sets `selectedField` to null) is left untouched. When the target
+   * lives on another page it is simply a no-op here — that page's renderer owns
+   * it. Keyed on the target formId so canvas-initiated selects (which already
+   * match the live transformer) short-circuit and can't loop.
+   */
+  const selectedFieldFormId = editorFields.selectedField?.formId;
+
+  useEffect(() => {
+    if (!selectedFieldFormId || pickModeRef.current.active) {
+      return;
+    }
+
+    const alreadySelected =
+      selectedKonvaFieldGroups.length === 1 &&
+      selectedKonvaFieldGroups[0].id() === selectedFieldFormId;
+
+    if (alreadySelected) {
+      return;
+    }
+
+    const group = pageLayer.current
+      ?.find('.field-group')
+      .find((node) => node.id() === selectedFieldFormId);
+
+    if (group) {
+      setSelectedFields([group]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFieldFormId]);
 
   /**
    * One-click alignment for the selected comb field's cells:
