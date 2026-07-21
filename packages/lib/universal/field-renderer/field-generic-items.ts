@@ -357,21 +357,23 @@ const VISIBILITY_STRIPES_NAME = 'field-visibility-stripes';
 
 /**
  * Editor-only overlay marking a field that is under a conditional-visibility
- * rule with semi-transparent diagonal stripes. `active` renders a stronger blue
- * highlight for the dependents of the condition currently being authored;
- * otherwise a muted grey. `listening: false` keeps clicks flowing through to
- * the field for selection / pick-mode toggling.
+ * rule with semi-transparent diagonal stripes, drawn in the field's own border
+ * color so the two read as one field. `active` (the dependents of the condition
+ * currently being authored) just renders more opaque. `listening: false` keeps
+ * clicks flowing through to the field for selection / pick-mode toggling.
  */
 export const upsertVisibilityStripes = ({
   fieldGroup,
   footprint,
   active,
+  color,
 }: {
   fieldGroup: Konva.Group;
   footprint: { x: number; y: number; width: number; height: number };
   active: boolean;
+  color: string;
 }) => {
-  const tile = getStripeTile(active ? '#2563eb' : '#64748b');
+  const tile = getStripeTile(color);
 
   if (!tile) {
     return;

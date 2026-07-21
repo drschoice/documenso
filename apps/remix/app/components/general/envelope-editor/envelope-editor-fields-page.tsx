@@ -58,6 +58,7 @@ import { AiFieldDetectionDialog } from '~/components/dialogs/ai-field-detection-
 import { EnvelopeItemEditDialog } from '~/components/dialogs/envelope-item-edit-dialog';
 import { EditorFieldCheckboxForm } from '~/components/forms/editor/editor-field-checkbox-form';
 import { EditorFieldConditionalVisibilitySection } from '~/components/forms/editor/editor-field-conditional-visibility-section';
+import { EditorFieldVisibilityDependencyNotice } from '~/components/forms/editor/editor-field-visibility-dependency-notice';
 import { EditorFieldDateForm } from '~/components/forms/editor/editor-field-date-form';
 import { EditorFieldDropdownForm } from '~/components/forms/editor/editor-field-dropdown-form';
 import { EditorFieldEmailForm } from '~/components/forms/editor/editor-field-email-form';
@@ -849,6 +850,8 @@ export const EnvelopeEditorFieldsPage = () => {
                       />
                     ))
                     .otherwise(() => null)}
+
+                  <EditorFieldVisibilityDependencyNotice field={selectedField} />
 
                   {envelope.internalVersion === 2 &&
                     (selectedField.type === FieldType.RADIO ||
