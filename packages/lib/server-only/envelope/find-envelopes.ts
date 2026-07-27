@@ -1,5 +1,5 @@
 import type { DocumentSource, DocumentStatus, Envelope, EnvelopeType } from '@prisma/client';
-import type { Expression, ExpressionBuilder, SelectQueryBuilder, SqlBool } from 'kysely';
+import type { SelectQueryBuilder } from 'kysely';
 
 import { kyselyPrisma, prisma, sql } from '@documenso/prisma';
 import type { DB } from '@documenso/prisma/generated/types';
@@ -8,6 +8,7 @@ import { TEAM_DOCUMENT_VISIBILITY_MAP } from '../../constants/teams';
 import type { FindResultResponse } from '../../types/search-params';
 import { maskRecipientTokensForDocument } from '../../utils/mask-recipient-tokens-for-document';
 import { getTeamById } from '../team/get-team';
+import { buildEnvelopeAccessControlFilter } from './envelope-access-control-filter';
 
 export type FindEnvelopesOptions = {
   userId: number;
@@ -50,43 +51,6 @@ const RECIPIENT_SEARCH_CAP = 1000;
 // Kysely query builder type for Envelope queries.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EnvelopeQueryBuilder = SelectQueryBuilder<DB, 'Envelope', any>;
-
-// Expression builder type scoped to Envelope table context.
-type EnvelopeExpressionBuilder = ExpressionBuilder<DB, 'Envelope'>;
-type RecipientExpressionBuilder = ExpressionBuilder<DB, 'Recipient'>;
-
-/**
- * Reusable EXISTS subquery: checks that a Recipient row exists for the given
- * envelope with the given email, plus optional extra conditions.
- */
-const recipientExists = (
-  eb: EnvelopeExpressionBuilder,
-  email: string,
-  extra?: (qb: RecipientExpressionBuilder) => Expression<SqlBool>,
-) => {
-  let sub = eb
-    .selectFrom('Recipient')
-    .whereRef('Recipient.envelopeId', '=', 'Envelope.id')
-    .where('Recipient.email', '=', email);
-
-  if (extra) {
-    sub = sub.where(extra);
-  }
-
-  return eb.exists(sub.select(sql.lit(1).as('one')));
-};
-
-/**
- * Reusable EXISTS subquery: checks that the envelope's sender (User) has the given email.
- */
-const senderEmailIs = (eb: EnvelopeExpressionBuilder, email: string) =>
-  eb.exists(
-    eb
-      .selectFrom('User')
-      .whereRef('User.id', '=', 'Envelope.userId')
-      .where('User.email', '=', email)
-      .select(sql.lit(1).as('one')),
-  );
 
 /**
  * Find envelopes visible to the requesting user within a team.
@@ -186,38 +150,15 @@ export const findEnvelopes = async ({
   }
 
   // ─── Access control ──────────────────────────────────────────────────
-  //
-  // An envelope is visible if ANY of:
-  //   1. It belongs to this team AND (meets the visibility threshold OR the requesting user is the owner)
-  //   2. (If team email) The sender's email matches the team email
-  //   3. (If team email) A recipient's email matches the team email
 
-  const visibilityFilter = (eb: EnvelopeExpressionBuilder) =>
-    eb.or([
-      eb(
-        'Envelope.visibility',
-        'in',
-        allowedVisibilities.map((v) => sql.lit(v)),
-      ),
-      // Owner always sees their own docs within this team
-      eb('Envelope.userId', '=', user.id),
-    ]);
-
-  qb = qb.where((eb) => {
-    const accessBranches: Expression<SqlBool>[] = [
-      // Team docs that pass visibility (or are owned by the user)
-      eb.and([eb('Envelope.teamId', '=', team.id), visibilityFilter(eb)]),
-    ];
-
-    if (teamEmail) {
-      // Docs sent by the team email user
-      accessBranches.push(senderEmailIs(eb, teamEmail));
-      // Docs received by the team email
-      accessBranches.push(recipientExists(eb, teamEmail));
-    }
-
-    return eb.or(accessBranches);
-  });
+  qb = qb.where((eb) =>
+    buildEnvelopeAccessControlFilter(eb, {
+      teamId: team.id,
+      userId: user.id,
+      teamEmail,
+      allowedVisibilities,
+    }),
+  );
 
   // ─── Execute: paginated data + count ──────────────────────────────────
 
