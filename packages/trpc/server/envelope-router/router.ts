@@ -33,6 +33,7 @@ import { getEnvelopesByIdsRoute } from './get-envelopes-by-ids';
 import { redistributeEnvelopeRoute } from './redistribute-envelope';
 import { replaceEnvelopeItemPdfRoute } from './replace-envelope-item-pdf';
 import { saveAsTemplateRoute } from './save-as-template';
+import { searchEnvelopesRoute } from './search-envelopes';
 import { setEnvelopeFieldsRoute } from './set-envelope-fields';
 import { setEnvelopeRecipientsRoute } from './set-envelope-recipients';
 import { signEnvelopeFieldRoute } from './sign-envelope-field';
@@ -82,6 +83,9 @@ export const envelopeRouter = router({
     sign: signEnvelopeFieldRoute,
   },
   find: findEnvelopesRoute,
+  // Note: `/envelope/search` (static) must be registered before `/envelope/{envelopeId}`
+  // (the parameterized `get` route below) for the public REST API to resolve correctly.
+  search: searchEnvelopesRoute,
   auditLog: {
     find: findEnvelopeAuditLogsRoute,
   },

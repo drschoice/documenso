@@ -16,6 +16,15 @@ export type NormalizedField = {
   width: number;
   height: number;
   confidence: TConfidenceLevel;
+  /** 'cells' marks a TEXT/NUMBER comb field; absent/'box' is a single input box. */
+  layout?: 'box' | 'cells';
+  /** Number of character cells when layout is 'cells'. */
+  cellCount?: number;
+  /**
+   * CHECKBOX/RADIO groups: one entry per option, with a free-layout offset
+   * (page-percent) from the field's top-left. Absent for non-option fields.
+   */
+  options?: { value: string; offsetX: number; offsetY: number }[];
 };
 
 export type RecipientContext = Pick<Recipient, 'id' | 'name' | 'email'>;
