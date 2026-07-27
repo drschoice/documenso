@@ -75,9 +75,34 @@ export const resolveRecipientFromKey = (recipientKey: string, recipients: Recipi
  * Convert AI's 0-1000 bounding box to our 0-100 percentage format.
  */
 export const normalizeDetectedField = (field: DetectedField): NormalizedField => {
-  const { box2d } = field;
+  // CHECKBOX/RADIO groups: the field spans the union of all option buttons, and each
+  // option carries a free-layout offset (page-percent) from that union's top-left.
+  if (field.options && field.options.length > 0) {
+    const boxes = field.options.map((option) => option.box2d);
 
-  const [yMin, xMin, yMax, xMax] = box2d;
+    const yMin = Math.min(...boxes.map((b) => b[0]));
+    const xMin = Math.min(...boxes.map((b) => b[1]));
+    const yMax = Math.max(...boxes.map((b) => b[2]));
+    const xMax = Math.max(...boxes.map((b) => b[3]));
+
+    return {
+      type: field.type,
+      label: field.label,
+      recipientKey: field.recipientKey,
+      positionX: xMin / 10,
+      positionY: yMin / 10,
+      width: (xMax - xMin) / 10,
+      height: (yMax - yMin) / 10,
+      confidence: field.confidence,
+      options: field.options.map((option) => ({
+        value: option.value,
+        offsetX: (option.box2d[1] - xMin) / 10,
+        offsetY: (option.box2d[0] - yMin) / 10,
+      })),
+    };
+  }
+
+  const [yMin, xMin, yMax, xMax] = field.box2d;
 
   return {
     type: field.type,
@@ -88,5 +113,7 @@ export const normalizeDetectedField = (field: DetectedField): NormalizedField =>
     width: (xMax - xMin) / 10,
     height: (yMax - yMin) / 10,
     confidence: field.confidence,
+    layout: field.layout,
+    cellCount: field.cellCount,
   };
 };

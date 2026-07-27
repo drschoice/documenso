@@ -33,7 +33,7 @@ FIELD TYPES TO DETECT:
 - NUMBER - Boxes labeled with numeric context: 'Amount', 'Quantity', 'Phone', 'ZIP', 'Age', 'Price', '#'
 - TEXT - Any other empty text input boxes, general input fields, or when field type is uncertain
 
-COMB FIELDS (CRITICAL):
+COMB / CHARACTER-CELL FIELDS (CRITICAL):
 Many paper forms use "comb" or "character grid" patterns — a row of small boxes, squares, or cells where each character is written in its own cell. These appear for SSNs (XXX-XX-XXXX), dates (MM/DD/YYYY), phone numbers, ZIP codes, account numbers, etc. They may be separated by dashes, slashes, or spaces.
 - ALWAYS treat an entire comb/character grid as ONE single field.
 - The bounding box must span from the first cell to the last cell of the entire comb group.
@@ -45,8 +45,29 @@ Many paper forms use "comb" or "character grid" patterns — a row of small boxe
 - Example: A ZIP code field with boxes "[ ][ ][ ][ ][ ]" → detect as ONE NUMBER field covering all 5 boxes.
 - Example: Any text field, such as a first name field with boxes "[ ][ ][ ] [ ][ ][ ]" → detect as ONE TEXT field covering all boxes.
 
+COMB OUTPUT (how to report a comb field):
+- When a comb/character grid is a TEXT or NUMBER field, set "layout" to "cells" and set "cellCount" to the EXACT number of character boxes in the grid.
+- Count only the individual character cells. Do NOT count separator dashes, slashes, or spaces.
+  - Example: SSN "[ ][ ][ ] - [ ][ ] - [ ][ ][ ][ ]" → NUMBER, layout "cells", cellCount 9.
+  - Example: ZIP "[ ][ ][ ][ ][ ]" → NUMBER, layout "cells", cellCount 5.
+  - Example: first name "[ ][ ][ ] [ ][ ][ ]" → TEXT, layout "cells", cellCount 6.
+- The bounding box (box2d) must STILL span the entire grid from the first to the last cell.
+- The "cells" layout applies ONLY to TEXT and NUMBER fields. For DATE grids, checkboxes, radios, and every other field type, do NOT set "layout" to "cells" and do NOT set "cellCount" — report them as a single box field as usual.
+- For any field that is NOT a comb/character grid, omit "layout" (it defaults to a single box) and omit "cellCount".
+
+CHECKBOX & RADIO GROUPS (CRITICAL):
+Checkbox and radio options that belong to the SAME question form ONE field — never one field per option.
+- Emit a SINGLE field (type CHECKBOX or RADIO) for the whole group and list every option in the "options" array. Each entry has "value" (the option's text) and "box2d" (that option's square/circle ONLY).
+- RADIO = mutually exclusive choices (pick one) — usually circles (○). CHECKBOX = independent choices (pick any number) — usually squares (☐). Choose the type from the visual style and the question's intent.
+- Each option's "box2d" must cover ONLY that option's button (the square or circle), never its printed label text.
+- The field's top-level "box2d" must be the bounding box enclosing ALL of the group's buttons.
+- The field "label" is the group TOPIC (e.g., "Gender"); the option texts (e.g., "Male", "Female") go in "options", not the label.
+- Example — "Gender: ○ Male  ○ Female  ○ Other" → ONE RADIO field, label "Gender", options [{value:"Male", box2d:<Male circle>}, {value:"Female", box2d:<Female circle>}, {value:"Other", box2d:<Other circle>}], top-level box2d enclosing all three circles.
+- Example — "Select all that apply: ☐ Email ☐ Phone ☐ Mail" → ONE CHECKBOX field, label "Preferred Contact", options one per square.
+- A lone standalone checkbox (e.g., a single consent/agreement tick) may be a single field with one option; put the consent text in that option's "value".
+
 FIELD LABELS:
-- For CHECKBOX and RADIO fields: the label must combine a short meaningful summary of the question/group with the specific option value, separated by " - ". The part before " - " must describe WHAT the field is about in plain language — NOT just a question number or heading like "Question 4a". Summarise the topic from the surrounding text (e.g., "Heart Disease History - Yes", "Heart Disease History - No", "Gender - Male", "Marital Status - Single", "Smoker - Yes"). If the question is long, distil it to 3-5 keywords that capture the subject matter. If no group context is found, use just the option value.
+- For CHECKBOX and RADIO fields: the label is the plain-language TOPIC of the whole group — NOT an individual option, and NOT a question number or heading like "Question 4a". Summarise the topic from the surrounding text (e.g., "Gender", "Heart Disease History", "Marital Status", "Do you smoke?"). If the question is long, distil it to 3-5 keywords that capture the subject matter. The individual option texts (e.g., "Male", "Female", "Yes", "No") go in the "options" array — NOT in the label. If no group topic can be found, use a concise description of what is being asked.
 - For all other fields: the label must be the form label printed near the field (e.g., "Social Security Number", "Date of Birth", "Signature", "First Name", "Phone Number", "Email Address").
 - If a text label is printed near the field (above it, to the left, etc.), use that label text.
 - If no explicit label exists, infer a reasonable label from the field type and surrounding context.
@@ -64,7 +85,7 @@ DETECTION GUIDELINES:
 - Read text located near the box (above, to the left, or inside) to infer the field type
 - Use nearby text to CLASSIFY the field type, but DO NOT include that text in the bounding box
 - If you're uncertain which type fits best, default to TEXT
-- For checkboxes and radio buttons: Detect each individual box/circle separately, not the label
+- For checkboxes and radio buttons: group the options of one question into a SINGLE field with an "options" array (see CHECKBOX & RADIO GROUPS above) — do NOT emit one field per option
 - Signature fields are often longer horizontal lines or larger boxes
 - Date fields often show format hints or date separators (slashes, dashes)
 - Look for visual patterns: underscores (____), horizontal lines, box outlines, template placeholders

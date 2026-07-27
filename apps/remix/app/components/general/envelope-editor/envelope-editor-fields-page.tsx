@@ -27,7 +27,9 @@ import {
   renameValueInRules,
 } from '@documenso/lib/universal/field-visibility/authoring';
 import {
+  FIELD_MAX_CELL_COUNT,
   FIELD_META_DEFAULT_VALUES,
+  FIELD_MIN_CELL_COUNT,
   type TCheckboxFieldMeta,
   type TDateFieldMeta,
   type TDropdownFieldMeta,
@@ -437,14 +439,43 @@ export const EnvelopeEditorFieldsPage = () => {
       const fieldMeta = structuredClone(FIELD_META_DEFAULT_VALUES[field.type]);
 
       if (fieldMeta && field.label) {
+        // For CHECKBOX/RADIO this is the group TOPIC; individual option texts are the
+        // option values set below.
         fieldMeta.label = field.label;
+      }
 
-        if (
-          (field.type === FieldType.RADIO || field.type === FieldType.CHECKBOX) &&
-          'values' in fieldMeta &&
-          Array.isArray(fieldMeta.values) &&
-          fieldMeta.values.length > 0
-        ) {
+      // The model reports comb/character-grid TEXT/NUMBER fields with layout 'cells'. Seed the
+      // cells here (ids only) exactly like the editor form does when a user toggles comb mode —
+      // the canvas renderer seeds per-cell offsets and cellSize falls back to ceil(fontSize*1.5).
+      if (
+        (fieldMeta?.type === 'text' || fieldMeta?.type === 'number') &&
+        field.layout === 'cells' &&
+        field.cellCount
+      ) {
+        const count = Math.max(
+          FIELD_MIN_CELL_COUNT,
+          Math.min(FIELD_MAX_CELL_COUNT, Math.round(field.cellCount)),
+        );
+
+        fieldMeta.layout = 'cells';
+        fieldMeta.cells = Array.from({ length: count }, (_, index) => ({ id: index + 1 }));
+      }
+
+      // CHECKBOX/RADIO: build ONE field carrying every option, each free-placed at its
+      // detected position. addField's withOptionFieldDefaults sets layout 'free' + hides the
+      // (already-printed) option text; supplying offsets here stops the renderer from falling
+      // back to stacking every option at the field origin.
+      if (fieldMeta?.type === 'radio' || fieldMeta?.type === 'checkbox') {
+        if (field.options && field.options.length > 0) {
+          fieldMeta.values = field.options.map((option, index) => ({
+            id: index + 1,
+            checked: false,
+            value: option.value,
+            offsetX: option.offsetX,
+            offsetY: option.offsetY,
+          }));
+        } else if (field.label && fieldMeta.values && fieldMeta.values.length > 0) {
+          // No group detected — fall back to a single option reusing the label.
           fieldMeta.values[0].value = field.label;
         }
       }

@@ -35,6 +35,11 @@ export const ZNormalizedFieldWithPageSchema = z.object({
   height: z.number(),
   confidence: ZConfidenceLevel,
   pageNumber: z.number(),
+  layout: z.enum(['box', 'cells']).optional(),
+  cellCount: z.number().optional(),
+  options: z
+    .array(z.object({ value: z.string(), offsetX: z.number(), offsetY: z.number() }))
+    .optional(),
 });
 
 export type TNormalizedFieldWithPage = z.infer<typeof ZNormalizedFieldWithPageSchema>;
@@ -51,6 +56,11 @@ export const ZNormalizedFieldWithContextSchema = z.object({
   pageNumber: z.number(),
   recipientId: z.number(),
   envelopeItemId: z.string(),
+  layout: z.enum(['box', 'cells']).optional(),
+  cellCount: z.number().optional(),
+  options: z
+    .array(z.object({ value: z.string(), offsetX: z.number(), offsetY: z.number() }))
+    .optional(),
 });
 
 export type TNormalizedFieldWithContext = z.infer<typeof ZNormalizedFieldWithContextSchema>;
