@@ -421,6 +421,7 @@ export const DocumentSigningPageViewV1 = ({
                     typedSignatureEnabled={documentMeta?.typedSignatureEnabled}
                     uploadSignatureEnabled={documentMeta?.uploadSignatureEnabled}
                     drawSignatureEnabled={documentMeta?.drawSignatureEnabled}
+                    signatureFontFamily={documentMeta?.signatureFontFamily}
                   />
                 ))
                 .with(FieldType.INITIALS, () => (

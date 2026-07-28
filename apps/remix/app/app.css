@@ -27,6 +27,47 @@
   font-display: swap;
 }
 
+/* Configurable typed-signature fonts (see @documenso/lib/constants/signature-fonts). */
+@font-face {
+  font-family: 'Kaushan Script';
+  src: url('/fonts/kaushan-script.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Dancing Script';
+  src: url('/fonts/dancing-script.ttf') format('truetype-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Yellowtail';
+  src: url('/fonts/yellowtail.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sacramento';
+  src: url('/fonts/sacramento.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Great Vibes';
+  src: url('/fonts/great-vibes.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: 'Noto Sans';
   src: url('/fonts/noto-sans.ttf') format('truetype-variations');

@@ -388,6 +388,7 @@ export const createCompletedDocumentFromTemplate = async ({
     dateFormat: override?.dateFormat || template.documentMeta?.dateFormat,
     typedSignatureEnabled:
       override?.typedSignatureEnabled ?? template.documentMeta?.typedSignatureEnabled,
+    // Signature font re-resolves from current org/team settings (not the template snapshot).
   });
 
   const hasSignatureFields = templateFields.some(

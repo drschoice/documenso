@@ -19,6 +19,7 @@ import {
   RECIPIENT_ROLES_DESCRIPTION,
   RECIPIENT_ROLE_SIGNING_REASONS,
 } from '../../constants/recipient-roles';
+import { getSignatureFont } from '../../constants/signature-fonts';
 import type { TDocumentAuditLogBaseSchema } from '../../types/document-audit-logs';
 import { svgToPng } from '../../utils/images/svg-to-png';
 import { ensureFontLibrary } from './helpers';
@@ -58,6 +59,7 @@ type GenerateCertificateOptions = {
   };
   pageWidth: number;
   pageHeight: number;
+  signatureFontFamily?: string | null;
 };
 
 // Helper function to get device info from user agent
@@ -200,6 +202,7 @@ type RenderColumnOptions = {
     name: string;
     email: string;
   };
+  signatureFontFamily?: string | null;
 };
 
 const renderColumnOne = (options: RenderColumnOptions) => {
@@ -268,7 +271,7 @@ const renderColumnOne = (options: RenderColumnOptions) => {
 };
 
 const renderColumnTwo = (options: RenderColumnOptions) => {
-  const { recipient, width, i18n } = options;
+  const { recipient, width, i18n, signatureFontFamily } = options;
 
   // Column 2: Signature
   const column = new Konva.Group();
@@ -305,7 +308,7 @@ const renderColumnTwo = (options: RenderColumnOptions) => {
         x: 2,
         text: recipient.signatureField?.signature?.typedSignature,
         padding: 4,
-        fontFamily: 'Caveat',
+        fontFamily: getSignatureFont(signatureFontFamily).family,
         fontSize: 16,
         align: 'center',
         verticalAlign: 'middle',
@@ -498,10 +501,11 @@ type RenderRowOptions = {
     name: string;
     email: string;
   };
+  signatureFontFamily?: string | null;
 };
 
 const renderRow = (options: RenderRowOptions) => {
-  const { recipient, columnWidths, i18n, envelopeOwner } = options;
+  const { recipient, columnWidths, i18n, envelopeOwner, signatureFontFamily } = options;
 
   const rowGroup = new Konva.Group();
 
@@ -534,6 +538,7 @@ const renderRow = (options: RenderRowOptions) => {
     width: columnWidths[1],
     i18n,
     envelopeOwner,
+    signatureFontFamily,
   });
   columnTwoGroup.setAttrs({
     x: rowPadding + columnWidths[0],
@@ -635,10 +640,11 @@ type GroupRowsIntoPagesOptions = {
     name: string;
     email: string;
   };
+  signatureFontFamily?: string | null;
 };
 
 const groupRowsIntoPages = (options: GroupRowsIntoPagesOptions) => {
-  const { recipients, maxHeight, i18n, columnWidths, envelopeOwner } = options;
+  const { recipients, maxHeight, i18n, columnWidths, envelopeOwner, signatureFontFamily } = options;
 
   const rowHeader = renderRowHeader({ columnWidths, i18n });
   const rowHeaderHeight = rowHeader.getClientRect().height;
@@ -650,7 +656,7 @@ const groupRowsIntoPages = (options: GroupRowsIntoPagesOptions) => {
 
   // Group rows into pages.
   for (const recipient of recipients) {
-    const row = renderRow({ recipient, columnWidths, i18n, envelopeOwner });
+    const row = renderRow({ recipient, columnWidths, i18n, envelopeOwner, signatureFontFamily });
 
     const rowHeight = row.getClientRect().height;
 
@@ -723,6 +729,7 @@ export async function renderCertificate({
   envelopeOwner,
   pageWidth,
   pageHeight,
+  signatureFontFamily,
 }: GenerateCertificateOptions) {
   ensureFontLibrary();
 
@@ -749,6 +756,7 @@ export async function renderCertificate({
     columnWidths,
     i18n,
     envelopeOwner,
+    signatureFontFamily,
   });
 
   const tables = renderTables({ groupedRows, columnWidths, i18n });

@@ -11,6 +11,7 @@ import { renderSVG } from 'uqr';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { APP_I18N_OPTIONS, ZSupportedLanguageCodeSchema } from '@documenso/lib/constants/i18n';
+import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
 import {
   RECIPIENT_ROLES_DESCRIPTION,
   RECIPIENT_ROLE_SIGNING_REASONS,
@@ -289,7 +290,18 @@ export default function SigningCertificate({ loaderData }: Route.ComponentProps)
                             )}
 
                             {signature.signature?.typedSignature && (
-                              <p className="text-center font-signature text-sm">
+                              <p
+                                className="text-center font-signature text-sm"
+                                style={
+                                  document.documentMeta?.signatureFontFamily
+                                    ? {
+                                        fontFamily: getSignatureFontFamilyString(
+                                          document.documentMeta.signatureFontFamily,
+                                        ),
+                                      }
+                                    : undefined
+                                }
+                              >
                                 {signature.signature?.typedSignature}
                               </p>
                             )}

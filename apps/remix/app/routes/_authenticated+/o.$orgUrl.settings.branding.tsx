@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
+import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
 import { putFile } from '@documenso/lib/universal/upload/put-file';
 import { canExecuteOrganisationAction, isPersonalLayout } from '@documenso/lib/utils/organisations';
 import { trpc } from '@documenso/trpc/react';
@@ -46,7 +47,8 @@ export default function OrganisationSettingsBrandingPage() {
 
   const onBrandingPreferencesFormSubmit = async (data: TBrandingPreferencesFormSchema) => {
     try {
-      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails } = data;
+      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails, signatureFontFamily } =
+        data;
 
       let uploadedBrandingLogo: string | undefined = '';
 
@@ -61,6 +63,8 @@ export default function OrganisationSettingsBrandingPage() {
           brandingLogo: uploadedBrandingLogo,
           brandingUrl,
           brandingCompanyDetails,
+          // Validated against the curated set by the tRPC input schema.
+          signatureFontFamily: (signatureFontFamily as SignatureFontFamily | null) ?? undefined,
         },
       });
 

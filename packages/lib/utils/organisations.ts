@@ -9,6 +9,7 @@ import type { ORGANISATION_MEMBER_ROLE_MAP } from '@documenso/lib/constants/orga
 
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '../constants/date-formats';
 import { DEFAULT_ENVELOPE_EXPIRATION_PERIOD } from '../constants/envelope-expiration';
+import { DEFAULT_SIGNATURE_FONT_FAMILY } from '../constants/signature-fonts';
 import {
   LOWEST_ORGANISATION_ROLE,
   ORGANISATION_MEMBER_ROLE_HIERARCHY,
@@ -127,6 +128,7 @@ export const generateDefaultOrganisationSettings = (): Omit<
     typedSignatureEnabled: true,
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,
+    signatureFontFamily: DEFAULT_SIGNATURE_FONT_FAMILY,
 
     brandingEnabled: false,
     brandingLogo: '',

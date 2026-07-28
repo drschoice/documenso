@@ -463,6 +463,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       color: getRecipientColorKey(field.recipientId),
       editable: isFieldEditable,
       mode: 'edit',
+      signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
     });
 
     // Mark fields under a conditional-visibility rule with editor-only stripes.

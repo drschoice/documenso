@@ -18,6 +18,7 @@ import {
   MIN_HANDWRITING_FONT_SIZE,
   MIN_STANDARD_FONT_SIZE,
 } from '@documenso/lib/constants/pdf';
+import { getSignatureFontFile } from '@documenso/lib/constants/signature-fonts';
 import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
 import { isSignatureFieldType } from '@documenso/prisma/guards/is-signature-field';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
@@ -36,11 +37,15 @@ import {
 } from '../../types/field-meta';
 import { getPageSize } from './get-page-size';
 
-export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSignature) => {
-  const [fontCaveat, fontNoto] = await Promise.all([
-    fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/caveat.ttf`).then(async (res) =>
-      res.arrayBuffer(),
-    ),
+export const insertFieldInPDFV1 = async (
+  pdf: PDFDocument,
+  field: FieldWithSignature,
+  signatureFontFamily?: string | null,
+) => {
+  const [fontSignature, fontNoto] = await Promise.all([
+    fetch(
+      `${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/${getSignatureFontFile(signatureFontFamily)}`,
+    ).then(async (res) => res.arrayBuffer()),
     fetch(`${NEXT_PRIVATE_INTERNAL_WEBAPP_URL()}/fonts/noto-sans.ttf`).then(async (res) =>
       res.arrayBuffer(),
     ),
@@ -134,12 +139,12 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
   }
 
   const font = await pdf.embedFont(
-    isSignatureField ? fontCaveat : fontNoto,
+    isSignatureField ? fontSignature : fontNoto,
     isSignatureField ? { features: { calt: false } } : undefined,
   );
 
   if (field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE) {
-    await pdf.embedFont(fontCaveat);
+    await pdf.embedFont(fontSignature);
   }
 
   await match(field)

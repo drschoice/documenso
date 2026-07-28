@@ -21,6 +21,7 @@ export type SignFieldSignatureDialogProps = {
   typedSignatureEnabled?: boolean;
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
+  signatureFontFamily?: string | null;
 };
 
 export const SignFieldSignatureDialog = createCallable<
@@ -33,6 +34,7 @@ export const SignFieldSignatureDialog = createCallable<
     typedSignatureEnabled,
     uploadSignatureEnabled,
     drawSignatureEnabled,
+    signatureFontFamily,
     initialSignature,
   }) => {
     const [localSignature, setLocalSignature] = useState(initialSignature);
@@ -54,6 +56,7 @@ export const SignFieldSignatureDialog = createCallable<
               typedSignatureEnabled={typedSignatureEnabled}
               uploadSignatureEnabled={uploadSignatureEnabled}
               drawSignatureEnabled={drawSignatureEnabled}
+              signatureFontFamily={signatureFontFamily}
             />
           </div>
 
