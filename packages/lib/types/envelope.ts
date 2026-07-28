@@ -50,6 +50,7 @@ export const ZEnvelopeSchema = EnvelopeSchema.pick({
     typedSignatureEnabled: true,
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,
+    signatureFontFamily: true,
     allowDictateNextSigner: true,
     nextFieldNavigationTypes: true,
     nextFieldNavigationLabels: true,

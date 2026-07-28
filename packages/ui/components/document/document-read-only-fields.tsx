@@ -39,7 +39,7 @@ export type DocumentField = Field & {
 
 export type DocumentReadOnlyFieldsProps = {
   fields: DocumentField[];
-  documentMeta?: Pick<DocumentMeta, 'dateFormat'>;
+  documentMeta?: Pick<DocumentMeta, 'dateFormat' | 'signatureFontFamily'>;
 
   showFieldStatus?: boolean;
 

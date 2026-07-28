@@ -53,6 +53,8 @@ type RenderFieldOptions = {
 
   scale: number;
   editable?: boolean;
+
+  signatureFontFamily?: string | null;
 };
 
 export const renderField = ({
@@ -65,6 +67,7 @@ export const renderField = ({
   scale,
   editable,
   color,
+  signatureFontFamily,
 }: RenderFieldOptions) => {
   const options = {
     pageLayer,
@@ -75,6 +78,7 @@ export const renderField = ({
     color,
     editable,
     scale,
+    signatureFontFamily,
   };
 
   // If the generic text field element array changes, update the `GenericTextFieldTypeMetas` type

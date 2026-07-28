@@ -2,6 +2,7 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react/macro';
 import { Loader } from 'lucide-react';
 
+import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
 import { putFile } from '@documenso/lib/universal/upload/put-file';
 import { trpc } from '@documenso/trpc/react';
 import { useToast } from '@documenso/ui/primitives/use-toast';
@@ -32,7 +33,8 @@ export default function TeamsSettingsPage() {
 
   const onBrandingPreferencesFormSubmit = async (data: TBrandingPreferencesFormSchema) => {
     try {
-      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails } = data;
+      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails, signatureFontFamily } =
+        data;
 
       let uploadedBrandingLogo = teamWithSettings?.teamSettings?.brandingLogo;
 
@@ -51,6 +53,8 @@ export default function TeamsSettingsPage() {
           brandingLogo: uploadedBrandingLogo || null,
           brandingUrl: brandingUrl || null,
           brandingCompanyDetails: brandingCompanyDetails || null,
+          // Validated against the curated set by the tRPC input schema.
+          signatureFontFamily: signatureFontFamily as SignatureFontFamily | null,
         },
       });
 
@@ -87,6 +91,7 @@ export default function TeamsSettingsPage() {
           canInherit={true}
           context="Team"
           settings={teamWithSettings.teamSettings}
+          inheritedFontFamily={teamWithSettings.derivedSettings.signatureFontFamily}
           onFormSubmit={onBrandingPreferencesFormSubmit}
         />
       </section>

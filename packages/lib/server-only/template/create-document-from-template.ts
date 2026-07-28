@@ -540,6 +540,9 @@ export const createDocumentFromTemplate = async ({
         override?.uploadSignatureEnabled ?? template.documentMeta?.uploadSignatureEnabled,
       drawSignatureEnabled:
         override?.drawSignatureEnabled ?? template.documentMeta?.drawSignatureEnabled,
+      // Deliberately not inherited from the template: the signature font is a brand-level decision,
+      // so a document generated from a template re-resolves it from the current org/team settings
+      // (via `extractDerivedDocumentMeta` falling back to `settings.signatureFontFamily`).
       allowDictateNextSigner:
         override?.allowDictateNextSigner ?? template.documentMeta?.allowDictateNextSigner,
       nextFieldNavigationTypes:

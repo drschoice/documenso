@@ -8,6 +8,7 @@ import {
   DEFAULT_DOCUMENT_DATE_FORMAT,
   convertToLocalSystemFormat,
 } from '@documenso/lib/constants/date-formats';
+import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
 
@@ -28,7 +29,7 @@ type FieldIconProps = {
     fieldMeta?: TFieldMetaSchema | null;
     signature?: Signature | null;
   };
-  documentMeta?: Pick<DocumentMeta, 'dateFormat'>;
+  documentMeta?: Pick<DocumentMeta, 'dateFormat' | 'signatureFontFamily'>;
 };
 
 /**
@@ -209,6 +210,11 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
             'font-signature text-[clamp(0.07rem,25cqw,1.125rem)]': isSignatureField,
           },
         )}
+        style={
+          isSignatureField && documentMeta?.signatureFontFamily
+            ? { fontFamily: getSignatureFontFamilyString(documentMeta.signatureFontFamily) }
+            : undefined
+        }
       >
         {textToDisplay || labelToDisplay}
       </p>

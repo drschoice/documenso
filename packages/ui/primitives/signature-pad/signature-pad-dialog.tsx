@@ -29,6 +29,7 @@ export type SignaturePadDialogProps = Omit<HTMLAttributes<HTMLCanvasElement>, 'o
   typedSignatureEnabled?: boolean;
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
+  signatureFontFamily?: string | null;
 };
 
 export const SignaturePadDialog = ({
@@ -41,6 +42,7 @@ export const SignaturePadDialog = ({
   typedSignatureEnabled,
   uploadSignatureEnabled,
   drawSignatureEnabled,
+  signatureFontFamily,
   dialogConfirmText,
 }: SignaturePadDialogProps) => {
   const { i18n } = useLingui();
@@ -60,7 +62,7 @@ export const SignaturePadDialog = ({
     >
       {value && (
         <div className="inset-0 h-full w-full">
-          <SignatureRender value={value} />
+          <SignatureRender value={value} fontFamily={signatureFontFamily} />
         </div>
       )}
 
@@ -131,6 +133,7 @@ export const SignaturePadDialog = ({
             typedSignatureEnabled={typedSignatureEnabled}
             uploadSignatureEnabled={uploadSignatureEnabled}
             drawSignatureEnabled={drawSignatureEnabled}
+            signatureFontFamily={signatureFontFamily}
           />
 
           <DialogFooter>

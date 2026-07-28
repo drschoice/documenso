@@ -341,6 +341,7 @@ export const MultiSignDocumentSigningView = ({
                                     drawSignatureEnabled={
                                       document.documentMeta?.drawSignatureEnabled
                                     }
+                                    signatureFontFamily={document.documentMeta?.signatureFontFamily}
                                   />
                                 </div>
                               )}

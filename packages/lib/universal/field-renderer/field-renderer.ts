@@ -32,6 +32,12 @@ export type RenderFieldElementOptions = {
   scale: number;
   color?: TRecipientColor;
   translations: Record<FieldType, string> | null;
+
+  /**
+   * The typed-signature font family to render signature fields with. One of the curated families in
+   * `@documenso/lib/constants/signature-fonts`. Falls back to the default (Caveat) when omitted.
+   */
+  signatureFontFamily?: string | null;
 };
 
 /**

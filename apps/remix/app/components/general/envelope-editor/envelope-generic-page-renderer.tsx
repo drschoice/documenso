@@ -102,6 +102,7 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
       color: getRecipientColorKey(field.recipientId),
       editable: false,
       mode: overrideSettings?.mode ?? 'edit',
+      signatureFontFamily: overrideSettings?.signatureFontFamily,
     });
   };
 

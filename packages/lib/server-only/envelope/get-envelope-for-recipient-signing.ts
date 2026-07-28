@@ -47,6 +47,7 @@ export const ZEnvelopeForSigningResponse = z.object({
       typedSignatureEnabled: true,
       uploadSignatureEnabled: true,
       drawSignatureEnabled: true,
+      signatureFontFamily: true,
       allowDictateNextSigner: true,
       language: true,
       nextFieldNavigationTypes: true,

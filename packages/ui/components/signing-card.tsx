@@ -4,6 +4,8 @@ import type { Signature } from '@prisma/client';
 import { animate, motion, useMotionTemplate, useMotionValue, useTransform } from 'framer-motion';
 import { P, match } from 'ts-pattern';
 
+import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
+
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../primitives/card';
 
@@ -12,6 +14,10 @@ export type SigningCardProps = {
   name: string;
   signature?: Pick<Signature, 'signatureImageAsBase64' | 'typedSignature'>;
   signingCelebrationImage?: string;
+  /**
+   * Document's typed-signature font. Overrides the default `font-signature` (Caveat).
+   */
+  signatureFontFamily?: string | null;
 };
 
 /**
@@ -22,10 +28,11 @@ export const SigningCard = ({
   name,
   signature,
   signingCelebrationImage,
+  signatureFontFamily,
 }: SigningCardProps) => {
   return (
     <div className={cn('relative w-full max-w-sm md:max-w-md', className)}>
-      <SigningCardContent name={name} signature={signature} />
+      <SigningCardContent name={name} signature={signature} fontFamily={signatureFontFamily} />
 
       {signingCelebrationImage && (
         <SigningCardImage signingCelebrationImage={signingCelebrationImage} />
@@ -42,6 +49,7 @@ export const SigningCard3D = ({
   name,
   signature,
   signingCelebrationImage,
+  signatureFontFamily,
 }: SigningCardProps) => {
   // Should use % based dimensions by calculating the window height/width.
   const boundary = 400;
@@ -142,7 +150,12 @@ export const SigningCard3D = ({
           rotateY,
         }}
       >
-        <SigningCardContent className="bg-transparent" name={name} signature={signature} />
+        <SigningCardContent
+          className="bg-transparent"
+          name={name}
+          signature={signature}
+          fontFamily={signatureFontFamily}
+        />
       </motion.div>
 
       {signingCelebrationImage && (
@@ -156,9 +169,10 @@ type SigningCardContentProps = {
   name: string;
   signature?: Pick<Signature, 'signatureImageAsBase64' | 'typedSignature'>;
   className?: string;
+  fontFamily?: string | null;
 };
 
-const SigningCardContent = ({ className, name, signature }: SigningCardContentProps) => {
+const SigningCardContent = ({ className, name, signature, fontFamily }: SigningCardContentProps) => {
   return (
     <Card
       className={cn(
@@ -172,6 +186,7 @@ const SigningCardContent = ({ className, name, signature }: SigningCardContentPr
         className="font-signature p-6 text-center"
         style={{
           container: 'main',
+          ...(fontFamily ? { fontFamily: getSignatureFontFamilyString(fontFamily) } : {}),
         }}
       >
         {match(signature)

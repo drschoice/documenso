@@ -6,6 +6,8 @@ import { match } from 'ts-pattern';
 
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 
+import { SIGNATURE_FONTS } from '../../constants/signature-fonts';
+
 /**
  * Ensure all required fonts are registered in the skia-canvas FontLibrary.
  *
@@ -15,11 +17,14 @@ import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 export const ensureFontLibrary = () => {
   const fontPath = path.join(process.cwd(), 'public/fonts');
 
-  if (!FontLibrary.has('Caveat')) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    FontLibrary.use({
-      ['Caveat']: [path.join(fontPath, 'caveat.ttf')],
-    });
+  // Register every curated typed-signature font (Caveat + configurable lookalikes).
+  for (const signatureFont of SIGNATURE_FONTS) {
+    if (!FontLibrary.has(signatureFont.family)) {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      FontLibrary.use({
+        [signatureFont.family]: [path.join(fontPath, signatureFont.file)],
+      });
+    }
   }
 
   if (!FontLibrary.has('Inter')) {

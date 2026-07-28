@@ -169,6 +169,7 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
             name={recipientName}
             signature={signatures.at(0)}
             signingCelebrationImage={signingCelebration}
+            signatureFontFamily={document?.documentMeta?.signatureFontFamily}
           />
 
           <h2 className="mt-6 max-w-[35ch] text-center text-2xl font-semibold leading-normal md:text-3xl lg:text-4xl">

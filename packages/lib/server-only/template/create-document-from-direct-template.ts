@@ -195,10 +195,12 @@ export const createDocumentFromDirectTemplate = async ({
   const nonDirectTemplateRecipients = directTemplateEnvelope.recipients.filter(
     (recipient) => recipient.id !== directTemplateRecipient.id,
   );
-  const derivedDocumentMeta = extractDerivedDocumentMeta(
-    settings,
-    directTemplateEnvelope.documentMeta,
-  );
+  const derivedDocumentMeta = extractDerivedDocumentMeta(settings, {
+    ...directTemplateEnvelope.documentMeta,
+    // Re-resolve the signature font from current org/team settings rather than inheriting the
+    // template's snapshot — the font is a brand-level decision.
+    signatureFontFamily: undefined,
+  });
 
   // Associate, validate and map to a query every direct template recipient field with the provided fields.
   // Only process fields that are either required or have been signed by the user

@@ -21,6 +21,9 @@ export const EnvelopeEditorRenderProviderWrapper = ({
       recipients={envelope.recipients}
       token={token}
       presignToken={presignedToken}
+      overrideSettings={{
+        signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+      }}
     >
       {children}
     </EnvelopeRenderProvider>

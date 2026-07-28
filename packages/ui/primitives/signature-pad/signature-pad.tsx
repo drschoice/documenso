@@ -31,6 +31,11 @@ export type SignaturePadProps = Omit<HTMLAttributes<HTMLCanvasElement>, 'onChang
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
 
+  /**
+   * The configured typed-signature font family. Falls back to the default (Caveat).
+   */
+  signatureFontFamily?: string | null;
+
   onValidityChange?: (isValid: boolean) => void;
 };
 
@@ -42,6 +47,7 @@ export const SignaturePad = ({
   typedSignatureEnabled = true,
   uploadSignatureEnabled = true,
   drawSignatureEnabled = true,
+  signatureFontFamily,
 }: SignaturePadProps) => {
   const [imageSignature, setImageSignature] = useState(isBase64Image(value) ? value : '');
   const [drawSignature, setDrawSignature] = useState(isBase64Image(value) ? value : '');
@@ -187,6 +193,7 @@ export const SignaturePad = ({
           value={typedSignature}
           defaultValue={fullName}
           onChange={onTypedSignatureChange}
+          fontFamily={signatureFontFamily}
         />
       </TabsContent>
 

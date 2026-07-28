@@ -8,7 +8,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
+import { useSession } from '@documenso/lib/client-only/providers/session';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
+import {
+  DEFAULT_SIGNATURE_FONT_FAMILY,
+  SIGNATURE_FONTS,
+  getSignatureFontFamilyString,
+} from '@documenso/lib/constants/signature-fonts';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -46,18 +52,32 @@ const ZBrandingPreferencesFormSchema = z.object({
     .nullish(),
   brandingUrl: z.string().url().optional().or(z.literal('')),
   brandingCompanyDetails: z.string().max(500).optional(),
+  // Null = inherit from organisation (team only). The allowed values are validated server-side by
+  // the tRPC input (`ZSignatureFontFamilySchema`); kept as a plain string here since the `Select`
+  // only offers curated families.
+  signatureFontFamily: z.string().nullable(),
 });
 
 export type TBrandingPreferencesFormSchema = z.infer<typeof ZBrandingPreferencesFormSchema>;
 
 type SettingsSubset = Pick<
   TeamGlobalSettings,
-  'brandingEnabled' | 'brandingLogo' | 'brandingUrl' | 'brandingCompanyDetails'
+  | 'brandingEnabled'
+  | 'brandingLogo'
+  | 'brandingUrl'
+  | 'brandingCompanyDetails'
+  | 'signatureFontFamily'
 >;
 
 export type BrandingPreferencesFormProps = {
   canInherit?: boolean;
   settings: SettingsSubset;
+  /**
+   * The effective font this context would inherit when `signatureFontFamily` is null (i.e. the
+   * organisation's resolved font for a team). Used to preview the "Inherit from organisation" choice
+   * in the real inherited font rather than the hardcoded default.
+   */
+  inheritedFontFamily?: string | null;
   onFormSubmit: (data: TBrandingPreferencesFormSchema) => Promise<void>;
   context: 'Team' | 'Organisation';
 };
@@ -65,13 +85,17 @@ export type BrandingPreferencesFormProps = {
 export function BrandingPreferencesForm({
   canInherit = false,
   settings,
+  inheritedFontFamily,
   onFormSubmit,
   context,
 }: BrandingPreferencesFormProps) {
   const { t } = useLingui();
 
+  const { user } = useSession();
   const team = useOptionalCurrentTeam();
   const organisation = useCurrentOrganisation();
+
+  const signaturePreviewName = user?.name?.trim() || t`Jane Doe`;
 
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [hasLoadedPreview, setHasLoadedPreview] = useState(false);
@@ -82,6 +106,7 @@ export function BrandingPreferencesForm({
       brandingUrl: settings.brandingUrl ?? '',
       brandingLogo: undefined,
       brandingCompanyDetails: settings.brandingCompanyDetails ?? '',
+      signatureFontFamily: settings.signatureFontFamily ?? null,
     },
     resolver: zodResolver(ZBrandingPreferencesFormSchema),
   });
@@ -333,6 +358,83 @@ export function BrandingPreferencesForm({
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="signatureFontFamily"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel>
+                  <Trans>Signature Font</Trans>
+                </FormLabel>
+
+                <FormControl>
+                  <Select
+                    value={field.value ?? (canInherit ? '-1' : DEFAULT_SIGNATURE_FONT_FAMILY)}
+                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                  >
+                    <SelectTrigger
+                      className="bg-background"
+                      data-testid="signature-font"
+                      style={{
+                        fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily),
+                      }}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent className="z-[9999]">
+                      {canInherit && (
+                        <SelectItem value="-1">
+                          <Trans>Inherit from organisation</Trans>
+                        </SelectItem>
+                      )}
+
+                      {SIGNATURE_FONTS.map((signatureFont) => (
+                        <SelectItem
+                          key={signatureFont.family}
+                          value={signatureFont.family}
+                          className="text-xl"
+                          style={{
+                            fontFamily: `'${signatureFont.family}', ${signatureFont.cssFallback}`,
+                          }}
+                        >
+                          {signatureFont.family}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+
+                <div className="border-border bg-background mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border">
+                  <span
+                    className="text-black dark:text-white"
+                    style={{
+                      fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily),
+                      fontSize: '2.5rem',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {signaturePreviewName}
+                  </span>
+                </div>
+
+                <FormDescription>
+                  <Trans>
+                    The font used for typed signatures. Applies to documents created after this change
+                    — already-created documents keep their original font.
+                  </Trans>
+
+                  {canInherit && (
+                    <span>
+                      {' '}
+                      <Trans>Choose "Inherit from organisation" to use the organisation font.</Trans>
+                    </span>
+                  )}
+                </FormDescription>
+              </FormItem>
+            )}
+          />
 
           <div className="flex flex-row justify-end space-x-4">
             <Button type="submit" loading={form.formState.isSubmitting}>

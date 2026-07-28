@@ -13,12 +13,14 @@ type InsertFieldInPDFV2Options = {
   pageWidth: number;
   pageHeight: number;
   fields: FieldWithSignature[];
+  signatureFontFamily?: string | null;
 };
 
 export const insertFieldInPDFV2 = async ({
   pageWidth,
   pageHeight,
   fields,
+  signatureFontFamily,
 }: InsertFieldInPDFV2Options) => {
   ensureFontLibrary();
 
@@ -42,6 +44,7 @@ export const insertFieldInPDFV2 = async ({
       pageWidth,
       pageHeight,
       mode: 'export',
+      signatureFontFamily,
     });
   }
 

@@ -524,6 +524,11 @@ model DocumentMeta {
   uploadSignatureEnabled Boolean @default(true)
   drawSignatureEnabled   Boolean @default(true)
 
+  // Typed-signature font family snapshotted at document creation so already-signed documents never
+  // restyle when the org/team setting changes. `@default("Caveat")` backfills existing rows to the
+  // font every document was rendered with before this feature.
+  signatureFontFamily String @default("Caveat")
+
   language           String                     @default("en")
   distributionMethod DocumentDistributionMethod @default(EMAIL)
 
@@ -845,6 +850,10 @@ model OrganisationGlobalSettings {
   uploadSignatureEnabled Boolean @default(true)
   drawSignatureEnabled   Boolean @default(true)
 
+  // Typed-signature font family. One of the curated families in
+  // `@documenso/lib/constants/signature-fonts`. Snapshotted onto the document at creation.
+  signatureFontFamily String @default("Caveat")
+
   defaultRecipients Json? /// [DefaultRecipient[]] @zod.custom.use(ZDefaultRecipientsSchema)
 
   emailId String?
@@ -883,6 +892,9 @@ model TeamGlobalSettings {
   typedSignatureEnabled  Boolean?
   uploadSignatureEnabled Boolean?
   drawSignatureEnabled   Boolean?
+
+  // Null = inherit from organisation.
+  signatureFontFamily String?
 
   defaultRecipients Json? /// [DefaultRecipient[]] @zod.custom.use(ZDefaultRecipientsSchema)
 
