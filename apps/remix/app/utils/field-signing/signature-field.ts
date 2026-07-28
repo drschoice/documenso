@@ -13,6 +13,7 @@ type HandleSignatureFieldClickOptions = {
   typedSignatureEnabled?: boolean;
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
+  signatureFontFamily?: string | null;
 };
 
 export const handleSignatureFieldClick = async (
@@ -25,6 +26,7 @@ export const handleSignatureFieldClick = async (
     typedSignatureEnabled,
     uploadSignatureEnabled,
     drawSignatureEnabled,
+    signatureFontFamily,
   } = options;
 
   if (field.type !== FieldType.SIGNATURE) {
@@ -48,6 +50,7 @@ export const handleSignatureFieldClick = async (
       typedSignatureEnabled,
       uploadSignatureEnabled,
       drawSignatureEnabled,
+      signatureFontFamily,
     });
   }
 

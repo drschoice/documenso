@@ -287,6 +287,7 @@ export const DocumentSigningForm = ({
                         typedSignatureEnabled={document.documentMeta?.typedSignatureEnabled}
                         uploadSignatureEnabled={document.documentMeta?.uploadSignatureEnabled}
                         drawSignatureEnabled={document.documentMeta?.drawSignatureEnabled}
+                        signatureFontFamily={document.documentMeta?.signatureFontFamily}
                       />
                     </div>
                   )}

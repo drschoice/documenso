@@ -6,6 +6,7 @@ import { Trans } from '@lingui/react/macro';
 import { Loader } from 'lucide-react';
 import { useRevalidator } from 'react-router';
 
+import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
@@ -38,6 +39,10 @@ export type DocumentSigningSignatureFieldProps = {
   typedSignatureEnabled?: boolean;
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
+  /**
+   * The document's typed-signature font. Falls back to the default (Caveat) via `font-signature`.
+   */
+  signatureFontFamily?: string | null;
 };
 
 export const DocumentSigningSignatureField = ({
@@ -47,6 +52,7 @@ export const DocumentSigningSignatureField = ({
   typedSignatureEnabled,
   uploadSignatureEnabled,
   drawSignatureEnabled,
+  signatureFontFamily,
 }: DocumentSigningSignatureFieldProps) => {
   const { _ } = useLingui();
   const { toast } = useToast();
@@ -250,7 +256,14 @@ export const DocumentSigningSignatureField = ({
       )}
 
       {state === 'empty' && (
-        <p className="font-signature text-[clamp(0.575rem,25cqw,1.2rem)] text-xl text-muted-foreground duration-200 group-hover:text-primary group-hover:text-recipient-green">
+        <p
+          className="font-signature text-[clamp(0.575rem,25cqw,1.2rem)] text-xl text-muted-foreground duration-200 group-hover:text-primary group-hover:text-recipient-green"
+          style={
+            signatureFontFamily
+              ? { fontFamily: getSignatureFontFamilyString(signatureFontFamily) }
+              : undefined
+          }
+        >
           <Trans>Signature</Trans>
         </p>
       )}
@@ -277,7 +290,12 @@ export const DocumentSigningSignatureField = ({
                 '!text-right': textAlign === 'right',
               },
             )}
-            style={{ fontSize: `${fontSize}rem` }}
+            style={{
+              fontSize: `${fontSize}rem`,
+              ...(signatureFontFamily
+                ? { fontFamily: getSignatureFontFamilyString(signatureFontFamily) }
+                : {}),
+            }}
           >
             {signature?.typedSignature}
           </p>
@@ -301,6 +319,7 @@ export const DocumentSigningSignatureField = ({
             typedSignatureEnabled={typedSignatureEnabled}
             uploadSignatureEnabled={uploadSignatureEnabled}
             drawSignatureEnabled={drawSignatureEnabled}
+            signatureFontFamily={signatureFontFamily}
           />
 
           <DocumentSigningDisclosure />

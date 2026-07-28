@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import Konva from 'konva';
 
+import { SIGNATURE_FONTS } from '../../constants/signature-fonts';
 import { type PageRenderData } from '../providers/envelope-render-provider';
 
 type RenderFunction = (props: { stage: Konva.Stage; pageLayer: Konva.Layer }) => void;
@@ -66,7 +67,15 @@ export const usePageRenderer = (renderFunction: RenderFunction, pageData: PageRe
       pageLayer: pageLayer.current,
     });
 
-    void document.fonts.ready.then(function () {
+    // Konva draws typed signatures to a canvas, which can only use a font the browser has already
+    // loaded. Signature fonts aren't referenced by any DOM element, so `document.fonts.ready` alone
+    // never triggers their load — explicitly request each one, then redraw once they resolve.
+    void Promise.all([
+      document.fonts.ready,
+      ...SIGNATURE_FONTS.map((signatureFont) =>
+        document.fonts.load(`40px "${signatureFont.family}"`).catch(() => undefined),
+      ),
+    ]).then(function () {
       pageLayer.current?.batchDraw();
     });
 

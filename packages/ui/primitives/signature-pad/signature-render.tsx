@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react';
 
+import {
+  DEFAULT_SIGNATURE_FONT_FAMILY,
+  getSignatureFont,
+} from '@documenso/lib/constants/signature-fonts';
 import { SIGNATURE_CANVAS_DPI, isBase64Image } from '@documenso/lib/constants/signatures';
 
 import { cn } from '../../lib/utils';
@@ -7,12 +11,20 @@ import { cn } from '../../lib/utils';
 export type SignatureRenderProps = {
   className?: string;
   value: string;
+  /**
+   * The typed-signature font family to render with. Falls back to the default (Caveat).
+   */
+  fontFamily?: string | null;
 };
 
 /**
  * Renders a typed, uploaded or drawn signature.
  */
-export const SignatureRender = ({ className, value }: SignatureRenderProps) => {
+export const SignatureRender = ({
+  className,
+  value,
+  fontFamily: fontFamilyProp,
+}: SignatureRenderProps) => {
   const $el = useRef<HTMLCanvasElement>(null);
   const $imageData = useRef<ImageData | null>(null);
 
@@ -31,7 +43,7 @@ export const SignatureRender = ({ className, value }: SignatureRenderProps) => {
 
     const canvasWidth = $el.current.width;
     const canvasHeight = $el.current.height;
-    const fontFamily = 'Caveat';
+    const fontFamily = getSignatureFont(fontFamilyProp ?? DEFAULT_SIGNATURE_FONT_FAMILY).family;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.textAlign = 'center';
@@ -116,7 +128,7 @@ export const SignatureRender = ({ className, value }: SignatureRenderProps) => {
     } else {
       renderTypedSignature();
     }
-  }, [value]);
+  }, [value, fontFamilyProp]);
 
   return (
     <canvas

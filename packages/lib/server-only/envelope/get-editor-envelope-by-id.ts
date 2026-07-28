@@ -1,10 +1,11 @@
-import type { EnvelopeType } from '@prisma/client';
+import { EnvelopeType } from '@prisma/client';
 
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
+import { getTeamSettings } from '../team/get-team-settings';
 
 export type GetEditorEnvelopeByIdOptions = {
   id: EnvelopeIdOptions;
@@ -96,6 +97,16 @@ export const getEditorEnvelopeById = async ({
     throw new AppError(AppErrorCode.NOT_FOUND, {
       message: 'Envelope could not be found',
     });
+  }
+
+  // Templates do not pin the signature font — documents generated from them re-resolve it from the
+  // current org/team settings (see the template creation paths). Surface that resolved font in the
+  // editor/preview so the template accurately previews what its documents will look like, instead of
+  // showing the (now meaningless) value snapshotted when the template was created.
+  if (envelope.type === EnvelopeType.TEMPLATE && envelope.documentMeta) {
+    const settings = await getTeamSettings({ userId, teamId });
+
+    envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
   }
 
   return {

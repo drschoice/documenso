@@ -39,6 +39,7 @@ export const updateTeamSettingsRoute = authenticatedProcedure
       typedSignatureEnabled,
       uploadSignatureEnabled,
       drawSignatureEnabled,
+      signatureFontFamily,
       delegateDocumentOwnership,
       envelopeExpirationPeriod,
 
@@ -154,6 +155,7 @@ export const updateTeamSettingsRoute = authenticatedProcedure
             typedSignatureEnabled,
             uploadSignatureEnabled,
             drawSignatureEnabled,
+            signatureFontFamily,
             delegateDocumentOwnership,
             envelopeExpirationPeriod:
               envelopeExpirationPeriod === null ? Prisma.DbNull : envelopeExpirationPeriod,

@@ -166,6 +166,7 @@ export default function DocumentPage({ params }: Route.ComponentProps) {
               overrideSettings={{
                 showRecipientSigningStatus: true,
                 showRecipientTooltip: true,
+                signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
               }}
             >
               {isMultiEnvelopeItem && (

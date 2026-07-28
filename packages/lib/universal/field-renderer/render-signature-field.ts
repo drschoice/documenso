@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../../constants/pdf';
+import { getSignatureFontFamilyString } from '../../constants/signature-fonts';
 import { AppError } from '../../errors/app-error';
 import { FIELD_DEFAULT_GENERIC_ALIGN } from '../../types/field-meta';
 import {
@@ -57,7 +58,7 @@ const createFieldSignature = (
   field: FieldToRender,
   options: RenderFieldElementOptions,
 ): Konva.Text | Konva.Image => {
-  const { pageWidth, pageHeight, mode = 'edit', translations } = options;
+  const { pageWidth, pageHeight, mode = 'edit', translations, signatureFontFamily } = options;
 
   const { fieldWidth, fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
   const fontSize = field.fieldMeta?.fontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
@@ -148,7 +149,7 @@ const createFieldSignature = (
     wrap: 'char',
     text: textToRender,
     fontSize,
-    fontFamily: 'Caveat, sans-serif',
+    fontFamily: getSignatureFontFamilyString(signatureFontFamily),
     align: textAlign,
     width: fieldWidth,
     height: fieldHeight,

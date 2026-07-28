@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 
 import { useLingui } from '@lingui/react/macro';
 
+import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
+
 import { cn } from '../../lib/utils';
 
 export type SignaturePadTypeProps = {
@@ -9,6 +11,10 @@ export type SignaturePadTypeProps = {
   value?: string;
   defaultValue?: string;
   onChange: (_value: string) => void;
+  /**
+   * Overrides the default `font-signature` (Caveat) with a configured signature font family.
+   */
+  fontFamily?: string | null;
 };
 
 export const SignaturePadType = ({
@@ -16,6 +22,7 @@ export const SignaturePadType = ({
   value,
   defaultValue,
   onChange,
+  fontFamily,
 }: SignaturePadTypeProps) => {
   const { t } = useLingui();
 
@@ -35,7 +42,7 @@ export const SignaturePadType = ({
         data-testid="signature-pad-type-input"
         placeholder={t`Type your signature`}
         className="w-full bg-transparent px-4 text-center font-signature text-7xl text-black placeholder:text-4xl focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:text-white"
-        // style={{ color: selectedColor }}
+        style={fontFamily ? { fontFamily: getSignatureFontFamilyString(fontFamily) } : undefined}
         value={value}
         onChange={(event) => {
           onChange(event.target.value.trimStart());

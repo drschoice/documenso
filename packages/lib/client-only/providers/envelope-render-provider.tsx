@@ -26,6 +26,7 @@ type EnvelopeRenderOverrideSettings = {
   mode?: FieldRenderMode;
   showRecipientTooltip?: boolean;
   showRecipientSigningStatus?: boolean;
+  signatureFontFamily?: string | null;
 };
 
 type EnvelopeRenderItem = {

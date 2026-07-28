@@ -147,6 +147,7 @@ export const generateCertificatePdf = async (options: GenerateCertificatePdfOpti
     pageWidth,
     pageHeight,
     i18n,
+    signatureFontFamily: envelope.documentMeta.signatureFontFamily,
   };
 
   const certificatePages = await renderCertificate(payload);

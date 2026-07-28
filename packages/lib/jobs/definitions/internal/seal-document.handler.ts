@@ -299,6 +299,9 @@ export const run = async ({
         pdfData,
         certificateDoc,
         auditLogDoc,
+        // Typed-signature font snapshotted onto the document at creation. Null falls back to Caveat in
+        // the renderers so documents signed before this feature keep their original appearance.
+        signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
       });
 
       newDocumentData.push(result);
@@ -383,6 +386,7 @@ type DecorateAndSignPdfOptions = {
   pdfData: Uint8Array;
   certificateDoc: PDF | null;
   auditLogDoc: PDF | null;
+  signatureFontFamily?: string | null;
 };
 
 /**
@@ -397,6 +401,7 @@ const decorateAndSignPdf = async ({
   pdfData,
   certificateDoc,
   auditLogDoc,
+  signatureFontFamily,
 }: DecorateAndSignPdfOptions) => {
   let pdfDoc = await PDF.load(pdfData);
 
@@ -431,9 +436,9 @@ const decorateAndSignPdf = async ({
     for (const field of envelopeItemFields) {
       if (field.inserted) {
         if (envelope.useLegacyFieldInsertion) {
-          await legacy_insertFieldInPDF(legacy_pdfLibDoc, field);
+          await legacy_insertFieldInPDF(legacy_pdfLibDoc, field, signatureFontFamily);
         } else {
-          await insertFieldInPDFV1(legacy_pdfLibDoc, field);
+          await insertFieldInPDFV1(legacy_pdfLibDoc, field, signatureFontFamily);
         }
       }
     }
@@ -463,6 +468,7 @@ const decorateAndSignPdf = async ({
         pageWidth,
         pageHeight,
         fields,
+        signatureFontFamily,
       });
 
       const overlayPdf = await PDF.load(overlayBytes);

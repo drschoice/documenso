@@ -255,6 +255,7 @@ export const EnvelopeEditorPreviewPage = () => {
       presignToken={editorConfig?.embedded?.presignToken}
       overrideSettings={{
         mode: 'export',
+        signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
       }}
     >
       <div className="relative flex h-full">
