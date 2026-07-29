@@ -1,0 +1,84 @@
+name: Deploy to ECS (Express Mode)
+
+# Builds the Docker image, pushes it to ECR, and rolls it out to the ECS Express
+# Mode service on every push to `production`. Auth is via GitHub OIDC (no stored
+# AWS keys). Account-specific values are kept OUT of this public repo and come
+# from GitHub Actions repository secrets (Settings → Secrets and variables →
+# Actions):
+#   AWS_DEPLOY_ROLE_ARN  — CloudFormation output GitHubDeployRoleArn
+#   ECS_SERVICE_ARN      — from create-express-gateway-service (infra/README.md)
+#   APP_SECRET_ARN       — CloudFormation output AppSecretArn
+# One-time setup is documented in infra/README.md.
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-ecs
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+  SERVICE_ARN: ${{ secrets.ECS_SERVICE_ARN }}
+  APP_SECRET_ARN: ${{ secrets.APP_SECRET_ARN }}
+  ECR_REPOSITORY: documenso
+  PRIMARY_CONTAINER_FILE: .aws/primary-container.json
+
+jobs:
+  deploy:
+    name: Build, push, and roll out
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # repo root — docker/Dockerfile does `COPY . .`
+          file: ./docker/Dockerfile
+          platforms: linux/amd64 # Express Mode task defaults to X86_64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Render primary-container (inject image + secret ARN)
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          # The committed file keeps REPLACE_WITH_AppSecretArn as a placeholder so
+          # the account-specific ARN isn't in the public repo — inject it here.
+          sed "s|REPLACE_WITH_AppSecretArn|${APP_SECRET_ARN}|g" "$PRIMARY_CONTAINER_FILE" \
+            | jq --arg img "$IMAGE" '.image = $img' > /tmp/primary-container.json
+          echo "Deploying image: $IMAGE"
+
+      - name: Roll out to the Express service
+        # Skipped until the ECS_SERVICE_ARN secret is set (i.e. after the service
+        # is created). The first push therefore only builds + pushes to ECR.
+        if: ${{ env.SERVICE_ARN != '' }}
+        run: |
+          aws ecs update-express-gateway-service \
+            --region "$AWS_REGION" \
+            --service-arn "$SERVICE_ARN" \
+            --primary-container "file:///tmp/primary-container.json" \
+            --monitor-resources DEPLOYMENT \
+            --monitor-mode TEXT-ONLY

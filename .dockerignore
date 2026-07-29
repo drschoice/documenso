@@ -22,12 +22,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files — keep real secrets out of the build context
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+
+# signing certificates / keys — never bake into an image layer
+*.p12
+!apps/remix/example/cert.p12
 
 # turbo
 .turbo

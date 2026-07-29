@@ -1,0 +1,239 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Documenso — static infrastructure for an ECS Express Mode deployment.
+  Creates the ECR repository, the IAM roles Express Mode needs (task execution,
+  task, and the Express infrastructure role), a GitHub OIDC deploy role, a
+  CloudWatch log group, and an empty Secrets Manager secret shell.
+  The ALB, target group, listener, security groups, and auto-scaling are created
+  and managed by ECS Express Mode itself — not here. The Express service is
+  created once via `aws ecs create-express-gateway-service` and updated by the
+  GitHub Actions pipeline via `update-express-gateway-service`. See infra/README.md.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: drschoice
+    Description: GitHub org/owner allowed to assume the deploy role.
+  GitHubRepo:
+    Type: String
+    Default: documenso
+  DeployBranch:
+    Type: String
+    Default: production
+    Description: Only pushes to this branch may assume the deploy role.
+
+  ClusterName:
+    Type: String
+    Default: default
+    Description: ECS cluster the Express service runs in (Express Mode uses `default` unless overridden).
+  ServiceName:
+    Type: String
+    Default: documenso
+    Description: Name of the Express Mode service (used to scope the deploy role).
+
+  AppSecretName:
+    Type: String
+    Default: documenso/app
+    Description: Name for the Secrets Manager secret holding all sensitive env vars (created empty).
+
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ""
+    Description: >-
+      ARN of an existing GitHub Actions OIDC provider to reuse
+      (this account already has one). Leave blank to create one.
+
+Conditions:
+  CreateOidcProvider: !Equals [ !Ref ExistingOidcProviderArn, "" ]
+
+Resources:
+  # -------------------------------------------------------------------------
+  # Container registry
+  # -------------------------------------------------------------------------
+  EcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: documenso
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              { "rulePriority": 1, "description": "Expire untagged after 7 days",
+                "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed",
+                               "countUnit": "days", "countNumber": 7 },
+                "action": { "type": "expire" } },
+              { "rulePriority": 2, "description": "Keep last 20 tagged",
+                "selection": { "tagStatus": "any", "countType": "imageCountMoreThan",
+                               "countNumber": 20 },
+                "action": { "type": "expire" } }
+            ]
+          }
+
+  # -------------------------------------------------------------------------
+  # Logging — referenced by the Express service's primary container
+  # -------------------------------------------------------------------------
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/documenso
+      RetentionInDays: 30
+
+  # -------------------------------------------------------------------------
+  # Secrets — empty shell; populate with infra/put-secrets.sh
+  # -------------------------------------------------------------------------
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref AppSecretName
+      Description: Documenso runtime secrets (JSON key/value)
+
+  # -------------------------------------------------------------------------
+  # IAM — ECS task execution role (pull image, write logs, read the secret)
+  # -------------------------------------------------------------------------
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: documenso-task-execution
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: read-app-secret
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref AppSecret
+
+  # -------------------------------------------------------------------------
+  # IAM — ECS task role (the app's runtime identity). Empty: the app reaches S3
+  # with the NEXT_PRIVATE_UPLOAD_* access keys from the secret. To use the role
+  # instead, add s3:* on the bucket here and drop those keys from the secret.
+  # -------------------------------------------------------------------------
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: documenso-task
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+
+  # -------------------------------------------------------------------------
+  # IAM — Express Mode infrastructure role. ECS assumes this to create/manage
+  # the ALB, target groups, security groups, and auto-scaling on your behalf.
+  # -------------------------------------------------------------------------
+  InfrastructureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: documenso-express-infrastructure
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices
+
+  # -------------------------------------------------------------------------
+  # IAM — GitHub Actions OIDC provider (only if none exists) + deploy role
+  # -------------------------------------------------------------------------
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [ sts.amazonaws.com ]
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fce
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: github-documenso-deploy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Ref ExistingOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${DeployBranch}"
+      Policies:
+        - PolicyName: deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # ECR auth token (account-level)
+              - { Effect: Allow, Action: ecr:GetAuthorizationToken, Resource: "*" }
+              # Push/pull to the one repo
+              - Effect: Allow
+                Resource: !GetAtt EcrRepo.Arn
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+              # Roll out a new image to the Express service (rolling deploy)
+              - Effect: Allow
+                Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/${ClusterName}/${ServiceName}"
+                Action:
+                  - ecs:UpdateExpressGatewayService
+                  - ecs:DescribeExpressGatewayService
+                  - ecs:MonitorExpressGatewayService
+              # Express Mode registers a new task-def revision under the hood on update
+              - { Effect: Allow, Resource: "*", Action: [ ecs:RegisterTaskDefinition, ecs:DescribeTaskDefinition ] }
+              # PassRole for the task roles named in the task def
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt TaskExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+
+Outputs:
+  EcrRepositoryUri:
+    Description: ECR repository URI (image = <this>:<git-sha>)
+    Value: !GetAtt EcrRepo.RepositoryUri
+  TaskExecutionRoleArn:
+    Value: !GetAtt TaskExecutionRole.Arn
+  TaskRoleArn:
+    Value: !GetAtt TaskRole.Arn
+  InfrastructureRoleArn:
+    Description: Pass to create-express-gateway-service --infrastructure-role-arn
+    Value: !GetAtt InfrastructureRole.Arn
+  GitHubDeployRoleArn:
+    Description: Put this in deploy-ecs.yml as role-to-assume
+    Value: !GetAtt GitHubDeployRole.Arn
+  AppSecretArn:
+    Description: Base ARN for the secrets valueFrom entries in primary-container.json
+    Value: !Ref AppSecret
+  LogGroupName:
+    Value: !Ref LogGroup
+  ExpectedServiceArn:
+    Description: The Express service ARN once created (scope used by the deploy role)
+    Value: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/${ClusterName}/${ServiceName}"
