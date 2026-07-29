@@ -196,21 +196,29 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
-              # Roll out a new image to the Express service (rolling deploy)
+              # Roll out a new image to the Express service (rolling deploy).
+              # Only the mutating/service-scoped calls live here.
               - Effect: Allow
                 Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/${ClusterName}/${ServiceName}"
                 Action:
                   - ecs:UpdateExpressGatewayService
                   - ecs:DescribeExpressGatewayService
                   - ecs:MonitorExpressGatewayService
-                  # `update-express-gateway-service --monitor-resources DEPLOYMENT`
-                  # polls the service's deployments; List is scoped to the service.
-                  - ecs:ListServiceDeployments
-              # DescribeServiceDeployments acts on the (dynamic-id) service-deployment resource
+              # `--monitor-resources DEPLOYMENT` polls the rollout by chaining several
+              # read-only APIs (list deployments -> describe deployments -> describe the
+              # service revisions/services/tasks they reference). These take dynamic ARNs
+              # the monitor discovers at run time and don't support resource scoping, so
+              # they must be granted on "*". All read-only — safe for a deploy role.
               - Effect: Allow
-                Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service-deployment/${ClusterName}/${ServiceName}/*"
+                Resource: "*"
                 Action:
+                  - ecs:ListServiceDeployments
                   - ecs:DescribeServiceDeployments
+                  - ecs:DescribeServiceRevisions
+                  - ecs:DescribeServices
+                  - ecs:DescribeClusters
+                  - ecs:ListTasks
+                  - ecs:DescribeTasks
               # Express Mode registers a new task-def revision under the hood on update
               - { Effect: Allow, Resource: "*", Action: [ ecs:RegisterTaskDefinition, ecs:DescribeTaskDefinition ] }
               # PassRole for the task roles named in the task def

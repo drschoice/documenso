@@ -1,10 +1,12 @@
 name: Deploy to ECS (Express Mode)
 
-# Builds the Docker image, pushes it to ECR, and rolls it out to the ECS Express
-# Mode service on every push to `production`. Auth is via GitHub OIDC (no stored
-# AWS keys). Account-specific values are kept OUT of this public repo and come
-# from GitHub Actions repository secrets (Settings → Secrets and variables →
-# Actions):
+# Two jobs run on every push to `production`:
+#   build  — build the Docker image and push it to ECR
+#   deploy — render the container definition and roll it out to the ECS Express
+#            Mode service (waits on `build`)
+# Auth is via GitHub OIDC (no stored AWS keys). Account-specific values are kept
+# OUT of this public repo and come from GitHub Actions repository secrets
+# (Settings → Secrets and variables → Actions):
 #   AWS_DEPLOY_ROLE_ARN  — CloudFormation output GitHubDeployRoleArn
 #   ECS_SERVICE_ARN      — from create-express-gateway-service (infra/README.md)
 #   APP_SECRET_ARN       — CloudFormation output AppSecretArn
@@ -17,7 +19,11 @@ on:
 
 concurrency:
   group: deploy-ecs
-  cancel-in-progress: false
+  # A newer push supersedes an older queued/running deploy instead of stacking up
+  # behind it (a backlog of overlapping rollouts confuses the ECS monitor). Note:
+  # cancelling a run that has already initiated an update does NOT stop the
+  # ECS-side rollout — Express Mode supersedes the older deployment on its own.
+  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -32,9 +38,16 @@ env:
   PRIMARY_CONTAINER_FILE: .aws/primary-container.json
 
 jobs:
-  deploy:
-    name: Build, push, and roll out
+  build:
+    name: Build and push image
     runs-on: ubuntu-latest
+    outputs:
+      # Full image reference (registry/repo:sha) handed to the deploy job.
+      image: ${{ steps.image.outputs.uri }}
+      # Whether to roll out. The service doesn't exist on the very first push
+      # (ECS_SERVICE_ARN unset) — build only until it's created. See infra/README.md.
+      # env/secrets aren't available in a job-level `if`, so we surface it as an output.
+      deploy: ${{ steps.image.outputs.deploy }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +64,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Compute image reference + deploy flag
+        id: image
+        run: |
+          echo "uri=${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$SERVICE_ARN" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
@@ -58,13 +81,29 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/amd64 # Express Mode task defaults to X86_64
           push: true
-          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          tags: ${{ steps.image.outputs.uri }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  deploy:
+    name: Roll out to the Express service
+    needs: build
+    # Skipped until the ECS_SERVICE_ARN secret is set (i.e. after the service is
+    # created). The first push therefore only builds + pushes to ECR.
+    if: ${{ needs.build.outputs.deploy == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # for .aws/primary-container.json
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Render primary-container (inject image + secret ARN)
         run: |
-          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          IMAGE="${{ needs.build.outputs.image }}"
           # The committed file keeps REPLACE_WITH_AppSecretArn as a placeholder so
           # the account-specific ARN isn't in the public repo — inject it here.
           sed "s|REPLACE_WITH_AppSecretArn|${APP_SECRET_ARN}|g" "$PRIMARY_CONTAINER_FILE" \
@@ -72,13 +111,60 @@ jobs:
           echo "Deploying image: $IMAGE"
 
       - name: Roll out to the Express service
-        # Skipped until the ECS_SERVICE_ARN secret is set (i.e. after the service
-        # is created). The first push therefore only builds + pushes to ECR.
-        if: ${{ env.SERVICE_ARN != '' }}
+        # We deliberately DON'T use `--monitor-resources` (the CLI's built-in
+        # monitor): its exit condition is undocumented and, under a backlog of
+        # overlapping deployments, it never terminated for us. Instead we initiate
+        # the update (which returns as soon as ECS accepts it) and poll the one
+        # deployment we created — matched by its target service revision — until it
+        # reaches a terminal state. Deterministic exit, crisp pass/fail, own timeout.
+        env:
+          TIMEOUT_MIN: 20
         run: |
-          aws ecs update-express-gateway-service \
-            --region "$AWS_REGION" \
-            --service-arn "$SERVICE_ARN" \
-            --primary-container "file:///tmp/primary-container.json" \
-            --monitor-resources DEPLOYMENT \
-            --monitor-mode TEXT-ONLY
+          set -uo pipefail
+
+          # Back-buffer for clock skew; scopes the poll to the deployment we create.
+          START=$(date -u -d '-2 minutes' '+%Y-%m-%dT%H:%M:%SZ')
+
+          if ! REV=$(aws ecs update-express-gateway-service \
+                --region "$AWS_REGION" \
+                --service-arn "$SERVICE_ARN" \
+                --primary-container "file:///tmp/primary-container.json" \
+                --query 'service.targetConfiguration.serviceRevisionArn' \
+                --output text); then
+            echo "::error::Failed to initiate the rollout."
+            exit 1
+          fi
+          echo "Rolling out service revision: $REV"
+
+          DEADLINE=$(( $(date +%s) + TIMEOUT_MIN * 60 ))
+          while :; do
+            ARNS=$(aws ecs list-service-deployments \
+              --region "$AWS_REGION" --service "$SERVICE_ARN" \
+              --created-at "after=$START" \
+              --query 'serviceDeployments[].serviceDeploymentArn' --output text)
+
+            STATUS=""
+            if [ -n "$ARNS" ]; then
+              STATUS=$(aws ecs describe-service-deployments \
+                --region "$AWS_REGION" --service-deployment-arns $ARNS \
+                --query "serviceDeployments[?targetServiceRevision.arn=='$REV'].status | [0]" \
+                --output text)
+            fi
+            [ "$STATUS" = "None" ] && STATUS=""   # CLI prints "None" for a null result
+
+            echo "$(date -u '+%H:%M:%SZ') deployment status: ${STATUS:-<pending>}"
+            case "$STATUS" in
+              SUCCESSFUL)
+                echo "Deployment reached a steady state."
+                exit 0 ;;
+              STOPPED|ROLLBACK_SUCCESSFUL|ROLLBACK_FAILED)
+                echo "::error::Deployment did not succeed (status: $STATUS)."
+                exit 1 ;;
+            esac
+
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::Timed out after ${TIMEOUT_MIN}m (last status: ${STATUS:-<pending>}). The ECS-side rollout may still be in progress."
+              exit 1
+            fi
+            sleep 15
+          done
