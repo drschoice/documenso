@@ -203,6 +203,14 @@ Resources:
                   - ecs:UpdateExpressGatewayService
                   - ecs:DescribeExpressGatewayService
                   - ecs:MonitorExpressGatewayService
+                  # `update-express-gateway-service --monitor-resources DEPLOYMENT`
+                  # polls the service's deployments; List is scoped to the service.
+                  - ecs:ListServiceDeployments
+              # DescribeServiceDeployments acts on the (dynamic-id) service-deployment resource
+              - Effect: Allow
+                Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service-deployment/${ClusterName}/${ServiceName}/*"
+                Action:
+                  - ecs:DescribeServiceDeployments
               # Express Mode registers a new task-def revision under the hood on update
               - { Effect: Allow, Resource: "*", Action: [ ecs:RegisterTaskDefinition, ecs:DescribeTaskDefinition ] }
               # PassRole for the task roles named in the task def
