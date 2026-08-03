@@ -16,6 +16,7 @@ import { EnvelopeRecipientFieldTooltip } from '@documenso/ui/components/document
 
 type GenericLocalField = TEnvelope['fields'][number] & {
   recipient: Pick<Recipient, 'id' | 'name' | 'email' | 'signingStatus'>;
+  signature?: { signatureImageAsBase64: string; typedSignature: string } | null;
 };
 
 export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
@@ -58,6 +59,8 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
 
         const isInserted = recipient.signingStatus === SigningStatus.SIGNED && field.inserted;
 
+        // The preview page may inject a `signature` (e.g. the recipient's typed name) on
+        // signature fields; it rides along via the spread and is read in `renderField`.
         return {
           ...field,
           inserted: isInserted,
@@ -91,7 +94,7 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
         positionX: Number(field.positionX),
         positionY: Number(field.positionY),
         fieldMeta: field.fieldMeta,
-        signature: {
+        signature: field.signature ?? {
           signatureImageAsBase64: '',
           typedSignature: fieldTranslations.SIGNATURE,
         },
