@@ -108,6 +108,19 @@ export const EnvelopeSigningProvider = ({
   const { mutateAsync: signEnvelopeField } = trpc.envelope.field.sign.useMutation({
     ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
     onSuccess: (data) => {
+      // The signed field plus any copy-and-link group members the server updated
+      // with the same value in the same transaction. Apply them all so linked
+      // fields (incl. ones on other pages) re-render immediately.
+      const updatedById = new Map<number, (typeof data.linkedFields)[number]>(
+        [data.signedField, ...data.linkedFields].map((f) => [f.id, f]),
+      );
+
+      const applyUpdates = <T extends { id: number }>(fields: T[]): T[] =>
+        fields.map((field) => {
+          const updated = updatedById.get(field.id);
+          return updated ? ({ ...field, ...updated } as T) : field;
+        });
+
       setEnvelopeData((prev) => ({
         ...prev,
         envelope: {
@@ -116,18 +129,14 @@ export const EnvelopeSigningProvider = ({
             recipient.id === data.signedField.recipientId
               ? {
                   ...recipient,
-                  fields: recipient.fields.map((field) =>
-                    field.id === data.signedField.id ? data.signedField : field,
-                  ),
+                  fields: applyUpdates(recipient.fields),
                 }
               : recipient,
           ),
         },
         recipient: {
           ...prev.recipient,
-          fields: prev.recipient.fields.map((field) =>
-            field.id === data.signedField.id ? data.signedField : field,
-          ),
+          fields: applyUpdates(prev.recipient.fields),
         },
       }));
     },

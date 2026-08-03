@@ -31,6 +31,7 @@ import { canRecipientFieldsBeModified } from '../../utils/recipients';
 import { assignFieldStableIds } from '../envelope/assign-field-stable-ids';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { mergeFieldsForValidation } from '../envelope/merge-fields-for-validation';
+import { type ValidatableLinkField, validateFieldLinks } from '../envelope/validate-field-links';
 import {
   type ValidatableField,
   validateFieldVisibility,
@@ -187,6 +188,17 @@ export const setFieldsForDocument = async ({
     throw new AppError(AppErrorCode[firstError.code as keyof typeof AppErrorCode], {
       message: firstError.message,
       userMessage: firstError.message,
+    });
+  }
+
+  const linkValidation = validateFieldLinks({
+    fields: mergedForValidation as ValidatableLinkField[],
+  });
+  if (!linkValidation.ok) {
+    const firstLinkError = linkValidation.errors[0];
+    throw new AppError(AppErrorCode[firstLinkError.code as keyof typeof AppErrorCode], {
+      message: firstLinkError.message,
+      userMessage: firstLinkError.message,
     });
   }
 

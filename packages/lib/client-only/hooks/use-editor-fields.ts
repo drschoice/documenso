@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { getPdfPagesCount } from '@documenso/lib/constants/pdf-viewer';
 import type { TEditorEnvelope } from '@documenso/lib/types/envelope-editor';
+import { pruneOrphanLinkGroups } from '@documenso/lib/universal/field-linking';
 import {
   getFieldStableId,
   removeRulesForTrigger,
@@ -263,7 +264,11 @@ export const useEditorFields = ({
             })
           : survivors;
 
-      replace(cleaned);
+      // Removing members can leave a link group with a single field; release that
+      // lone survivor so it isn't left "linked" to nothing.
+      const pruned = pruneOrphanLinkGroups(cleaned);
+
+      replace(pruned);
       triggerFieldsUpdate();
     },
     [form, replace, triggerFieldsUpdate],
@@ -319,7 +324,10 @@ export const useEditorFields = ({
   const duplicateField = useCallback(
     (field: TLocalField): TLocalField => {
       const cloned = structuredClone(field);
-      // Strip stableId so a fresh one is assigned for the duplicate
+      // Strip stableId so a fresh one is assigned for the duplicate. NOTE:
+      // linkGroupId is intentionally preserved so a duplicated linked field stays
+      // in its copy-and-link group (the "repeat the same value across pages by
+      // copy-paste" workflow).
       if (cloned.fieldMeta && 'stableId' in (cloned.fieldMeta as Record<string, unknown>)) {
         (cloned.fieldMeta as Record<string, unknown>).stableId = undefined;
       }
@@ -355,6 +363,8 @@ export const useEditorFields = ({
         }
 
         const clonedForPage = structuredClone(field);
+        // Strip stableId (fresh one assigned below) but KEEP linkGroupId so each
+        // per-page copy joins the source's copy-and-link group.
         if (
           clonedForPage.fieldMeta &&
           'stableId' in (clonedForPage.fieldMeta as Record<string, unknown>)

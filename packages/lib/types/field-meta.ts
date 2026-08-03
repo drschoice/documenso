@@ -75,6 +75,18 @@ const ZConditionalMetaExtensions = {
   visibility: ZVisibilityBlock.optional(),
 };
 
+/**
+ * Copy & link fields.
+ *
+ * Fields that share the same non-empty `linkGroupId` form a link group: when a
+ * signer fills in any member, the value is fanned out to every other member (in
+ * the signer canvas and the sealed PDF). Groups are single-recipient and
+ * single-type; a group with fewer than two members is meaningless and pruned.
+ */
+const ZLinkFieldMetaExtensions = {
+  linkGroupId: z.string().optional(),
+};
+
 export const ZBaseFieldMeta = z.object({
   label: z.string().optional(),
   placeholder: z.string().optional(),
@@ -168,6 +180,7 @@ export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   verticalAlign: ZFieldMetaVerticalAlign.nullish(),
   ...ZCombFieldMetaExtensions,
   ...ZConditionalMetaExtensions,
+  ...ZLinkFieldMetaExtensions,
 });
 
 export type TTextFieldMeta = z.infer<typeof ZTextFieldMeta>;
@@ -184,6 +197,7 @@ export const ZNumberFieldMeta = ZBaseFieldMeta.extend({
   verticalAlign: ZFieldMetaVerticalAlign.nullish(),
   ...ZCombFieldMetaExtensions,
   ...ZConditionalMetaExtensions,
+  ...ZLinkFieldMetaExtensions,
 });
 
 export type TNumberFieldMeta = z.infer<typeof ZNumberFieldMeta>;

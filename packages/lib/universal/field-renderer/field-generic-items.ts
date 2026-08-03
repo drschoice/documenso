@@ -356,22 +356,25 @@ const getStripeTile = (stroke: string): HTMLCanvasElement | null => {
 const VISIBILITY_STRIPES_NAME = 'field-visibility-stripes';
 
 /**
- * Editor-only overlay marking a field that is under a conditional-visibility
- * rule with semi-transparent diagonal stripes, drawn in the field's own border
- * color so the two read as one field. `active` (the dependents of the condition
- * currently being authored) just renders more opaque. `listening: false` keeps
- * clicks flowing through to the field for selection / pick-mode toggling.
+ * Editor-only overlay marking a field with semi-transparent diagonal stripes.
+ * Used for conditional-visibility rules (drawn in the field's own border color)
+ * and, under a different `name`, for copy-and-link groups (a fixed link color) —
+ * a distinct node name lets both coexist on a field that is in both. `active`
+ * just renders more opaque. `listening: false` keeps clicks flowing through to
+ * the field for selection / pick-mode toggling.
  */
-export const upsertVisibilityStripes = ({
+export const upsertFieldStripes = ({
   fieldGroup,
   footprint,
   active,
   color,
+  name = VISIBILITY_STRIPES_NAME,
 }: {
   fieldGroup: Konva.Group;
   footprint: { x: number; y: number; width: number; height: number };
   active: boolean;
   color: string;
+  name?: string;
 }) => {
   const tile = getStripeTile(color);
 
@@ -379,11 +382,11 @@ export const upsertVisibilityStripes = ({
     return;
   }
 
-  let stripes = fieldGroup.findOne<Konva.Rect>(`.${VISIBILITY_STRIPES_NAME}`);
+  let stripes = fieldGroup.findOne<Konva.Rect>(`.${name}`);
 
   if (!stripes) {
     stripes = new Konva.Rect({
-      name: VISIBILITY_STRIPES_NAME,
+      name,
       listening: false,
       cornerRadius: 2,
     });
@@ -406,9 +409,102 @@ export const upsertVisibilityStripes = ({
   stripes.moveToTop();
 };
 
-export const removeVisibilityStripes = (fieldGroup: Konva.Group) => {
-  fieldGroup.findOne<Konva.Rect>(`.${VISIBILITY_STRIPES_NAME}`)?.destroy();
+export const removeFieldStripes = (
+  fieldGroup: Konva.Group,
+  name: string = VISIBILITY_STRIPES_NAME,
+) => {
+  fieldGroup.findOne<Konva.Rect>(`.${name}`)?.destroy();
 };
+
+const LINK_BADGE_NAME = 'field-link-badge';
+
+// Lucide "link" glyph (two arcs) on a 24×24 box, drawn as one Konva.Path.
+const LINK_ICON_PATH =
+  'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 ' +
+  'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71';
+
+/**
+ * Editor-only badge marking a field as a member of a copy-and-link group: a
+ * rounded-square chip (in the field's recipient color, with a white link glyph)
+ * straddling the field's top-right corner — mirroring the free-layout move
+ * handle that straddles the top-left corner, so the two read as one family of
+ * chips.
+ * `listening: false` keeps clicks flowing through to the field. `footprint` is
+ * in the field group's local coordinates (same as the stripes).
+ */
+export const upsertLinkBadge = ({
+  fieldGroup,
+  footprint,
+  color,
+}: {
+  fieldGroup: Konva.Group;
+  footprint: { x: number; y: number; width: number; height: number };
+  color: string;
+}) => {
+  const size = FREE_LAYOUT_HANDLE_SIZE;
+  const glyphScale = 0.5;
+
+  let badge = fieldGroup.findOne<Konva.Group>(`.${LINK_BADGE_NAME}`);
+
+  if (!badge) {
+    badge = new Konva.Group({ name: LINK_BADGE_NAME, listening: false });
+
+    const chip = new Konva.Rect({
+      name: 'field-link-badge-chip',
+      width: size,
+      height: size,
+      cornerRadius: 3,
+    });
+
+    const glyph = new Konva.Path({
+      name: 'field-link-badge-glyph',
+      data: LINK_ICON_PATH,
+      stroke: 'white',
+      strokeWidth: 2.6,
+      lineCap: 'round',
+      lineJoin: 'round',
+      // Center the 24×24 glyph in the chip.
+      x: size / 2,
+      y: size / 2,
+      offsetX: 12,
+      offsetY: 12,
+      scaleX: glyphScale,
+      scaleY: glyphScale,
+      listening: false,
+    });
+
+    badge.add(chip);
+    badge.add(glyph);
+    fieldGroup.add(badge);
+  }
+
+  badge.findOne<Konva.Rect>('.field-link-badge-chip')?.fill(color);
+
+  // Straddle the top-right corner (chip center ~2px outside the corner), the
+  // mirror of the move handle's top-left placement.
+  badge.position({
+    x: footprint.x + footprint.width + 2 - size / 2,
+    y: footprint.y - 2 - size / 2,
+  });
+
+  badge.moveToTop();
+};
+
+export const removeLinkBadge = (fieldGroup: Konva.Group) => {
+  fieldGroup.findOne<Konva.Group>(`.${LINK_BADGE_NAME}`)?.destroy();
+};
+
+/** @deprecated use upsertFieldStripes — kept for existing conditional-visibility call sites. */
+export const upsertVisibilityStripes = (args: {
+  fieldGroup: Konva.Group;
+  footprint: { x: number; y: number; width: number; height: number };
+  active: boolean;
+  color: string;
+}) => upsertFieldStripes(args);
+
+/** @deprecated use removeFieldStripes — kept for existing conditional-visibility call sites. */
+export const removeVisibilityStripes = (fieldGroup: Konva.Group) =>
+  removeFieldStripes(fieldGroup);
 
 export const createSpinner = ({
   fieldWidth,

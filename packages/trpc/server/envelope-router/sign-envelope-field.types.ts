@@ -62,6 +62,19 @@ export const ZSignEnvelopeFieldResponseSchema = z.object({
   }).extend({
     signature: SignatureSchema.nullish(),
   }),
+  /**
+   * Other members of the signed field's copy-and-link group that were updated
+   * with the same value in the same transaction (empty when the field isn't
+   * linked). The client applies these to its local state alongside signedField.
+   */
+  linkedFields: z
+    .array(
+      ZFieldSchema.omit({
+        templateId: true,
+        documentId: true,
+      }),
+    )
+    .default([]),
 });
 
 export type TSignEnvelopeFieldValue = z.infer<typeof ZSignEnvelopeFieldValue>;

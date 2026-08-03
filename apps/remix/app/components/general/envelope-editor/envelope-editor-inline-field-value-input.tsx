@@ -18,6 +18,12 @@ type EnvelopeEditorInlineFieldValueInputProps = {
   scale: number;
   /** Current value seeded from the field meta. Used as the initial value only. */
   value: string;
+  /**
+   * Bumped by the parent on every (re)selection of this field. A click on the
+   * canvas blurs this pointer-events:none overlay; keying the focus effect on
+   * this restores focus + caret so re-clicking a selected field keeps it typable.
+   */
+  focusSignal: number;
   onChangeValue: (value: string) => void;
 };
 
@@ -40,6 +46,7 @@ export const EnvelopeEditorInlineFieldValueInput = ({
   fieldGroup,
   scale,
   value,
+  focusSignal,
   onChangeValue,
 }: EnvelopeEditorInlineFieldValueInputProps) => {
   const inputRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
@@ -47,13 +54,13 @@ export const EnvelopeEditorInlineFieldValueInput = ({
 
   const isMultiline = field.type === 'TEXT';
 
-  // Focus (caret at end) as soon as the field becomes editable. This component
-  // is keyed by formId in the parent, so it remounts per field and this fires
-  // for each newly-selected field.
+  // Focus (caret at end) as soon as the field becomes editable, and again each
+  // time the field is (re)selected (`focusSignal` bumps) — a canvas click blurs
+  // this pointer-events:none overlay, so re-clicking must restore focus.
   useEffect(() => {
     const element = inputRef.current;
 
-    if (!element) {
+    if (!element || document.activeElement === element) {
       return;
     }
 
@@ -61,11 +68,15 @@ export const EnvelopeEditorInlineFieldValueInput = ({
 
     const caret = element.value.length;
     element.setSelectionRange?.(caret, caret);
-  }, []);
+  }, [focusSignal]);
 
   // Live client rect in scaled (screen) pixels, relative to the same per-page
-  // wrapper the Konva container and FieldActionButtons live in.
-  const rect = fieldGroup.getClientRect({ skipStroke: true, skipShadow: true });
+  // wrapper the Konva container and FieldActionButtons live in. Measure the
+  // field's own rect rather than the whole group, so corner decorations that
+  // sit outside the field bounds (e.g. the copy-and-link badge) don't inflate
+  // or offset the overlay.
+  const rectNode = fieldGroup.findOne<Konva.Rect>('.field-rect') ?? fieldGroup;
+  const rect = rectNode.getClientRect({ skipStroke: true, skipShadow: true });
 
   const fieldMeta = field.fieldMeta;
   const fontSize = (fieldMeta?.fontSize || DEFAULT_STANDARD_FONT_SIZE) * scale;

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { useLingui } from '@lingui/react/macro';
-import { EnvelopeType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
+import { EnvelopeType, type FieldType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
 import { useSearchParams } from 'react-router';
 
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
@@ -51,6 +51,27 @@ export type VisibilityPickMode = {
   exit: () => void;
 };
 
+/**
+ * The active "link fields" target while editing a field's copy-and-link group.
+ * While set, clicking an eligible field on the canvas toggles it into/out of the
+ * source field's link group (see the fields-page renderer). Only same-recipient,
+ * same-type fields are eligible members.
+ */
+export type LinkPickModeTarget = {
+  /** formId of the field whose link group is being edited. */
+  sourceFormId: string;
+  /** Only same-recipient fields are eligible link members. */
+  sourceRecipientId: number;
+  /** Only same-type fields are eligible link members. */
+  sourceFieldType: FieldType;
+};
+
+export type LinkPickMode = {
+  active: LinkPickModeTarget | null;
+  enter: (target: LinkPickModeTarget) => void;
+  exit: () => void;
+};
+
 type UpdateEnvelopePayload = Pick<TUpdateEnvelopeRequest, 'data' | 'meta'>;
 
 type EnvelopeEditorProviderValue = {
@@ -74,6 +95,7 @@ type EnvelopeEditorProviderValue = {
   editorRecipients: ReturnType<typeof useEditorRecipients>;
 
   visibilityPickMode: VisibilityPickMode;
+  linkPickMode: LinkPickMode;
 
   isAutosaving: boolean;
   flushAutosave: () => Promise<TEditorEnvelope>;
@@ -131,6 +153,7 @@ export const EnvelopeEditorProvider = ({
   const [autosaveError, setAutosaveError] = useState<boolean>(false);
   const [visibilityPickTarget, setVisibilityPickTarget] =
     useState<VisibilityPickModeTarget | null>(null);
+  const [linkPickTarget, setLinkPickTarget] = useState<LinkPickModeTarget | null>(null);
 
   const envelopeRef = useRef(initialEnvelope);
 
@@ -434,6 +457,15 @@ export const EnvelopeEditorProvider = ({
     [visibilityPickTarget],
   );
 
+  const linkPickMode = useMemo<LinkPickMode>(
+    () => ({
+      active: linkPickTarget,
+      enter: (target) => setLinkPickTarget(target),
+      exit: () => setLinkPickTarget(null),
+    }),
+    [linkPickTarget],
+  );
+
   const relativePath = useMemo(() => {
     let documentRootPath = formatDocumentsPath(envelope.team.url);
     let templateRootPath = formatTemplatesPath(envelope.team.url);
@@ -521,6 +553,7 @@ export const EnvelopeEditorProvider = ({
         editorFields,
         editorRecipients,
         visibilityPickMode,
+        linkPickMode,
         autosaveError,
         flushAutosave,
         isAutosaving,

@@ -1,10 +1,12 @@
-import { DocumentStatus, FieldType, RecipientRole, SigningStatus } from '@prisma/client';
+import { DocumentStatus, FieldType, type Prisma, RecipientRole, SigningStatus } from '@prisma/client';
 import { match } from 'ts-pattern';
 
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { validateFieldAuth } from '@documenso/lib/server-only/document/validate-field-auth';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
+import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
+import { getLinkGroupId } from '@documenso/lib/universal/field-linking';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { prisma } from '@documenso/prisma';
@@ -131,6 +133,84 @@ export const signEnvelopeFieldRoute = procedure
       throw new Error(`Field ${fieldId} has no recipientId`);
     }
 
+    // Copy & link fields: other editable members of this field's link group get
+    // the same value fanned out in the same transaction, so filling one fills
+    // all (e.g. a Medicare number repeated across pages). Only TEXT/NUMBER
+    // fields carry a linkGroupId; read-only members (locked pre-fills) are left
+    // untouched.
+    const linkGroupId =
+      field.type === FieldType.TEXT || field.type === FieldType.NUMBER
+        ? getLinkGroupId(field.fieldMeta as TFieldMetaSchema)
+        : null;
+
+    const linkMembers = linkGroupId
+      ? (
+          await prisma.field.findMany({
+            where: {
+              envelopeId: field.envelopeId,
+              recipientId: field.recipientId,
+              id: { not: field.id },
+            },
+          })
+        ).filter(
+          (member) =>
+            (member.type === FieldType.TEXT || member.type === FieldType.NUMBER) &&
+            getLinkGroupId(member.fieldMeta as TFieldMetaSchema) === linkGroupId &&
+            !(member.fieldMeta as { readOnly?: boolean } | null)?.readOnly,
+        )
+      : [];
+
+    /**
+     * Write the same {customText, inserted} to every link-group member and log
+     * each change. Runs inside the caller's transaction. Assistants only audit
+     * their own recipient's primary action, matching the uninsert path below.
+     */
+    const applyLinkFanOut = async (
+      tx: Prisma.TransactionClient,
+      values: { customText: string; inserted: boolean },
+    ) => {
+      const updated = [];
+
+      for (const member of linkMembers) {
+        const updatedMember = await tx.field.update({
+          where: { id: member.id },
+          data: { customText: values.customText, inserted: values.inserted },
+        });
+
+        if (recipient.role !== RecipientRole.ASSISTANT) {
+          await tx.documentAuditLog.create({
+            data: createDocumentAuditLogData({
+              type: values.inserted
+                ? DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_FIELD_INSERTED
+                : DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_FIELD_UNINSERTED,
+              envelopeId: envelope.id,
+              user: { name: recipient.name, email: recipient.email },
+              requestMetadata: metadata.requestMetadata,
+              data: values.inserted
+                ? {
+                    recipientEmail: recipient.email,
+                    recipientId: recipient.id,
+                    recipientName: recipient.name,
+                    recipientRole: recipient.role,
+                    fieldId: updatedMember.secondaryId,
+                    field: match(updatedMember.type)
+                      .with(FieldType.TEXT, FieldType.NUMBER, (type) => ({
+                        type,
+                        data: updatedMember.customText,
+                      }))
+                      .otherwise((type) => ({ type, data: updatedMember.customText })),
+                  }
+                : { field: updatedMember.type, fieldId: updatedMember.secondaryId },
+            }),
+          });
+        }
+
+        updated.push(updatedMember);
+      }
+
+      return updated;
+    };
+
     const insertionValues = extractFieldInsertionValues({ fieldValue, field, documentMeta });
 
     // Early return for uninserting fields.
@@ -170,8 +250,12 @@ export const signEnvelopeFieldRoute = procedure
           });
         }
 
+        // Clearing a linked field clears the whole group.
+        const linkedFields = await applyLinkFanOut(tx, { customText: '', inserted: false });
+
         return {
           signedField: updatedField,
+          linkedFields,
         };
       });
     }
@@ -295,8 +379,15 @@ export const signEnvelopeFieldRoute = procedure
         }),
       });
 
+      // Fan the signed value out to the rest of the link group.
+      const linkedFields = await applyLinkFanOut(tx, {
+        customText: insertionValues.customText,
+        inserted: insertionValues.inserted,
+      });
+
       return {
         signedField: updatedField,
+        linkedFields,
       };
     });
   });
