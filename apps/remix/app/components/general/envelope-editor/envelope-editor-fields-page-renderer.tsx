@@ -75,6 +75,10 @@ import { Sheet, SheetContent, SheetTitle } from '@documenso/ui/primitives/sheet'
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
+import {
+  EnvelopeEditorInlineFieldValueInput,
+  INLINE_EDITABLE_FIELD_TYPES,
+} from './envelope-editor-inline-field-value-input';
 import { EnvelopeRecipientSelectorCommand } from './envelope-recipient-selector';
 
 const ADVANCED_FIELD_TYPES = new Set([
@@ -147,6 +151,94 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       ),
     [editorFields.localFields, pageNumber, currentEnvelopeItem?.id],
   );
+
+  /**
+   * The single field currently eligible for inline "select and type" value
+   * editing on this page, if any. A live, editable, singly-selected
+   * TEXT/NUMBER/EMAIL/NAME field (comb layout excluded — a rectangular overlay
+   * can't align to freely-placed cells). Recomputed each render so it tracks
+   * selection and per-keystroke meta changes.
+   */
+  const inlineEditFieldGroup =
+    selectedKonvaFieldGroups.length === 1 &&
+    !visibilityPickMode.active &&
+    !isFieldChanging &&
+    Boolean(selectedKonvaFieldGroups[0].getStage()) &&
+    Boolean(selectedKonvaFieldGroups[0].getParent())
+      ? selectedKonvaFieldGroups[0]
+      : null;
+
+  const inlineEditField = inlineEditFieldGroup
+    ? editorFields.getFieldByFormId(inlineEditFieldGroup.id())
+    : undefined;
+
+  const inlineEditRecipient = inlineEditField
+    ? envelope.recipients.find((r) => r.id === inlineEditField.recipientId)
+    : undefined;
+
+  const isInlineEditActive =
+    inlineEditField !== undefined &&
+    inlineEditFieldGroup !== null &&
+    INLINE_EDITABLE_FIELD_TYPES.has(inlineEditField.type) &&
+    getCombFieldCells(inlineEditField.fieldMeta) === null &&
+    inlineEditRecipient !== undefined &&
+    canRecipientFieldsBeModified(inlineEditRecipient, envelope.fields);
+
+  const inlineEditFormId = isInlineEditActive && inlineEditField ? inlineEditField.formId : null;
+
+  /**
+   * The author-set value currently stored in a supported field's meta: `text`
+   * for TEXT, `value` for NUMBER.
+   */
+  const getInlineEditValue = (field: TLocalField): string => {
+    const meta = field.fieldMeta;
+
+    if (!meta) {
+      return '';
+    }
+
+    if (meta.type === 'number') {
+      return meta.value ?? '';
+    }
+
+    if (meta.type === 'text') {
+      return meta.text ?? '';
+    }
+
+    return '';
+  };
+
+  /**
+   * Write an inline-typed value into the field meta. A non-empty value locks
+   * the field (`readOnly: true`) so the signer sees it but can't change it, and
+   * clears `required` to avoid the read-only+required validation conflict.
+   * Emptying the value unlocks the field again.
+   */
+  const handleInlineValueChange = (field: TLocalField, rawValue: string) => {
+    const meta = field.fieldMeta ?? FIELD_META_DEFAULT_VALUES[field.type];
+
+    if (!meta) {
+      return;
+    }
+
+    const hasValue = rawValue.length > 0;
+
+    let nextMeta: TFieldMetaSchema;
+
+    if (meta.type === 'number') {
+      nextMeta = hasValue
+        ? { ...meta, value: rawValue, readOnly: true, required: false }
+        : { ...meta, value: '', readOnly: false };
+    } else if (meta.type === 'text') {
+      nextMeta = hasValue
+        ? { ...meta, text: rawValue, readOnly: true, required: false }
+        : { ...meta, text: '', readOnly: false };
+    } else {
+      return;
+    }
+
+    editorFields.updateFieldByFormId(field.formId, { fieldMeta: nextMeta });
+  };
 
   /**
    * While "select fields" (visibility pick-mode) is active, a click on an
@@ -1048,6 +1140,27 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     pageLayer.current.batchDraw();
   }, [visibilityPickMode.active, localPageFields]);
 
+  /**
+   * While a field is being inline-edited, hide its Konva value text so it isn't
+   * drawn twice (once on the canvas, once in the DOM input overlaid on top).
+   * The recipient-colored field rect stays visible. Declared after the render
+   * effect so this wins on a shared localPageFields change (same ordering trick
+   * as the stripes effect above) — no flash of doubled text on each keystroke.
+   */
+  useEffect(() => {
+    if (!pageLayer.current) {
+      return;
+    }
+
+    pageLayer.current.find('.field-text').forEach((node) => node.visible(true));
+
+    if (inlineEditFormId) {
+      pageLayer.current.findOne(`#${inlineEditFormId}-text`)?.visible(false);
+    }
+
+    pageLayer.current.batchDraw();
+  }, [inlineEditFormId, localPageFields, selectedKonvaFieldGroups]);
+
   const setSelectedFields = (nodes: Konva.Node[]) => {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const fieldGroups = nodes.filter(
@@ -1358,6 +1471,17 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
             }}
           />
         )}
+
+      {isInlineEditActive && inlineEditField && inlineEditFieldGroup && (
+        <EnvelopeEditorInlineFieldValueInput
+          key={inlineEditField.formId}
+          field={inlineEditField}
+          fieldGroup={inlineEditFieldGroup}
+          scale={scale}
+          value={getInlineEditValue(inlineEditField)}
+          onChangeValue={(next) => handleInlineValueChange(inlineEditField, next)}
+        />
+      )}
 
       {pendingFieldCreation && (
         <div
