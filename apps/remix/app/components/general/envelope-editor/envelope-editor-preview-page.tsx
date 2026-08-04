@@ -176,7 +176,19 @@ export const EnvelopeEditorPreviewPage = () => {
       })),
     );
 
-    return fieldsWithPlaceholders.filter((field) => visibility.get(field.id) !== false);
+    return (
+      fieldsWithPlaceholders
+        .filter((field) => visibility.get(field.id) !== false)
+        // Checkbox/radio always render in the preview (even when nothing is checked) so
+        // recipients see the empty options. The generic renderer drops non-inserted fields
+        // for signed recipients, so flag these inserted here. This is applied AFTER visibility
+        // evaluation so conditional-visibility (which reads the real `inserted`) stays correct.
+        .map((field) =>
+          field.type === FieldType.RADIO || field.type === FieldType.CHECKBOX
+            ? { ...field, inserted: true }
+            : field,
+        )
+    );
   }, [fieldsWithPlaceholders]);
 
   /**
