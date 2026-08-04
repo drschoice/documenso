@@ -23,6 +23,14 @@ import {
   type VisibilityPickModeTarget,
   useCurrentEnvelopeEditor,
 } from '@documenso/lib/client-only/providers/envelope-editor-provider';
+import { nanoid } from '@documenso/lib/universal/id';
+import {
+  addToLinkGroup,
+  getLinkGroupId,
+  isLinkEligibleType,
+  pruneOrphanLinkGroups,
+  removeFromLinkGroup,
+} from '@documenso/lib/universal/field-linking';
 import {
   type PageRenderData,
   useCurrentEnvelopeRender,
@@ -39,8 +47,10 @@ import {
 } from '@documenso/lib/universal/field-visibility/authoring';
 import {
   getFieldOptionGroupsUnion,
+  removeLinkBadge,
   removeVisibilityStripes,
   upsertFreeLayoutDecorations,
+  upsertLinkBadge,
   upsertVisibilityStripes,
 } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import {
@@ -75,6 +85,10 @@ import { Sheet, SheetContent, SheetTitle } from '@documenso/ui/primitives/sheet'
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { fieldButtonList } from './envelope-editor-fields-drag-drop';
+import {
+  EnvelopeEditorInlineFieldValueInput,
+  INLINE_EDITABLE_FIELD_TYPES,
+} from './envelope-editor-inline-field-value-input';
 import { EnvelopeRecipientSelectorCommand } from './envelope-recipient-selector';
 
 const ADVANCED_FIELD_TYPES = new Set([
@@ -115,7 +129,7 @@ const getFreeLayoutMeta = (field: TLocalField | undefined) => {
 export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
   const { t, i18n } = useLingui();
   const { toast } = useToast();
-  const { envelope, editorFields, getRecipientColorKey, visibilityPickMode } =
+  const { envelope, editorFields, getRecipientColorKey, visibilityPickMode, linkPickMode } =
     useCurrentEnvelopeEditor();
   const { currentEnvelopeItem, setRenderError } = useCurrentEnvelopeRender();
 
@@ -123,12 +137,26 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
   const [selectedKonvaFieldGroups, setSelectedKonvaFieldGroups] = useState<Konva.Group[]>([]);
 
+  // Bumped on every single-field selection (incl. re-clicking the already
+  // selected field). The inline value input keys its (re)focus on this, so a
+  // click that blurred the pointer-events:none overlay re-focuses it. Selection
+  // only changes from canvas interactions, so this never steals focus from the
+  // sidebar while a field stays selected.
+  const [inlineFocusSignal, setInlineFocusSignal] = useState(0);
+
   // Konva event handlers are attached at render time and are NOT re-attached on
   // every pick-mode change, so they must read the latest state via refs.
   const pickModeRef = useRef(visibilityPickMode);
   pickModeRef.current = visibilityPickMode;
+  const linkPickModeRef = useRef(linkPickMode);
+  linkPickModeRef.current = linkPickMode;
   const editorFieldsRef = useRef(editorFields);
   editorFieldsRef.current = editorFields;
+
+  // True while EITHER pick-mode is active — the canvas suppresses
+  // selection/deselection/drag/marquee the same way for both.
+  const isAnyPickModeActive = () =>
+    Boolean(pickModeRef.current.active || linkPickModeRef.current.active);
 
   const [isFieldChanging, setIsFieldChanging] = useState(false);
   const [pendingFieldCreation, setPendingFieldCreation] = useState<Konva.Rect | null>(null);
@@ -147,6 +175,129 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       ),
     [editorFields.localFields, pageNumber, currentEnvelopeItem?.id],
   );
+
+  /**
+   * The single field currently eligible for inline "select and type" value
+   * editing on this page, if any. A live, editable, singly-selected
+   * TEXT/NUMBER/EMAIL/NAME field (comb layout excluded — a rectangular overlay
+   * can't align to freely-placed cells). Recomputed each render so it tracks
+   * selection and per-keystroke meta changes.
+   */
+  const inlineEditFieldGroup =
+    selectedKonvaFieldGroups.length === 1 &&
+    !visibilityPickMode.active &&
+    !linkPickMode.active &&
+    !isFieldChanging &&
+    Boolean(selectedKonvaFieldGroups[0].getStage()) &&
+    Boolean(selectedKonvaFieldGroups[0].getParent())
+      ? selectedKonvaFieldGroups[0]
+      : null;
+
+  const inlineEditField = inlineEditFieldGroup
+    ? editorFields.getFieldByFormId(inlineEditFieldGroup.id())
+    : undefined;
+
+  const inlineEditRecipient = inlineEditField
+    ? envelope.recipients.find((r) => r.id === inlineEditField.recipientId)
+    : undefined;
+
+  const isInlineEditActive =
+    inlineEditField !== undefined &&
+    inlineEditFieldGroup !== null &&
+    INLINE_EDITABLE_FIELD_TYPES.has(inlineEditField.type) &&
+    getCombFieldCells(inlineEditField.fieldMeta) === null &&
+    inlineEditRecipient !== undefined &&
+    canRecipientFieldsBeModified(inlineEditRecipient, envelope.fields);
+
+  const inlineEditFormId = isInlineEditActive && inlineEditField ? inlineEditField.formId : null;
+
+  /**
+   * The author-set value currently stored in a supported field's meta: `text`
+   * for TEXT, `value` for NUMBER.
+   */
+  const getInlineEditValue = (field: TLocalField): string => {
+    const meta = field.fieldMeta;
+
+    if (!meta) {
+      return '';
+    }
+
+    if (meta.type === 'number') {
+      return meta.value ?? '';
+    }
+
+    if (meta.type === 'text') {
+      return meta.text ?? '';
+    }
+
+    return '';
+  };
+
+  /**
+   * Apply an inline-typed value onto a single field's meta. A non-empty value
+   * locks the field (`readOnly: true`) so the signer sees it but can't change
+   * it, and clears `required` to avoid the read-only+required validation
+   * conflict. Emptying the value unlocks the field again. Returns null for
+   * unsupported meta.
+   */
+  const applyInlineValueToMeta = (
+    meta: TFieldMetaSchema,
+    rawValue: string,
+  ): TFieldMetaSchema | null => {
+    const hasValue = rawValue.length > 0;
+
+    if (meta?.type === 'number') {
+      return hasValue
+        ? { ...meta, value: rawValue, readOnly: true, required: false }
+        : { ...meta, value: '', readOnly: false };
+    }
+
+    if (meta?.type === 'text') {
+      return hasValue
+        ? { ...meta, text: rawValue, readOnly: true, required: false }
+        : { ...meta, text: '', readOnly: false };
+    }
+
+    return null;
+  };
+
+  /**
+   * Write an inline-typed value into the field meta. When the field belongs to a
+   * copy-and-link group, the value (and its lock state) is propagated to every
+   * member so linked fields mirror it live on the canvas and in the preview —
+   * the authoring-time analogue of the sign-time fan-out.
+   */
+  const handleInlineValueChange = (field: TLocalField, rawValue: string) => {
+    const meta = field.fieldMeta ?? FIELD_META_DEFAULT_VALUES[field.type];
+
+    const nextMeta = meta ? applyInlineValueToMeta(meta, rawValue) : null;
+
+    if (!nextMeta) {
+      return;
+    }
+
+    const groupId = getLinkGroupId(field.fieldMeta);
+
+    if (!groupId) {
+      editorFields.updateFieldByFormId(field.formId, { fieldMeta: nextMeta });
+      return;
+    }
+
+    editorFields.updateAllFields((f) => {
+      if (f.formId === field.formId) {
+        return { ...f, fieldMeta: nextMeta };
+      }
+
+      if (getLinkGroupId(f.fieldMeta) !== groupId) {
+        return f;
+      }
+
+      const memberMeta = f.fieldMeta ?? FIELD_META_DEFAULT_VALUES[f.type];
+      const applied = memberMeta ? applyInlineValueToMeta(memberMeta, rawValue) : null;
+
+      return applied ? { ...f, fieldMeta: applied } : f;
+    });
+  };
 
   /**
    * While "select fields" (visibility pick-mode) is active, a click on an
@@ -229,6 +380,97 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     }
 
     return true;
+  };
+
+  /**
+   * While "link fields" mode is active, a click on an eligible field toggles it
+   * into/out of the source field's copy-and-link group instead of selecting it.
+   * Returns true when the click was consumed by link pick-mode.
+   */
+  const handleLinkPickClick = (fieldGroup: Konva.Group): boolean => {
+    const active = linkPickModeRef.current.active;
+
+    if (!active) {
+      return false;
+    }
+
+    const ef = editorFieldsRef.current;
+    const source = ef.getFieldByFormId(active.sourceFormId);
+    const clicked = ef.getFieldByFormId(fieldGroup.id());
+
+    // Consume the click either way so pick-mode never falls through to select.
+    if (!source || !clicked) {
+      return true;
+    }
+
+    const eligible =
+      clicked.recipientId === active.sourceRecipientId &&
+      clicked.formId !== active.sourceFormId &&
+      clicked.type === active.sourceFieldType &&
+      isLinkEligibleType(clicked.type);
+
+    if (!eligible) {
+      return true;
+    }
+
+    const sourceGroupId = getLinkGroupId(source.fieldMeta);
+    const isLinked = sourceGroupId !== null && getLinkGroupId(clicked.fieldMeta) === sourceGroupId;
+
+    if (isLinked) {
+      // Unlink: clear the clicked field, then prune so a group that drops below
+      // two members releases the source too.
+      const cleared = ef.localFields.map((f) =>
+        f.formId === clicked.formId ? { ...f, fieldMeta: removeFromLinkGroup(f.fieldMeta) } : f,
+      );
+      const pruned = pruneOrphanLinkGroups(cleared);
+
+      ef.updateAllFields((f) => pruned.find((p) => p.formId === f.formId) ?? f);
+
+      return true;
+    }
+
+    // Link: mint a group id if the source has none yet, then add the clicked
+    // field, copying the source's shared constraints onto it.
+    const groupId = sourceGroupId ?? nanoid(12);
+    const { sourceMeta, memberMeta } = addToLinkGroup(source.fieldMeta, clicked.fieldMeta, groupId);
+
+    ef.updateAllFields((f) => {
+      if (f.formId === source.formId) {
+        return { ...f, fieldMeta: sourceMeta };
+      }
+
+      if (f.formId === clicked.formId) {
+        return { ...f, fieldMeta: memberMeta };
+      }
+
+      return f;
+    });
+
+    return true;
+  };
+
+  /**
+   * Draw (or remove) the editor-only copy-and-link corner badge for a field, in
+   * the field's own recipient color so it reads as part of the field.
+   */
+  const applyLinkBadge = (field: TLocalField, fieldGroup: Konva.Group) => {
+    const groupId = getLinkGroupId(field.fieldMeta);
+
+    if (!groupId) {
+      removeLinkBadge(fieldGroup);
+      return;
+    }
+
+    const footprint = getFieldStripeFootprint(field, fieldGroup);
+
+    if (footprint) {
+      // Solid recipient color (baseRing), matching the free-layout move handle —
+      // fieldBorder is semi-transparent, which reads as a washed-out badge.
+      const colorKey = getRecipientColorKey(field.recipientId);
+      const color = colorKey ? getRecipientColorStyles(colorKey).baseRing : '#b0b0b0';
+
+      upsertLinkBadge({ fieldGroup, footprint, color });
+    }
   };
 
   /**
@@ -345,8 +587,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   };
 
   const handleResizeOrMove = (event: KonvaEventObject<Event>) => {
-    // Never persist a move/resize while picking dependent fields.
-    if (pickModeRef.current.active) {
+    // Never persist a move/resize while picking dependent or linked fields.
+    if (isAnyPickModeActive()) {
       return;
     }
 
@@ -469,6 +711,9 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     // Mark fields under a conditional-visibility rule with editor-only stripes.
     applyFieldStripes(field, fieldGroup, pickModeRef.current.active);
 
+    // Mark fields in a copy-and-link group with an editor-only corner badge.
+    applyLinkBadge(field, fieldGroup);
+
     if (!isFieldEditable) {
       return;
     }
@@ -479,8 +724,9 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Set up field selection.
     fieldGroup.on('click', () => {
-      // In "select fields" mode, a click toggles this field as a dependent.
-      if (handlePickClick(fieldGroup)) {
+      // In a pick-mode, a click toggles this field as a visibility dependent or
+      // a link-group member instead of selecting it.
+      if (handlePickClick(fieldGroup) || handleLinkPickClick(fieldGroup)) {
         pageLayer.current?.batchDraw();
         return;
       }
@@ -542,8 +788,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Handle stage click to deselect.
     currentStage.on('mousedown', (e) => {
-      // Keep the trigger selected (and the sidebar open) while picking fields.
-      if (pickModeRef.current.active) {
+      // Keep the source field selected (and the sidebar open) while picking.
+      if (isAnyPickModeActive()) {
         return;
       }
 
@@ -557,7 +803,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // When an item is dragged, select it automatically.
     const onDragStartOrEnd = (e: KonvaEventObject<Event>) => {
-      if (pickModeRef.current.active) {
+      if (isAnyPickModeActive()) {
         return;
       }
 
@@ -651,7 +897,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     currentStage.on('mousedown touchstart', (e) => {
       // Disable marquee-select / field-creation while picking fields.
-      if (pickModeRef.current.active) {
+      if (isAnyPickModeActive()) {
         return;
       }
 
@@ -750,9 +996,10 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     // Clicks should select/deselect shapes
     currentStage.on('click tap', function (e) {
-      // In pick-mode the per-field click handler owns the click (it toggles the
-      // dependent). Block all selection/deselection here to avoid double-handling.
-      if (pickModeRef.current.active) {
+      // In a pick-mode the per-field click handler owns the click (it toggles the
+      // dependent or link member). Block all selection/deselection here to avoid
+      // double-handling.
+      if (isAnyPickModeActive()) {
         return;
       }
 
@@ -1025,6 +1272,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     }
 
     const active = visibilityPickMode.active;
+    const anyActive = Boolean(active || linkPickMode.active);
 
     for (const field of localPageFields) {
       const fieldGroup = pageLayer.current.findOne<Konva.Group>(`#${field.formId}`);
@@ -1037,16 +1285,38 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       const editable =
         recipient !== undefined && canRecipientFieldsBeModified(recipient, envelope.fields);
 
-      fieldGroup.draggable(editable && !active);
+      fieldGroup.draggable(editable && !anyActive);
       fieldGroup
         .find<Konva.Group>('.field-option-group')
-        .forEach((optionGroup) => optionGroup.draggable(editable && !active));
+        .forEach((optionGroup) => optionGroup.draggable(editable && !anyActive));
 
       applyFieldStripes(field, fieldGroup, active);
+      applyLinkBadge(field, fieldGroup);
     }
 
     pageLayer.current.batchDraw();
-  }, [visibilityPickMode.active, localPageFields]);
+  }, [visibilityPickMode.active, linkPickMode.active, localPageFields]);
+
+  /**
+   * While a field is being inline-edited, hide its Konva value text so it isn't
+   * drawn twice (once on the canvas, once in the DOM input overlaid on top).
+   * The recipient-colored field rect stays visible. Declared after the render
+   * effect so this wins on a shared localPageFields change (same ordering trick
+   * as the stripes effect above) — no flash of doubled text on each keystroke.
+   */
+  useEffect(() => {
+    if (!pageLayer.current) {
+      return;
+    }
+
+    pageLayer.current.find('.field-text').forEach((node) => node.visible(true));
+
+    if (inlineEditFormId) {
+      pageLayer.current.findOne(`#${inlineEditFormId}-text`)?.visible(false);
+    }
+
+    pageLayer.current.batchDraw();
+  }, [inlineEditFormId, localPageFields, selectedKonvaFieldGroups]);
 
   const setSelectedFields = (nodes: Konva.Node[]) => {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -1080,6 +1350,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
       editorFields.setSelectedField(fieldGroup.id());
       fieldGroup.moveToTop();
+      // Re-focus the inline value overlay even when re-clicking the same field.
+      setInlineFocusSignal((n) => n + 1);
     }
   };
 
@@ -1108,7 +1380,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
   const selectedFieldFormId = editorFields.selectedField?.formId;
 
   useEffect(() => {
-    if (!selectedFieldFormId || pickModeRef.current.active) {
+    if (!selectedFieldFormId || isAnyPickModeActive()) {
       return;
     }
 
@@ -1327,12 +1599,17 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     visibilityPickMode.active !== null &&
     localPageFields.some((field) => field.formId === visibilityPickMode.active?.triggerFormId);
 
+  const isLinkPickingOnThisPage =
+    linkPickMode.active !== null &&
+    localPageFields.some((field) => field.formId === linkPickMode.active?.sourceFormId);
+
   return (
     <>
       {selectedKonvaFieldGroups.length > 0 &&
         interactiveTransformer.current &&
         !isFieldChanging &&
-        !visibilityPickMode.active && (
+        !visibilityPickMode.active &&
+        !linkPickMode.active && (
           <FieldActionButtons
             handleDuplicateSelectedFields={duplicatedSelectedFields}
             handleDuplicateSelectedFieldsOnAllPages={duplicatedSelectedFieldsOnAllPages}
@@ -1358,6 +1635,18 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
             }}
           />
         )}
+
+      {isInlineEditActive && inlineEditField && inlineEditFieldGroup && (
+        <EnvelopeEditorInlineFieldValueInput
+          key={inlineEditField.formId}
+          field={inlineEditField}
+          fieldGroup={inlineEditFieldGroup}
+          scale={scale}
+          value={getInlineEditValue(inlineEditField)}
+          focusSignal={inlineFocusSignal}
+          onChangeValue={(next) => handleInlineValueChange(inlineEditField, next)}
+        />
+      )}
 
       {pendingFieldCreation && (
         <div
@@ -1402,6 +1691,20 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
             </Trans>
           </span>
           <Button type="button" size="sm" onClick={() => visibilityPickMode.exit()}>
+            <Trans>Done</Trans>
+          </Button>
+        </div>
+      )}
+
+      {isLinkPickingOnThisPage && (
+        <div
+          style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}
+          className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
+        >
+          <span>
+            <Trans>Click fields to link — a value entered in one is copied to all of them</Trans>
+          </span>
+          <Button type="button" size="sm" onClick={() => linkPickMode.exit()}>
             <Trans>Done</Trans>
           </Button>
         </div>

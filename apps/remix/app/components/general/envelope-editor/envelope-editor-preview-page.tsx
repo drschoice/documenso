@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Faker } from '@faker-js/faker';
 import { Trans } from '@lingui/react/macro';
 import { FieldType, SigningStatus } from '@prisma/client';
 import { FileTextIcon } from 'lucide-react';
@@ -38,20 +37,15 @@ export const EnvelopeEditorPreviewPage = () => {
     'recipient',
   );
 
-  const [fakerInstance, setFakerInstance] = useState<Faker | null>(null);
-
-  useEffect(() => {
-    void import('@faker-js/faker/locale/en').then((mod) => {
-      setFakerInstance(mod.faker);
-    });
-  }, []);
-
+  /**
+   * Build the fields shown in the preview using only their real *default* values —
+   * default text/number, default-checked checkbox/radio, default dropdown value, the
+   * date default, and the recipient's real name/email/initials/signature.
+   *
+   * Fields with no default are left empty and flagged `inserted: false`, so the
+   * export-mode renderer draws them blank (no random placeholder data).
+   */
   const fieldsWithPlaceholders = useMemo(() => {
-    if (!fakerInstance) {
-      return [];
-    }
-
-    const faker = fakerInstance;
     return fields.map((field) => {
       const fieldMeta = ZFieldAndMetaSchema.parse(field);
 
@@ -61,154 +55,106 @@ export const EnvelopeEditorPreviewPage = () => {
         throw new Error('Recipient not found');
       }
 
-      faker.seed(recipient.id);
+      const recipientName = recipient.name ?? '';
+      const recipientEmail = recipient.email ?? '';
 
-      const recipientName = recipient.name || faker.person.fullName();
-      const recipientEmail = recipient.email || faker.internet.email();
+      const overrides = match(fieldMeta)
+        .with({ type: FieldType.TEXT }, ({ fieldMeta }) => {
+          let text = fieldMeta?.text ?? '';
 
-      faker.seed(recipient.id + field.id);
+          if (fieldMeta?.characterLimit) {
+            text = text.slice(0, fieldMeta.characterLimit);
+          }
+
+          return { customText: text, inserted: text !== '' };
+        })
+        .with({ type: FieldType.NUMBER }, ({ fieldMeta }) => {
+          const number = fieldMeta?.value ?? '';
+
+          return { customText: number, inserted: number !== '' };
+        })
+        .with({ type: FieldType.DATE }, (parsedFieldMeta) => {
+          const dateMeta = ZDateFieldMeta.safeParse(parsedFieldMeta.fieldMeta);
+
+          if (!dateMeta.success || !dateMeta.data.value) {
+            return { customText: '', inserted: false };
+          }
+
+          const date = extractFieldInsertionValues({
+            fieldValue: {
+              type: FieldType.DATE,
+              value: dateMeta.data.value,
+            },
+            field,
+            documentMeta: envelope.documentMeta,
+          });
+
+          return { customText: date.customText, inserted: date.customText !== '' };
+        })
+        .with({ type: FieldType.EMAIL }, () => {
+          return { customText: recipientEmail, inserted: recipientEmail !== '' };
+        })
+        .with({ type: FieldType.NAME }, () => {
+          return { customText: recipientName, inserted: recipientName !== '' };
+        })
+        .with({ type: FieldType.INITIALS }, () => {
+          const initials = recipientName ? extractInitials(recipientName) : '';
+
+          return { customText: initials, inserted: initials !== '' };
+        })
+        .with({ type: FieldType.RADIO }, ({ fieldMeta }) => {
+          const values = fieldMeta?.values ?? [];
+          const preselectedValue = values.findIndex((value) => value.checked);
+
+          if (preselectedValue === -1) {
+            return { customText: '', inserted: false };
+          }
+
+          return { customText: preselectedValue.toString(), inserted: true };
+        })
+        .with({ type: FieldType.CHECKBOX }, ({ fieldMeta }) => {
+          const values = fieldMeta?.values ?? [];
+
+          const checkedValues: number[] = [];
+
+          values.forEach((value, index) => {
+            if (value.checked) {
+              checkedValues.push(index);
+            }
+          });
+
+          if (checkedValues.length === 0) {
+            return { customText: '', inserted: false };
+          }
+
+          return { customText: toCheckboxCustomText(checkedValues), inserted: true };
+        })
+        .with({ type: FieldType.DROPDOWN }, ({ fieldMeta }) => {
+          const customText = fieldMeta?.defaultValue ?? '';
+
+          return { customText, inserted: customText !== '' };
+        })
+        .with({ type: FieldType.SIGNATURE }, () => {
+          return {
+            customText: '',
+            inserted: recipientName !== '',
+            signature: {
+              signatureImageAsBase64: '',
+              typedSignature: recipientName,
+            },
+          };
+        })
+        .with({ type: FieldType.FREE_SIGNATURE }, () => {
+          return { customText: '', inserted: false };
+        })
+        .exhaustive();
 
       return {
         ...field,
-        inserted: true,
-        ...match(fieldMeta)
-          .with({ type: FieldType.TEXT }, ({ fieldMeta }) => {
-            let text = fieldMeta?.text || faker.lorem.words(5);
-
-            if (fieldMeta?.characterLimit) {
-              text = text.slice(0, fieldMeta?.characterLimit);
-            }
-
-            return {
-              customText: text,
-            };
-          })
-          .with({ type: FieldType.NUMBER }, ({ fieldMeta }) => {
-            let number = fieldMeta?.value ?? '';
-
-            if (number === '') {
-              number = faker.number
-                .int({
-                  min: fieldMeta?.minValue ?? 0,
-                  max: fieldMeta?.maxValue ?? 1000,
-                })
-                .toString();
-            }
-
-            return {
-              customText: number,
-            };
-          })
-          .with({ type: FieldType.DATE }, (parsedFieldMeta) => {
-            const dateMeta = ZDateFieldMeta.safeParse(parsedFieldMeta.fieldMeta);
-            const previewDate =
-              dateMeta.success && dateMeta.data.value
-                ? dateMeta.data.value
-                : new Date().toISOString();
-
-            const date = extractFieldInsertionValues({
-              fieldValue: {
-                type: FieldType.DATE,
-                value: previewDate,
-              },
-              field,
-              documentMeta: envelope.documentMeta,
-            });
-
-            return {
-              customText: date.customText,
-            };
-          })
-          .with({ type: FieldType.EMAIL }, () => {
-            return {
-              customText: recipientEmail,
-            };
-          })
-          .with({ type: FieldType.NAME }, () => {
-            return {
-              customText: recipientName,
-            };
-          })
-          .with({ type: FieldType.INITIALS }, () => {
-            return {
-              customText: extractInitials(recipientName),
-            };
-          })
-          .with({ type: FieldType.RADIO }, ({ fieldMeta }) => {
-            const values = fieldMeta?.values ?? [];
-
-            if (values.length === 0) {
-              return '';
-            }
-
-            let customText = '';
-
-            const preselectedValue = values.findIndex((value) => value.checked);
-
-            if (preselectedValue !== -1) {
-              customText = preselectedValue.toString();
-            } else {
-              const randomIndex = faker.number.int({ min: 0, max: values.length - 1 });
-              customText = randomIndex.toString();
-            }
-
-            return {
-              customText,
-            };
-          })
-          .with({ type: FieldType.CHECKBOX }, ({ fieldMeta }) => {
-            let checkedValues: number[] = [];
-
-            const values = fieldMeta?.values ?? [];
-
-            values.forEach((value, index) => {
-              if (value.checked) {
-                checkedValues.push(index);
-              }
-            });
-
-            if (checkedValues.length === 0 && values.length > 0) {
-              const numberOfValues = fieldMeta?.validationLength || 1;
-
-              checkedValues = Array.from({ length: numberOfValues }, (_, index) => index);
-            }
-
-            return {
-              customText: toCheckboxCustomText(checkedValues),
-            };
-          })
-          .with({ type: FieldType.DROPDOWN }, ({ fieldMeta }) => {
-            const values = fieldMeta?.values ?? [];
-
-            let customText = fieldMeta?.defaultValue || '';
-
-            if (!customText && values.length > 0) {
-              const randomIndex = faker.number.int({ min: 0, max: values.length - 1 });
-              customText = values[randomIndex].value;
-            }
-
-            return {
-              customText,
-            };
-          })
-          .with({ type: FieldType.SIGNATURE }, () => {
-            return {
-              customText: '',
-              signature: {
-                signatureImageAsBase64: '',
-                typedSignature: recipientName,
-              },
-            };
-          })
-          .with({ type: FieldType.FREE_SIGNATURE }, () => {
-            return {
-              customText: '',
-            };
-          })
-          .exhaustive(),
+        ...overrides,
       };
     });
-  }, [fields, envelope, envelope.recipients, envelope.documentMeta, fakerInstance]);
+  }, [fields, envelope, envelope.recipients, envelope.documentMeta]);
 
   /**
    * Apply conditional-visibility to the placeholder data so the preview reflects
@@ -271,7 +217,7 @@ export const EnvelopeEditorPreviewPage = () => {
               <Trans>Preview Mode</Trans>
             </AlertTitle>
             <AlertDescription>
-              <Trans>Preview what the signed document will look like with placeholder data</Trans>
+              <Trans>Preview the document with each field's default value</Trans>
             </AlertDescription>
           </Alert>
 

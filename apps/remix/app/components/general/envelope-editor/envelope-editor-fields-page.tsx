@@ -60,6 +60,7 @@ import { AiFieldDetectionDialog } from '~/components/dialogs/ai-field-detection-
 import { EnvelopeItemEditDialog } from '~/components/dialogs/envelope-item-edit-dialog';
 import { EditorFieldCheckboxForm } from '~/components/forms/editor/editor-field-checkbox-form';
 import { EditorFieldConditionalVisibilitySection } from '~/components/forms/editor/editor-field-conditional-visibility-section';
+import { EditorFieldLinkFieldsSection } from '~/components/forms/editor/editor-field-link-fields-section';
 import { EditorFieldVisibilityDependencyNotice } from '~/components/forms/editor/editor-field-visibility-dependency-notice';
 import { EditorFieldDateForm } from '~/components/forms/editor/editor-field-date-form';
 import { EditorFieldDropdownForm } from '~/components/forms/editor/editor-field-dropdown-form';
@@ -266,9 +267,9 @@ export const EnvelopeEditorFieldsPage = () => {
       return;
     }
 
-    // Preserve stableId and visibility from the existing meta — the editor
-    // form schemas use .pick() and don't include these keys, so they would
-    // otherwise be silently dropped on every sidebar edit.
+    // Preserve stableId, visibility and linkGroupId from the existing meta — the
+    // editor form schemas use .pick() and don't include these keys, so they
+    // would otherwise be silently dropped on every sidebar edit.
     const existingMeta = selectedField.fieldMeta as Record<string, unknown> | undefined;
     let mergedMeta: TFieldMetaSchema =
       fieldMeta && existingMeta
@@ -276,6 +277,9 @@ export const EnvelopeEditorFieldsPage = () => {
             ...(existingMeta.stableId !== undefined ? { stableId: existingMeta.stableId } : {}),
             ...(existingMeta.visibility !== undefined
               ? { visibility: existingMeta.visibility }
+              : {}),
+            ...(existingMeta.linkGroupId !== undefined
+              ? { linkGroupId: existingMeta.linkGroupId }
               : {}),
             ...(fieldMeta as Record<string, unknown>),
           } as TFieldMetaSchema)
@@ -889,6 +893,12 @@ export const EnvelopeEditorFieldsPage = () => {
                       selectedField.type === FieldType.CHECKBOX ||
                       selectedField.type === FieldType.DROPDOWN) && (
                       <EditorFieldConditionalVisibilitySection triggerField={selectedField} />
+                    )}
+
+                  {envelope.internalVersion === 2 &&
+                    (selectedField.type === FieldType.TEXT ||
+                      selectedField.type === FieldType.NUMBER) && (
+                      <EditorFieldLinkFieldsSection field={selectedField} />
                     )}
                 </div>
               </section>
