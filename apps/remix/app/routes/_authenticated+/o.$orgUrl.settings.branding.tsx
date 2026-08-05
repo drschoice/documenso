@@ -47,8 +47,14 @@ export default function OrganisationSettingsBrandingPage() {
 
   const onBrandingPreferencesFormSubmit = async (data: TBrandingPreferencesFormSchema) => {
     try {
-      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails, signatureFontFamily } =
-        data;
+      const {
+        brandingEnabled,
+        brandingLogo,
+        brandingUrl,
+        brandingCompanyDetails,
+        signatureFontFamily,
+        signatureFontSize,
+      } = data;
 
       let uploadedBrandingLogo: string | undefined = '';
 
@@ -65,6 +71,8 @@ export default function OrganisationSettingsBrandingPage() {
           brandingCompanyDetails,
           // Validated against the curated set by the tRPC input schema.
           signatureFontFamily: (signatureFontFamily as SignatureFontFamily | null) ?? undefined,
+          // Null (blank) leaves the organisation size unchanged; the org has no value to inherit.
+          signatureFontSize: signatureFontSize ?? undefined,
         },
       });
 

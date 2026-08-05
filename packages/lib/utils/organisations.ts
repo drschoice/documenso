@@ -9,12 +9,13 @@ import type { ORGANISATION_MEMBER_ROLE_MAP } from '@documenso/lib/constants/orga
 
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '../constants/date-formats';
 import { DEFAULT_ENVELOPE_EXPIRATION_PERIOD } from '../constants/envelope-expiration';
-import { DEFAULT_SIGNATURE_FONT_FAMILY } from '../constants/signature-fonts';
 import {
   LOWEST_ORGANISATION_ROLE,
   ORGANISATION_MEMBER_ROLE_HIERARCHY,
   ORGANISATION_MEMBER_ROLE_PERMISSIONS_MAP,
 } from '../constants/organisations';
+import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../constants/pdf';
+import { DEFAULT_SIGNATURE_FONT_FAMILY } from '../constants/signature-fonts';
 import { DEFAULT_DOCUMENT_EMAIL_SETTINGS } from '../types/document-email';
 
 export const isPersonalLayout = (organisations: Pick<Organisation, 'type'>[]) => {
@@ -129,6 +130,7 @@ export const generateDefaultOrganisationSettings = (): Omit<
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,
     signatureFontFamily: DEFAULT_SIGNATURE_FONT_FAMILY,
+    signatureFontSize: DEFAULT_SIGNATURE_TEXT_FONT_SIZE,
 
     brandingEnabled: false,
     brandingLogo: '',

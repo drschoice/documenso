@@ -76,6 +76,24 @@ const SIGNATURE_FONT_FAMILIES = SIGNATURE_FONTS.map((font) => font.family) as [
 export const ZSignatureFontFamilySchema = z.enum(SIGNATURE_FONT_FAMILIES);
 
 /**
+ * Bounds for the typed-signature font size (px). Mirrors the per-field `fieldMeta.fontSize` range
+ * (see `ZBaseFieldMeta` in `@documenso/lib/types/field-meta`) so the org/team default and a per-field
+ * override share the same allowed values. The default (18) lives in `./pdf` as
+ * `DEFAULT_SIGNATURE_TEXT_FONT_SIZE`.
+ */
+export const MIN_SIGNATURE_FONT_SIZE = 8;
+export const MAX_SIGNATURE_FONT_SIZE = 96;
+
+/**
+ * Validates the typed-signature font size setting.
+ */
+export const ZSignatureFontSizeSchema = z
+  .number()
+  .int()
+  .min(MIN_SIGNATURE_FONT_SIZE)
+  .max(MAX_SIGNATURE_FONT_SIZE);
+
+/**
  * Resolve a font family to its manifest entry, falling back to the default (Caveat) for any unknown
  * or `null` value.
  */

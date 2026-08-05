@@ -23,6 +23,7 @@ export const EnvelopeEditorRenderProviderWrapper = ({
       presignToken={presignedToken}
       overrideSettings={{
         signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+        signatureFontSize: envelope.documentMeta?.signatureFontSize,
       }}
     >
       {children}

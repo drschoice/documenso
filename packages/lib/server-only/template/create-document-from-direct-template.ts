@@ -197,9 +197,10 @@ export const createDocumentFromDirectTemplate = async ({
   );
   const derivedDocumentMeta = extractDerivedDocumentMeta(settings, {
     ...directTemplateEnvelope.documentMeta,
-    // Re-resolve the signature font from current org/team settings rather than inheriting the
-    // template's snapshot — the font is a brand-level decision.
+    // Re-resolve the signature font family and size from current org/team settings rather than
+    // inheriting the template's snapshot — both are brand-level decisions.
     signatureFontFamily: undefined,
+    signatureFontSize: undefined,
   });
 
   // Associate, validate and map to a query every direct template recipient field with the provided fields.

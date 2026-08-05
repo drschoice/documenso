@@ -38,6 +38,12 @@ export type RenderFieldElementOptions = {
    * `@documenso/lib/constants/signature-fonts`. Falls back to the default (Caveat) when omitted.
    */
   signatureFontFamily?: string | null;
+
+  /**
+   * The default typed-signature font size (px) for signature fields. A per-field `fieldMeta.fontSize`
+   * still overrides it; falls back to `DEFAULT_SIGNATURE_TEXT_FONT_SIZE` when both are omitted.
+   */
+  signatureFontSize?: number | null;
 };
 
 /**
@@ -98,9 +104,7 @@ export const COMB_CELL_GAP = 2;
  * Uses the explicit cell size when set, otherwise derives it from the font
  * size so the glyph has breathing room inside the cell.
  */
-export const resolveCellSize = (
-  meta?: { cellSize?: number; fontSize?: number } | null,
-): number => {
+export const resolveCellSize = (meta?: { cellSize?: number; fontSize?: number } | null): number => {
   return meta?.cellSize ?? Math.ceil((meta?.fontSize ?? DEFAULT_STANDARD_FONT_SIZE) * 1.5);
 };
 
@@ -144,9 +148,7 @@ export const calculateCombCellPosition = (options: CalculateCombCellPositionOpti
 
   const hasOffsets = offsetX !== undefined && offsetY !== undefined;
 
-  const anchorX = hasOffsets
-    ? pageWidth * (offsetX / 100)
-    : cellIndex * (cellSize + COMB_CELL_GAP);
+  const anchorX = hasOffsets ? pageWidth * (offsetX / 100) : cellIndex * (cellSize + COMB_CELL_GAP);
   const anchorY = hasOffsets ? pageHeight * (offsetY / 100) : 0;
 
   return { anchorX, anchorY };

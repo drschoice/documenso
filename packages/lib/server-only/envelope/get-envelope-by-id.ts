@@ -87,13 +87,15 @@ export const getEnvelopeById = async ({ id, userId, teamId, type }: GetEnvelopeB
     });
   }
 
-  // Templates do not pin the signature font — documents generated from them re-resolve it from the
-  // current org/team settings. Surface that resolved font when reading a template so previews match
-  // what its documents will look like, rather than the value snapshotted at template creation.
+  // Templates do not pin the signature font family/size — documents generated from them re-resolve
+  // both from the current org/team settings. Surface those resolved values when reading a template
+  // so previews match what its documents will look like, rather than the values snapshotted at
+  // template creation.
   if (envelope.type === EnvelopeType.TEMPLATE && envelope.documentMeta) {
     const settings = await getTeamSettings({ userId, teamId });
 
     envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
+    envelope.documentMeta.signatureFontSize = settings.signatureFontSize;
   }
 
   return {

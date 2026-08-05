@@ -214,6 +214,7 @@ export const EnvelopeEditorPreviewPage = () => {
       overrideSettings={{
         mode: 'export',
         signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+        signatureFontSize: envelope.documentMeta?.signatureFontSize,
       }}
     >
       <div className="relative flex h-full">

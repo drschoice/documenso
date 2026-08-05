@@ -2,7 +2,10 @@ import { z } from 'zod';
 
 import { ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
 import { SUPPORTED_LANGUAGE_CODES } from '@documenso/lib/constants/i18n';
-import { ZSignatureFontFamilySchema } from '@documenso/lib/constants/signature-fonts';
+import {
+  ZSignatureFontFamilySchema,
+  ZSignatureFontSizeSchema,
+} from '@documenso/lib/constants/signature-fonts';
 import { ZDefaultRecipientsSchema } from '@documenso/lib/types/default-recipients';
 import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
 import {
@@ -31,6 +34,7 @@ export const ZUpdateTeamSettingsRequestSchema = z.object({
     uploadSignatureEnabled: z.boolean().nullish(),
     drawSignatureEnabled: z.boolean().nullish(),
     signatureFontFamily: ZSignatureFontFamilySchema.nullish(),
+    signatureFontSize: ZSignatureFontSizeSchema.nullish(),
     delegateDocumentOwnership: z.boolean().nullish(),
     envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
 

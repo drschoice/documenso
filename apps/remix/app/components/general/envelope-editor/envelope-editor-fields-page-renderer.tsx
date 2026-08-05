@@ -23,14 +23,6 @@ import {
   type VisibilityPickModeTarget,
   useCurrentEnvelopeEditor,
 } from '@documenso/lib/client-only/providers/envelope-editor-provider';
-import { nanoid } from '@documenso/lib/universal/id';
-import {
-  addToLinkGroup,
-  getLinkGroupId,
-  isLinkEligibleType,
-  pruneOrphanLinkGroups,
-  removeFromLinkGroup,
-} from '@documenso/lib/universal/field-linking';
 import {
   type PageRenderData,
   useCurrentEnvelopeRender,
@@ -38,13 +30,12 @@ import {
 import { FIELD_META_DEFAULT_VALUES, getCombFieldCells } from '@documenso/lib/types/field-meta';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
-  VISIBILITY_ELIGIBLE_FIELD_TYPES,
-  addDependentRule,
-  getFieldStableId,
-  hasDependentRule,
-  removeDependentRule,
-  wouldCreateVisibilityCycle,
-} from '@documenso/lib/universal/field-visibility/authoring';
+  addToLinkGroup,
+  getLinkGroupId,
+  isLinkEligibleType,
+  pruneOrphanLinkGroups,
+  removeFromLinkGroup,
+} from '@documenso/lib/universal/field-linking';
 import {
   getFieldOptionGroupsUnion,
   removeLinkBadge,
@@ -64,6 +55,15 @@ import {
   resolveCellSize,
 } from '@documenso/lib/universal/field-renderer/field-renderer';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
+import {
+  VISIBILITY_ELIGIBLE_FIELD_TYPES,
+  addDependentRule,
+  getFieldStableId,
+  hasDependentRule,
+  removeDependentRule,
+  wouldCreateVisibilityCycle,
+} from '@documenso/lib/universal/field-visibility/authoring';
+import { nanoid } from '@documenso/lib/universal/id';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
@@ -346,9 +346,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
           }
         }
 
-        if (
-          wouldCreateVisibilityCycle(metaByStableId, dependentStableId, active.triggerStableId)
-        ) {
+        if (wouldCreateVisibilityCycle(metaByStableId, dependentStableId, active.triggerStableId)) {
           toast({
             title: t`Can't show this field here`,
             description: t`This would create a circular visibility rule.`,
@@ -552,9 +550,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     const pageWidth = unscaledViewport.width;
     const pageHeight = unscaledViewport.height;
 
-    const applyItemOffsets = <T extends { offsetX?: number; offsetY?: number }>(
-      items: T[],
-    ): T[] =>
+    const applyItemOffsets = <T extends { offsetX?: number; offsetY?: number }>(items: T[]): T[] =>
       items.map((item, index) => {
         const optionGroup = fieldGroup.findOne<Konva.Group>(`#${fieldFormId}-option-${index}`);
 
@@ -706,6 +702,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       editable: isFieldEditable,
       mode: 'edit',
       signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+      signatureFontSize: envelope.documentMeta?.signatureFontSize,
     });
 
     // Mark fields under a conditional-visibility rule with editor-only stripes.
@@ -1681,13 +1678,20 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
       {isPickingOnThisPage && (
         <div
-          style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+          }}
           className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
         >
           <span>
             <Trans>
               Click fields to show when{' '}
-              <span className="font-semibold">“{visibilityPickMode.active?.value}”</span> is selected
+              <span className="font-semibold">“{visibilityPickMode.active?.value}”</span> is
+              selected
             </Trans>
           </span>
           <Button type="button" size="sm" onClick={() => visibilityPickMode.exit()}>
@@ -1698,7 +1702,13 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
       {isLinkPickingOnThisPage && (
         <div
-          style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+          }}
           className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
         >
           <span>

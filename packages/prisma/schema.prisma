@@ -529,6 +529,11 @@ model DocumentMeta {
   // font every document was rendered with before this feature.
   signatureFontFamily String @default("Caveat")
 
+  // Typed-signature font size (px), snapshotted at document creation alongside the font family.
+  // `@default(24)` matches DEFAULT_SIGNATURE_TEXT_FONT_SIZE; a data migration bumped pre-existing
+  // rows from the original 18 to 24.
+  signatureFontSize Int @default(24)
+
   language           String                     @default("en")
   distributionMethod DocumentDistributionMethod @default(EMAIL)
 
@@ -854,6 +859,9 @@ model OrganisationGlobalSettings {
   // `@documenso/lib/constants/signature-fonts`. Snapshotted onto the document at creation.
   signatureFontFamily String @default("Caveat")
 
+  // Typed-signature font size (px). Snapshotted onto the document at creation.
+  signatureFontSize Int @default(24)
+
   defaultRecipients Json? /// [DefaultRecipient[]] @zod.custom.use(ZDefaultRecipientsSchema)
 
   emailId String?
@@ -895,6 +903,9 @@ model TeamGlobalSettings {
 
   // Null = inherit from organisation.
   signatureFontFamily String?
+
+  // Null = inherit from organisation.
+  signatureFontSize Int?
 
   defaultRecipients Json? /// [DefaultRecipient[]] @zod.custom.use(ZDefaultRecipientsSchema)
 
