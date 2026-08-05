@@ -170,6 +170,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       color,
       mode: 'sign',
       signatureFontFamily: envelope.documentMeta.signatureFontFamily,
+      signatureFontSize: envelope.documentMeta.signatureFontSize,
     });
 
     const handleFieldGroupClick = (e: KonvaEventObject<Event>) => {
@@ -472,6 +473,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           editable: false,
           mode: 'sign',
           signatureFontFamily: envelope.documentMeta.signatureFontFamily,
+          signatureFontSize: envelope.documentMeta.signatureFontSize,
         });
       } catch (err) {
         console.error('Unable to render one or more fields belonging to other recipients.');

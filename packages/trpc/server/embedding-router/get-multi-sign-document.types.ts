@@ -32,6 +32,7 @@ export const ZGetMultiSignDocumentResponseSchema = ZDocumentLiteSchema.extend({
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,
     signatureFontFamily: true,
+    signatureFontSize: true,
     allowDictateNextSigner: true,
     language: true,
     emailSettings: true,

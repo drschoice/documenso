@@ -37,6 +37,7 @@ export const updateOrganisationSettingsRoute = authenticatedProcedure
       uploadSignatureEnabled,
       drawSignatureEnabled,
       signatureFontFamily,
+      signatureFontSize,
       defaultRecipients,
       delegateDocumentOwnership,
       envelopeExpirationPeriod,
@@ -149,6 +150,7 @@ export const updateOrganisationSettingsRoute = authenticatedProcedure
             uploadSignatureEnabled,
             drawSignatureEnabled,
             signatureFontFamily,
+            signatureFontSize,
             defaultRecipients: defaultRecipients === null ? Prisma.DbNull : defaultRecipients,
             delegateDocumentOwnership: derivedDelegateDocumentOwnership,
             envelopeExpirationPeriod:

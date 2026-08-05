@@ -58,10 +58,19 @@ const createFieldSignature = (
   field: FieldToRender,
   options: RenderFieldElementOptions,
 ): Konva.Text | Konva.Image => {
-  const { pageWidth, pageHeight, mode = 'edit', translations, signatureFontFamily } = options;
+  const {
+    pageWidth,
+    pageHeight,
+    mode = 'edit',
+    translations,
+    signatureFontFamily,
+    signatureFontSize,
+  } = options;
 
   const { fieldWidth, fieldHeight } = calculateFieldPosition(field, pageWidth, pageHeight);
-  const fontSize = field.fieldMeta?.fontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
+  // Precedence: per-field override wins, then the org/team default, then the hardcoded fallback.
+  const fontSize =
+    field.fieldMeta?.fontSize || signatureFontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
 
   const textAlign: 'left' | 'center' | 'right' =
     field.fieldMeta?.type === 'signature'

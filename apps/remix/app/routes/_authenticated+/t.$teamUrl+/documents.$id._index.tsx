@@ -167,6 +167,7 @@ export default function DocumentPage({ params }: Route.ComponentProps) {
                 showRecipientSigningStatus: true,
                 showRecipientTooltip: true,
                 signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+                signatureFontSize: envelope.documentMeta?.signatureFontSize,
               }}
             >
               {isMultiEnvelopeItem && (

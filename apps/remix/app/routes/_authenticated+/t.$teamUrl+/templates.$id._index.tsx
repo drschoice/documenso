@@ -190,6 +190,7 @@ export default function TemplatePage({ params }: Route.ComponentProps) {
               overrideSettings={{
                 showRecipientTooltip: true,
                 signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+                signatureFontSize: envelope.documentMeta?.signatureFontSize,
               }}
             >
               {isMultiEnvelopeItem && (

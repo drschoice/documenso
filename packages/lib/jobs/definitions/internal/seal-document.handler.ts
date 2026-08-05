@@ -302,6 +302,9 @@ export const run = async ({
         // Typed-signature font snapshotted onto the document at creation. Null falls back to Caveat in
         // the renderers so documents signed before this feature keep their original appearance.
         signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
+        // Typed-signature font size snapshotted onto the document at creation. Null/undefined falls
+        // back to DEFAULT_SIGNATURE_TEXT_FONT_SIZE in the renderer.
+        signatureFontSize: envelope.documentMeta?.signatureFontSize,
       });
 
       newDocumentData.push(result);
@@ -387,6 +390,7 @@ type DecorateAndSignPdfOptions = {
   certificateDoc: PDF | null;
   auditLogDoc: PDF | null;
   signatureFontFamily?: string | null;
+  signatureFontSize?: number | null;
 };
 
 /**
@@ -402,6 +406,7 @@ const decorateAndSignPdf = async ({
   certificateDoc,
   auditLogDoc,
   signatureFontFamily,
+  signatureFontSize,
 }: DecorateAndSignPdfOptions) => {
   let pdfDoc = await PDF.load(pdfData);
 
@@ -469,6 +474,7 @@ const decorateAndSignPdf = async ({
         pageHeight,
         fields,
         signatureFontFamily,
+        signatureFontSize,
       });
 
       const overlayPdf = await PDF.load(overlayBytes);

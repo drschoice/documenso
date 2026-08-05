@@ -10,8 +10,11 @@ import { z } from 'zod';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
+import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
 import {
   DEFAULT_SIGNATURE_FONT_FAMILY,
+  MAX_SIGNATURE_FONT_SIZE,
+  MIN_SIGNATURE_FONT_SIZE,
   SIGNATURE_FONTS,
   getSignatureFontFamilyString,
 } from '@documenso/lib/constants/signature-fonts';
@@ -56,6 +59,13 @@ const ZBrandingPreferencesFormSchema = z.object({
   // the tRPC input (`ZSignatureFontFamilySchema`); kept as a plain string here since the `Select`
   // only offers curated families.
   signatureFontFamily: z.string().nullable(),
+  // Null = inherit from organisation (team only). Same bounds as the per-field `fieldMeta.fontSize`.
+  signatureFontSize: z
+    .number()
+    .int()
+    .min(MIN_SIGNATURE_FONT_SIZE)
+    .max(MAX_SIGNATURE_FONT_SIZE)
+    .nullable(),
 });
 
 export type TBrandingPreferencesFormSchema = z.infer<typeof ZBrandingPreferencesFormSchema>;
@@ -67,6 +77,7 @@ type SettingsSubset = Pick<
   | 'brandingUrl'
   | 'brandingCompanyDetails'
   | 'signatureFontFamily'
+  | 'signatureFontSize'
 >;
 
 export type BrandingPreferencesFormProps = {
@@ -78,6 +89,12 @@ export type BrandingPreferencesFormProps = {
    * in the real inherited font rather than the hardcoded default.
    */
   inheritedFontFamily?: string | null;
+  /**
+   * The effective font size this context would inherit when `signatureFontSize` is null (i.e. the
+   * organisation's resolved size for a team). Used as the placeholder/preview for the "inherit"
+   * (blank) choice rather than the hardcoded default.
+   */
+  inheritedFontSize?: number | null;
   onFormSubmit: (data: TBrandingPreferencesFormSchema) => Promise<void>;
   context: 'Team' | 'Organisation';
 };
@@ -86,6 +103,7 @@ export function BrandingPreferencesForm({
   canInherit = false,
   settings,
   inheritedFontFamily,
+  inheritedFontSize,
   onFormSubmit,
   context,
 }: BrandingPreferencesFormProps) {
@@ -107,11 +125,20 @@ export function BrandingPreferencesForm({
       brandingLogo: undefined,
       brandingCompanyDetails: settings.brandingCompanyDetails ?? '',
       signatureFontFamily: settings.signatureFontFamily ?? null,
+      signatureFontSize: settings.signatureFontSize ?? null,
     },
     resolver: zodResolver(ZBrandingPreferencesFormSchema),
   });
 
   const isBrandingEnabled = form.watch('brandingEnabled');
+  const watchedSignatureFontFamily = form.watch('signatureFontFamily');
+  const watchedSignatureFontSize = form.watch('signatureFontSize');
+
+  // Resolve the values the signature preview should render with, applying the same inherit/default
+  // fallbacks the server uses at document creation.
+  const previewFontFamily = watchedSignatureFontFamily ?? inheritedFontFamily;
+  const previewFontSize =
+    watchedSignatureFontSize ?? inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
 
   useEffect(() => {
     if (settings.brandingLogo) {
@@ -198,7 +225,7 @@ export function BrandingPreferencesForm({
           />
 
           <div className="relative flex w-full flex-col gap-y-4">
-            {!isBrandingEnabled && <div className="bg-background/60 absolute inset-0 z-[9998]" />}
+            {!isBrandingEnabled && <div className="absolute inset-0 z-[9998] bg-background/60" />}
 
             <FormField
               control={form.control}
@@ -210,7 +237,7 @@ export function BrandingPreferencesForm({
                   </FormLabel>
 
                   <div className="flex flex-col gap-4">
-                    <div className="border-border bg-background relative h-48 w-full overflow-hidden rounded-lg border">
+                    <div className="relative h-48 w-full overflow-hidden rounded-lg border border-border bg-background">
                       {previewUrl ? (
                         <img
                           src={previewUrl}
@@ -218,12 +245,12 @@ export function BrandingPreferencesForm({
                           className="h-full w-full object-contain p-4"
                         />
                       ) : (
-                        <div className="bg-muted/20 dark:bg-muted text-muted-foreground relative flex h-full w-full items-center justify-center text-sm">
+                        <div className="relative flex h-full w-full items-center justify-center bg-muted/20 text-sm text-muted-foreground dark:bg-muted">
                           <Trans>Please upload a logo</Trans>
 
                           {!hasLoadedPreview && (
-                            <div className="bg-muted dark:bg-muted absolute inset-0 z-[999] flex items-center justify-center">
-                              <Loader className="text-muted-foreground h-8 w-8 animate-spin" />
+                            <div className="absolute inset-0 z-[999] flex items-center justify-center bg-muted dark:bg-muted">
+                              <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
                             </div>
                           )}
                         </div>
@@ -268,7 +295,7 @@ export function BrandingPreferencesForm({
                           type="button"
                           variant="link"
                           size="sm"
-                          className="text-destructive text-xs"
+                          className="text-xs text-destructive"
                           onClick={() => {
                             setPreviewUrl('');
                             onChange(null);
@@ -377,7 +404,9 @@ export function BrandingPreferencesForm({
                       className="bg-background"
                       data-testid="signature-font"
                       style={{
-                        fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily),
+                        fontFamily: getSignatureFontFamilyString(
+                          field.value ?? inheritedFontFamily,
+                        ),
                       }}
                     >
                       <SelectValue />
@@ -406,12 +435,12 @@ export function BrandingPreferencesForm({
                   </Select>
                 </FormControl>
 
-                <div className="border-border bg-background mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border">
+                <div className="mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
                   <span
                     className="text-black dark:text-white"
                     style={{
-                      fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily),
-                      fontSize: '2.5rem',
+                      fontFamily: getSignatureFontFamilyString(previewFontFamily),
+                      fontSize: `${previewFontSize}px`,
                       lineHeight: 1,
                     }}
                   >
@@ -421,14 +450,62 @@ export function BrandingPreferencesForm({
 
                 <FormDescription>
                   <Trans>
-                    The font used for typed signatures. Applies to documents created after this change
-                    — already-created documents keep their original font.
+                    The font used for typed signatures. Applies to documents created after this
+                    change — already-created documents keep their original font.
                   </Trans>
 
                   {canInherit && (
                     <span>
                       {' '}
-                      <Trans>Choose "Inherit from organisation" to use the organisation font.</Trans>
+                      <Trans>
+                        Choose "Inherit from organisation" to use the organisation font.
+                      </Trans>
+                    </span>
+                  )}
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="signatureFontSize"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel>
+                  <Trans>Signature Font Size</Trans>
+                </FormLabel>
+
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={MIN_SIGNATURE_FONT_SIZE}
+                    max={MAX_SIGNATURE_FONT_SIZE}
+                    className="bg-background"
+                    data-testid="signature-font-size"
+                    placeholder={
+                      canInherit
+                        ? (inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE).toString()
+                        : undefined
+                    }
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)
+                    }
+                  />
+                </FormControl>
+
+                <FormDescription>
+                  <Trans>
+                    The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}–{MAX_SIGNATURE_FONT_SIZE}
+                    ) for typed signatures. A per-field size set in the editor overrides this.
+                    Applies to documents created after this change.
+                  </Trans>
+
+                  {canInherit && (
+                    <span>
+                      {' '}
+                      <Trans>Leave blank to inherit from the organisation.</Trans>
                     </span>
                   )}
                 </FormDescription>

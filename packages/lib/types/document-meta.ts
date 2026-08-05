@@ -29,6 +29,7 @@ export const ZDocumentMetaSchema = DocumentMetaSchema.pick({
   uploadSignatureEnabled: true,
   drawSignatureEnabled: true,
   signatureFontFamily: true,
+  signatureFontSize: true,
   language: true,
   emailSettings: true,
   nextFieldNavigationTypes: true,

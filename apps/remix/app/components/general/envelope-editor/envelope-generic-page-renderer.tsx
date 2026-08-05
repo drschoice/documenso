@@ -106,6 +106,7 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
       editable: false,
       mode: overrideSettings?.mode ?? 'edit',
       signatureFontFamily: overrideSettings?.signatureFontFamily,
+      signatureFontSize: overrideSettings?.signatureFontSize,
     });
   };
 

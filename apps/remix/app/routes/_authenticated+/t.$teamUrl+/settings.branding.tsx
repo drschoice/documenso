@@ -33,8 +33,14 @@ export default function TeamsSettingsPage() {
 
   const onBrandingPreferencesFormSubmit = async (data: TBrandingPreferencesFormSchema) => {
     try {
-      const { brandingEnabled, brandingLogo, brandingUrl, brandingCompanyDetails, signatureFontFamily } =
-        data;
+      const {
+        brandingEnabled,
+        brandingLogo,
+        brandingUrl,
+        brandingCompanyDetails,
+        signatureFontFamily,
+        signatureFontSize,
+      } = data;
 
       let uploadedBrandingLogo = teamWithSettings?.teamSettings?.brandingLogo;
 
@@ -55,6 +61,8 @@ export default function TeamsSettingsPage() {
           brandingCompanyDetails: brandingCompanyDetails || null,
           // Validated against the curated set by the tRPC input schema.
           signatureFontFamily: signatureFontFamily as SignatureFontFamily | null,
+          // Null = inherit from organisation; validated against the allowed bounds server-side.
+          signatureFontSize,
         },
       });
 
@@ -92,6 +100,7 @@ export default function TeamsSettingsPage() {
           context="Team"
           settings={teamWithSettings.teamSettings}
           inheritedFontFamily={teamWithSettings.derivedSettings.signatureFontFamily}
+          inheritedFontSize={teamWithSettings.derivedSettings.signatureFontSize}
           onFormSubmit={onBrandingPreferencesFormSubmit}
         />
       </section>

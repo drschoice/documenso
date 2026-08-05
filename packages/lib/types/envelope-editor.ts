@@ -266,6 +266,7 @@ export const ZEditorEnvelopeSchema = EnvelopeSchema.pick({
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,
     signatureFontFamily: true,
+    signatureFontSize: true,
     allowDictateNextSigner: true,
     nextFieldNavigationTypes: true,
     nextFieldNavigationLabels: true,
