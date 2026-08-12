@@ -34,7 +34,7 @@ import type { ApiRequestMetadata } from '../../universal/extract-request-metadat
 import { getFileServerSide } from '../../universal/upload/get-file.server';
 import { putPdfFileServerSide } from '../../universal/upload/put-file.server';
 import { isRequiredField } from '../../utils/advanced-fields-helpers';
-import { extractDerivedDocumentMeta } from '../../utils/document';
+import { extractDerivedDocumentMeta, resolveDateFormat } from '../../utils/document';
 import type { CreateDocumentAuditLogDataResponse } from '../../utils/document-audit-logs';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import {
@@ -272,7 +272,7 @@ export const createDocumentFromDirectTemplate = async ({
 
         customText = dateToUse
           .setZone(derivedDocumentMeta.timezone)
-          .toFormat(derivedDocumentMeta.dateFormat);
+          .toFormat(resolveDateFormat(settings, derivedDocumentMeta));
       }
 
       if (isSignatureField && !signatureImageAsBase64 && !typedSignature) {

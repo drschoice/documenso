@@ -25,7 +25,7 @@ import type { TDefaultRecipients } from '@documenso/lib/types/default-recipients
 import { ZDefaultRecipientsSchema } from '@documenso/lib/types/default-recipients';
 import {
   type TDocumentMetaDateFormat,
-  ZDocumentMetaTimezoneSchema,
+  ZDocumentMetaDateFormatSchema,
 } from '@documenso/lib/types/document-meta';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
 import { recipientAbbreviation } from '@documenso/lib/utils/recipient-formatter';
@@ -100,6 +100,13 @@ export type DocumentPreferencesFormProps = {
   settings: SettingsSubset;
   canInherit: boolean;
   isAiFeaturesConfigured?: boolean;
+
+  /**
+   * The signature types the organisation permits. A team may only narrow this list further, so the
+   * ones the organisation has revoked are not offered at all. Omit at organisation level, where
+   * there is nothing above to cap against.
+   */
+  allowedSignatureTypes?: DocumentSignatureType[];
   onFormSubmit: (data: TDocumentPreferencesFormSchema) => Promise<void>;
 };
 
@@ -108,6 +115,7 @@ export const DocumentPreferencesForm = ({
   onFormSubmit,
   canInherit,
   isAiFeaturesConfigured = false,
+  allowedSignatureTypes,
 }: DocumentPreferencesFormProps) => {
   const { _ } = useLingui();
   const { user, organisations } = useSession();
@@ -119,11 +127,18 @@ export const DocumentPreferencesForm = ({
 
   const placeholderEmail = user.email ?? 'user@example.com';
 
+  const signatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter(
+    (option) => !allowedSignatureTypes || allowedSignatureTypes.includes(option.value),
+  );
+
+  const hasRestrictedSignatureTypes =
+    signatureTypeOptions.length < Object.values(DOCUMENT_SIGNATURE_TYPES).length;
+
   const ZDocumentPreferencesFormSchema = z.object({
     documentVisibility: z.nativeEnum(DocumentVisibility).nullable(),
     documentLanguage: z.enum(SUPPORTED_LANGUAGE_CODES).nullable(),
     documentTimezone: z.string().nullable(),
-    documentDateFormat: ZDocumentMetaTimezoneSchema.nullable(),
+    documentDateFormat: ZDocumentMetaDateFormatSchema.nullable(),
     includeSenderDetails: z.boolean().nullable(),
     includeSigningCertificate: z.boolean().nullable(),
     includeAuditLog: z.boolean().nullable(),
@@ -148,7 +163,10 @@ export const DocumentPreferencesForm = ({
       includeSenderDetails: settings.includeSenderDetails,
       includeSigningCertificate: settings.includeSigningCertificate,
       includeAuditLog: settings.includeAuditLog,
-      signatureTypes: extractTeamSignatureSettings({ ...settings }),
+      // Filtered so a selection stored before the organisation revoked a type is not resubmitted.
+      signatureTypes: extractTeamSignatureSettings({ ...settings }).filter(
+        (type) => !allowedSignatureTypes || allowedSignatureTypes.includes(type),
+      ),
       defaultRecipients: settings.defaultRecipients
         ? ZDefaultRecipientsSchema.parse(settings.defaultRecipients)
         : null,
@@ -341,7 +359,7 @@ export const DocumentPreferencesForm = ({
 
                 <FormControl>
                   <MultiSelectCombobox
-                    options={Object.values(DOCUMENT_SIGNATURE_TYPES).map((option) => ({
+                    options={signatureTypeOptions.map((option) => ({
                       label: _(option.label),
                       value: option.value,
                     }))}
@@ -360,9 +378,16 @@ export const DocumentPreferencesForm = ({
                   <FormMessage />
                 ) : (
                   <FormDescription>
-                    <Trans>
-                      Controls which signatures are allowed to be used when signing a document.
-                    </Trans>
+                    {hasRestrictedSignatureTypes ? (
+                      <Trans>
+                        Controls which signatures are allowed to be used when signing a document.
+                        Your organisation has disabled the remaining types.
+                      </Trans>
+                    ) : (
+                      <Trans>
+                        Controls which signatures are allowed to be used when signing a document.
+                      </Trans>
+                    )}
                   </FormDescription>
                 )}
               </FormItem>

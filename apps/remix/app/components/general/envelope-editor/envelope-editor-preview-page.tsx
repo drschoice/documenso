@@ -23,6 +23,7 @@ import { Separator } from '@documenso/ui/primitives/separator';
 
 import { EnvelopeGenericPageRenderer } from '~/components/general/envelope-editor/envelope-generic-page-renderer';
 import { EnvelopePdfViewer } from '~/components/general/pdf-viewer/envelope-pdf-viewer';
+import { useCurrentTeam } from '~/providers/team';
 
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
 
@@ -30,6 +31,8 @@ export const EnvelopeEditorPreviewPage = () => {
   const { envelope, editorFields, editorConfig } = useCurrentEnvelopeEditor();
 
   const { currentEnvelopeItem, fields } = useCurrentEnvelopeRender();
+
+  const team = useCurrentTeam();
 
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +89,12 @@ export const EnvelopeEditorPreviewPage = () => {
               value: dateMeta.data.value,
             },
             field,
-            documentMeta: envelope.documentMeta,
+            documentMeta: {
+              ...envelope.documentMeta,
+              // The editor keeps `dateFormat` raw so it can offer "inherit"; previewing needs the
+              // concrete format the document will actually be signed with.
+              dateFormat: envelope.documentMeta.dateFormat ?? team.preferences.documentDateFormat,
+            },
           });
 
           return { customText: date.customText, inserted: date.customText !== '' };
@@ -154,7 +162,13 @@ export const EnvelopeEditorPreviewPage = () => {
         ...overrides,
       };
     });
-  }, [fields, envelope, envelope.recipients, envelope.documentMeta]);
+  }, [
+    fields,
+    envelope,
+    envelope.recipients,
+    envelope.documentMeta,
+    team.preferences.documentDateFormat,
+  ]);
 
   /**
    * Apply conditional-visibility to the placeholder data so the preview reflects

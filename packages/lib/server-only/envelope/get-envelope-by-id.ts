@@ -4,6 +4,7 @@ import { prisma } from '@documenso/prisma';
 
 import { TEAM_DOCUMENT_VISIBILITY_MAP } from '../../constants/teams';
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { isDocumentCompleted, resolveLiveDocumentMeta } from '../../utils/document';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
 import { getTeamById } from '../team/get-team';
@@ -87,15 +88,23 @@ export const getEnvelopeById = async ({ id, userId, teamId, type }: GetEnvelopeB
     });
   }
 
-  // Templates do not pin the signature font family/size — documents generated from them re-resolve
-  // both from the current org/team settings. Surface those resolved values when reading a template
-  // so previews match what its documents will look like, rather than the values snapshotted at
-  // template creation.
-  if (envelope.type === EnvelopeType.TEMPLATE && envelope.documentMeta) {
+  if (envelope.documentMeta && !isDocumentCompleted(envelope.status)) {
     const settings = await getTeamSettings({ userId, teamId });
 
-    envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
-    envelope.documentMeta.signatureFontSize = settings.signatureFontSize;
+    // Templates do not pin the signature font family/size — documents generated from them re-resolve
+    // both from the current org/team settings. Surface those resolved values when reading a template
+    // so previews match what its documents will look like, rather than the values snapshotted at
+    // template creation.
+    if (envelope.type === EnvelopeType.TEMPLATE) {
+      envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
+      envelope.documentMeta.signatureFontSize = settings.signatureFontSize;
+    }
+
+    envelope.documentMeta = resolveLiveDocumentMeta(
+      settings,
+      envelope.documentMeta,
+      envelope.status,
+    );
   }
 
   return {

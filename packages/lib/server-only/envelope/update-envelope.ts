@@ -15,9 +15,11 @@ import {
   ZWebhookDocumentSchema,
   mapEnvelopeToWebhookDocumentPayload,
 } from '../../types/webhook-payload';
+import { capSignatureSettings } from '../../utils/document';
 import { createDocumentAuthOptions, extractDocumentAuthMethods } from '../../utils/document-auth';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { buildTeamWhereQuery, canAccessTeamDocument } from '../../utils/teams';
+import { getTeamSettings } from '../team/get-team-settings';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 import { getEnvelopeWhereInput } from './get-envelope-by-id';
 
@@ -317,6 +319,22 @@ export const updateEnvelope = async ({
   //   return envelope;
   // }
 
+  // The organisation/team allowance is a cap — an envelope may narrow the signature types further
+  // but can never re-enable one that has been turned off upstream.
+  const cappedSignatureSettings =
+    meta.typedSignatureEnabled !== undefined ||
+    meta.uploadSignatureEnabled !== undefined ||
+    meta.drawSignatureEnabled !== undefined
+      ? capSignatureSettings(await getTeamSettings({ userId, teamId }), {
+          typedSignatureEnabled:
+            meta.typedSignatureEnabled ?? envelope.documentMeta.typedSignatureEnabled,
+          uploadSignatureEnabled:
+            meta.uploadSignatureEnabled ?? envelope.documentMeta.uploadSignatureEnabled,
+          drawSignatureEnabled:
+            meta.drawSignatureEnabled ?? envelope.documentMeta.drawSignatureEnabled,
+        })
+      : undefined;
+
   const updatedEnvelope = await prisma.$transaction(async (tx) => {
     const result = await tx.envelope.update({
       where: {
@@ -335,6 +353,7 @@ export const updateEnvelope = async ({
         documentMeta: {
           update: {
             ...meta,
+            ...cappedSignatureSettings,
             emailSettings: meta?.emailSettings || undefined,
           },
         },

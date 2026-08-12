@@ -30,7 +30,7 @@ import type { TTemplateFieldFillValue } from '../../types/template-field-fill';
 import { toCheckboxValue } from '../../universal/field-checkbox';
 import { evaluateAllVisibility } from '../../universal/field-visibility';
 import { isRequiredField } from '../../utils/advanced-fields-helpers';
-import { extractDerivedDocumentMeta } from '../../utils/document';
+import { extractDerivedDocumentMeta, resolveDateFormat } from '../../utils/document';
 import type { CreateDocumentAuditLogDataResponse } from '../../utils/document-audit-logs';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
@@ -476,7 +476,10 @@ export const createCompletedDocumentFromTemplate = async ({
           insertionValues = extractFieldInsertionValues({
             fieldValue: toSignEnvelopeFieldValue(field, fillValue),
             field,
-            documentMeta: derivedDocumentMeta,
+            documentMeta: {
+              ...derivedDocumentMeta,
+              dateFormat: resolveDateFormat(settings, derivedDocumentMeta),
+            },
           });
         }
       } catch (err) {

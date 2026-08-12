@@ -10,6 +10,7 @@ import { DATE_FORMATS } from '@documenso/lib/constants/date-formats';
 import { DOCUMENT_SIGNATURE_TYPES } from '@documenso/lib/constants/document';
 import { SUPPORTED_LANGUAGES } from '@documenso/lib/constants/i18n';
 import { TIME_ZONES } from '@documenso/lib/constants/time-zones';
+import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { DocumentEmailCheckboxes } from '@documenso/ui/components/document/document-email-checkboxes';
 import { DocumentSendEmailMessageHelper } from '@documenso/ui/components/document/document-send-email-message-helper';
 import { Combobox } from '@documenso/ui/primitives/combobox';
@@ -34,6 +35,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@documenso/ui/primitiv
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 
+import { useCurrentTeam } from '~/providers/team';
+
 import { useConfigureDocument } from './configure-document-context';
 import type { TConfigureEmbedFormSchema } from './configure-document-view.types';
 
@@ -50,8 +53,17 @@ export const ConfigureDocumentAdvancedSettings = ({
 
   const form = useFormContext<TConfigureEmbedFormSchema>();
   const { features } = useConfigureDocument();
+  const team = useCurrentTeam();
 
   const { watch, setValue } = form;
+
+  // The organisation/team allowance is a ceiling — an embedded author may narrow it but never widen
+  // it, so the revoked types are not offered at all. The server re-derives this independently.
+  const allowedSignatureTypes = extractTeamSignatureSettings(team.preferences);
+
+  const signatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter((option) =>
+    allowedSignatureTypes.includes(option.value),
+  );
 
   // Lift watch() calls to reduce re-renders
   const distributionMethod = watch('meta.distributionMethod');
@@ -94,7 +106,7 @@ export const ConfigureDocumentAdvancedSettings = ({
                     </FormLabel>
                     <FormControl>
                       <MultiSelectCombobox
-                        options={Object.values(DOCUMENT_SIGNATURE_TYPES).map((option) => ({
+                        options={signatureTypeOptions.map((option) => ({
                           label: _(option.label),
                           value: option.value,
                         }))}

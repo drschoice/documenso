@@ -141,10 +141,12 @@ export const ZDocumentMetaCreateSchema = z.object({
 
 export type TDocumentMetaCreate = z.infer<typeof ZDocumentMetaCreateSchema>;
 
-/**
- * Note: This is the same as the create schema for now since there are
- * no nullable values. Once there is we will need to update this properly.
- */
-export const ZDocumentMetaUpdateSchema = ZDocumentMetaCreateSchema;
+export const ZDocumentMetaUpdateSchema = ZDocumentMetaCreateSchema.extend({
+  /**
+   * Null resets the document back to inheriting the organisation/team date format, which is then
+   * resolved on read. Undefined leaves whatever the document already has.
+   */
+  dateFormat: ZDocumentMetaDateFormatSchema.nullish(),
+});
 
 export type TDocumentMetaUpdate = z.infer<typeof ZDocumentMetaUpdateSchema>;

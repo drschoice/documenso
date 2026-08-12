@@ -17,7 +17,10 @@ import { match } from 'ts-pattern';
 import { useAutoSave } from '@documenso/lib/client-only/hooks/use-autosave';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
-import { DOCUMENT_SIGNATURE_TYPES } from '@documenso/lib/constants/document';
+import {
+  DOCUMENT_SIGNATURE_TYPES,
+  type DocumentSignatureType,
+} from '@documenso/lib/constants/document';
 import { SUPPORTED_LANGUAGES } from '@documenso/lib/constants/i18n';
 import { DEFAULT_DOCUMENT_TIME_ZONE, TIME_ZONES } from '@documenso/lib/constants/time-zones';
 import type { TDocument } from '@documenso/lib/types/document';
@@ -79,6 +82,12 @@ export type AddSettingsFormProps = {
   isDocumentPdfLoaded: boolean;
   document: TDocument;
   currentTeamMemberRole?: TeamMemberRole;
+
+  /**
+   * The signature types the organisation/team permits. A document may only narrow this list, so the
+   * revoked types are not offered at all.
+   */
+  allowedSignatureTypes: DocumentSignatureType[];
   onSubmit: (_data: TAddSettingsFormSchema) => void;
   onAutoSave: (_data: TAddSettingsFormSchema) => Promise<void>;
 };
@@ -90,12 +99,17 @@ export const AddSettingsFormPartial = ({
   isDocumentPdfLoaded,
   document,
   currentTeamMemberRole,
+  allowedSignatureTypes,
   onSubmit,
   onAutoSave,
 }: AddSettingsFormProps) => {
   const { t } = useLingui();
 
   const organisation = useCurrentOrganisation();
+
+  const signatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter((option) =>
+    allowedSignatureTypes.includes(option.value),
+  );
 
   const { documentAuthOption } = extractDocumentAuthMethods({
     documentAuth: document.authOptions,
@@ -409,7 +423,7 @@ export const AddSettingsFormPartial = ({
 
                           <FormControl>
                             <MultiSelectCombobox
-                              options={Object.values(DOCUMENT_SIGNATURE_TYPES).map((option) => ({
+                              options={signatureTypeOptions.map((option) => ({
                                 label: t(option.label),
                                 value: option.value,
                               }))}

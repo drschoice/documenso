@@ -21,7 +21,7 @@ import { z } from 'zod';
 
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
-import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
+import { DATE_FORMATS } from '@documenso/lib/constants/date-formats';
 import {
   DOCUMENT_DISTRIBUTION_METHODS,
   DOCUMENT_SIGNATURE_TYPES,
@@ -137,7 +137,8 @@ export const ZAddSettingsFormSchema = z.object({
     subject: z.string(),
     message: z.string(),
     timezone: ZDocumentMetaTimezoneSchema.default(DEFAULT_DOCUMENT_TIME_ZONE),
-    dateFormat: ZDocumentMetaDateFormatSchema.default(DEFAULT_DOCUMENT_DATE_FORMAT),
+    // Null keeps inheriting the organisation/team date format instead of pinning one.
+    dateFormat: ZDocumentMetaDateFormatSchema.nullable().default(null),
     distributionMethod: z
       .nativeEnum(DocumentDistributionMethod)
       .optional()
@@ -227,9 +228,10 @@ export const EnvelopeEditorSettingsDialog = ({
         subject: envelope.documentMeta.subject ?? '',
         message: envelope.documentMeta.message ?? '',
         timezone: envelope.documentMeta.timezone ?? DEFAULT_DOCUMENT_TIME_ZONE,
+        // Null means the document follows the organisation/team format; it is deliberately not
+        // coalesced to a concrete value here, which would silently pin it on the next save.
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        dateFormat: (envelope.documentMeta.dateFormat ??
-          DEFAULT_DOCUMENT_DATE_FORMAT) as TDocumentMetaDateFormat,
+        dateFormat: (envelope.documentMeta.dateFormat as TDocumentMetaDateFormat | null) ?? null,
         distributionMethod:
           envelope.documentMeta.distributionMethod || DocumentDistributionMethod.EMAIL,
         redirectUrl: envelope.documentMeta.redirectUrl ?? '',
@@ -274,6 +276,18 @@ export const EnvelopeEditorSettingsDialog = ({
   const emails = emailData?.data || organisationEmails || [];
 
   const canUpdateVisibility = canAccessTeamDocument(team.currentTeamRole, envelope.visibility);
+
+  // The organisation/team allowance is a ceiling — a document may narrow it but never widen it, so
+  // the revoked types are not offered at all. The server re-derives this rather than trusting us.
+  const allowedSignatureTypes = extractTeamSignatureSettings(team.preferences);
+
+  const allowedSignatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter((option) =>
+    allowedSignatureTypes.includes(option.value),
+  );
+
+  const inheritedDateFormatLabel =
+    DATE_FORMATS.find((format) => format.value === team.preferences.documentDateFormat)?.label ??
+    team.preferences.documentDateFormat;
 
   const onFormSubmit = async (data: TAddSettingsFormSchema) => {
     const {
@@ -499,12 +513,10 @@ export const EnvelopeEditorSettingsDialog = ({
 
                               <FormControl>
                                 <MultiSelectCombobox
-                                  options={Object.values(DOCUMENT_SIGNATURE_TYPES).map(
-                                    (option) => ({
-                                      label: t(option.label),
-                                      value: option.value,
-                                    }),
-                                  )}
+                                  options={allowedSignatureTypeOptions.map((option) => ({
+                                    label: t(option.label),
+                                    value: option.value,
+                                  }))}
                                   selectedValues={field.value}
                                   onChange={field.onChange}
                                   className="w-full bg-background"
@@ -530,8 +542,10 @@ export const EnvelopeEditorSettingsDialog = ({
 
                               <FormControl>
                                 <Select
-                                  value={field.value}
-                                  onValueChange={field.onChange}
+                                  value={field.value === null ? '-1' : field.value}
+                                  onValueChange={(value) =>
+                                    field.onChange(value === '-1' ? null : value)
+                                  }
                                   disabled={envelopeHasBeenSent}
                                 >
                                   <SelectTrigger className="bg-background">
@@ -539,6 +553,12 @@ export const EnvelopeEditorSettingsDialog = ({
                                   </SelectTrigger>
 
                                   <SelectContent>
+                                    {/* Keeps the document following the organisation/team setting
+                                        rather than pinning today's value. */}
+                                    <SelectItem value={'-1'}>
+                                      <Trans>Inherit ({inheritedDateFormatLabel})</Trans>
+                                    </SelectItem>
+
                                     {DATE_FORMATS.map((format) => (
                                       <SelectItem key={format.key} value={format.value}>
                                         {format.label}

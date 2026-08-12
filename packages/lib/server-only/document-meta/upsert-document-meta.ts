@@ -16,8 +16,10 @@ import { prisma } from '@documenso/prisma';
 import type { SupportedLanguageCodes } from '../../constants/i18n';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { TDocumentEmailSettings } from '../../types/document-email';
+import { capSignatureSettings } from '../../utils/document';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { getTeamSettings } from '../team/get-team-settings';
 
 export type CreateDocumentMetaOptions = {
   userId: number;
@@ -26,7 +28,10 @@ export type CreateDocumentMetaOptions = {
   subject?: string;
   message?: string;
   timezone?: string;
-  dateFormat?: string;
+  /**
+   * Null resets the document back to inheriting the organisation/team date format.
+   */
+  dateFormat?: string | null;
   redirectUrl?: string;
   emailId?: string | null;
   emailReplyTo?: string | null;
@@ -88,6 +93,21 @@ export const updateDocumentMeta = async ({
 
   const { documentMeta: originalDocumentMeta } = envelope;
 
+  // The organisation/team allowance is a cap — a document may narrow the signature types further but
+  // can never re-enable one that has been turned off upstream.
+  const cappedSignatureSettings =
+    typedSignatureEnabled !== undefined ||
+    uploadSignatureEnabled !== undefined ||
+    drawSignatureEnabled !== undefined
+      ? capSignatureSettings(await getTeamSettings({ userId, teamId }), {
+          typedSignatureEnabled:
+            typedSignatureEnabled ?? originalDocumentMeta?.typedSignatureEnabled,
+          uploadSignatureEnabled:
+            uploadSignatureEnabled ?? originalDocumentMeta?.uploadSignatureEnabled,
+          drawSignatureEnabled: drawSignatureEnabled ?? originalDocumentMeta?.drawSignatureEnabled,
+        })
+      : undefined;
+
   // Validate the emailId belongs to the organisation.
   if (emailId) {
     const email = await prisma.organisationEmail.findFirst({
@@ -123,9 +143,7 @@ export const updateDocumentMeta = async ({
         emailReplyTo,
         emailSettings,
         distributionMethod,
-        typedSignatureEnabled,
-        uploadSignatureEnabled,
-        drawSignatureEnabled,
+        ...cappedSignatureSettings,
         language,
       },
     });

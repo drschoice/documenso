@@ -156,12 +156,28 @@ export const convertToLocalSystemFormat = (
   const coalescedDateFormat = dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT;
   const coalescedTimeZone = timeZone ?? DEFAULT_DOCUMENT_TIME_ZONE;
 
-  const parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
+  let parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
     zone: coalescedTimeZone,
   });
 
+  // A field signed before the document's format changed was stamped under a different pattern, so
+  // fall back to the other known formats rather than showing the user "Invalid date".
   if (!parsedDate.isValid) {
-    return 'Invalid date';
+    for (const candidateFormat of VALID_DATE_FORMAT_VALUES) {
+      const candidateDate = DateTime.fromFormat(customText, candidateFormat, {
+        zone: coalescedTimeZone,
+      });
+
+      if (candidateDate.isValid) {
+        parsedDate = candidateDate;
+        break;
+      }
+    }
+  }
+
+  // Anything we cannot parse at all is shown verbatim — it is still the value that was signed.
+  if (!parsedDate.isValid) {
+    return customText;
   }
 
   const formattedDate = parsedDate.toLocal().toFormat(coalescedDateFormat);

@@ -4,7 +4,9 @@ import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { TDocumentAuthMethods } from '../../types/document-auth';
+import { resolveLiveDocumentMeta } from '../../utils/document';
 import { mapSecondaryIdToDocumentId } from '../../utils/envelope';
+import { getTeamSettings } from '../team/get-team-settings';
 import { isRecipientAuthorized } from './is-recipient-authorized';
 
 export interface GetDocumentAndSenderByTokenOptions {
@@ -149,8 +151,14 @@ export const getDocumentAndSenderByToken = async ({
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(result.secondaryId);
 
+  const settings = await getTeamSettings({ teamId: result.teamId });
+
   return {
     ...result,
+    // Re-cap the signature types and fill in an inherited date format from the organisation/team
+    // settings as they are now, so revoking either also applies to documents already out for
+    // signature. Completed documents keep their snapshot.
+    documentMeta: resolveLiveDocumentMeta(settings, result.documentMeta, result.status),
     user: {
       id: result.user.id,
       email: result.user.email,
