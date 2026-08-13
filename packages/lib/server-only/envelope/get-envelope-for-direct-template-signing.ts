@@ -5,6 +5,7 @@ import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { DocumentAccessAuth, type TDocumentAuthMethods } from '../../types/document-auth';
+import { resolveLiveDocumentMeta } from '../../utils/document';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { extractFieldAutoInsertValues } from '../document/send-document';
 import { getTeamSettings } from '../team/get-team-settings';
@@ -141,7 +142,12 @@ export const getEnvelopeForDirectTemplateSigning = async ({
       };
 
   return ZEnvelopeForSigningResponse.parse({
-    envelope,
+    envelope: {
+      ...envelope,
+      // A direct-link template is signed against the organisation/team settings as they are now, not
+      // the ones snapshotted when the template was created.
+      documentMeta: resolveLiveDocumentMeta(settings, envelope.documentMeta, envelope.status),
+    },
     recipient: {
       ...recipient,
       directToken: envelope.directLink?.token || '',

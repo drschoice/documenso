@@ -4,6 +4,7 @@ import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-e
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { capLiveDocumentMeta, isDocumentCompleted } from '../../utils/document';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { getTeamSettings } from '../team/get-team-settings';
 
@@ -99,15 +100,21 @@ export const getEditorEnvelopeById = async ({
     });
   }
 
-  // Templates do not pin the signature font family/size — documents generated from them re-resolve
-  // both from the current org/team settings (see the template creation paths). Surface those
-  // resolved values in the editor/preview so the template accurately previews what its documents
-  // will look like, instead of showing the (now meaningless) values snapshotted at template creation.
-  if (envelope.type === EnvelopeType.TEMPLATE && envelope.documentMeta) {
+  if (envelope.documentMeta && !isDocumentCompleted(envelope.status)) {
     const settings = await getTeamSettings({ userId, teamId });
 
-    envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
-    envelope.documentMeta.signatureFontSize = settings.signatureFontSize;
+    // Templates do not pin the signature font family/size — documents generated from them re-resolve
+    // both from the current org/team settings (see the template creation paths). Surface those
+    // resolved values in the editor/preview so the template accurately previews what its documents
+    // will look like, instead of showing the (now meaningless) values snapshotted at template creation.
+    if (envelope.type === EnvelopeType.TEMPLATE) {
+      envelope.documentMeta.signatureFontFamily = settings.signatureFontFamily;
+      envelope.documentMeta.signatureFontSize = settings.signatureFontSize;
+    }
+
+    // Cap only — `dateFormat` stays raw so the editor can distinguish an inherited format (null)
+    // from one the sender deliberately pinned, and offer "inherit" back as a choice.
+    envelope.documentMeta = capLiveDocumentMeta(settings, envelope.documentMeta, envelope.status);
   }
 
   return {

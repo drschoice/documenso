@@ -25,7 +25,7 @@ import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '../../types/docume
 import type { TRecipientActionAuthTypes } from '../../types/document-auth';
 import { DocumentAccessAuth, ZRecipientAuthOptionsSchema } from '../../types/document-auth';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
-import { ZFieldMetaSchema } from '../../types/field-meta';
+import { ZFieldMetaSchema, isFullNameField } from '../../types/field-meta';
 import {
   ZWebhookDocumentSchema,
   mapEnvelopeToWebhookDocumentPayload,
@@ -34,7 +34,7 @@ import type { ApiRequestMetadata } from '../../universal/extract-request-metadat
 import { getFileServerSide } from '../../universal/upload/get-file.server';
 import { putPdfFileServerSide } from '../../universal/upload/put-file.server';
 import { isRequiredField } from '../../utils/advanced-fields-helpers';
-import { extractDerivedDocumentMeta } from '../../utils/document';
+import { extractDerivedDocumentMeta, resolveDateFormat } from '../../utils/document';
 import type { CreateDocumentAuditLogDataResponse } from '../../utils/document-audit-logs';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import {
@@ -230,7 +230,13 @@ export const createDocumentFromDirectTemplate = async ({
         });
       }
 
-      if (templateField.type === FieldType.NAME && directRecipientName === undefined) {
+      // Only a NAME field holding the whole name can stand in for the recipient's name — a field
+      // bound to a single part would reduce it to just that part.
+      if (
+        templateField.type === FieldType.NAME &&
+        isFullNameField(templateField.fieldMeta) &&
+        directRecipientName === undefined
+      ) {
         directRecipientName = signedFieldValue?.value;
       }
 
@@ -272,7 +278,7 @@ export const createDocumentFromDirectTemplate = async ({
 
         customText = dateToUse
           .setZone(derivedDocumentMeta.timezone)
-          .toFormat(derivedDocumentMeta.dateFormat);
+          .toFormat(resolveDateFormat(settings, derivedDocumentMeta));
       }
 
       if (isSignatureField && !signatureImageAsBase64 && !typedSignature) {

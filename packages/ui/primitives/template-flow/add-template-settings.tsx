@@ -14,6 +14,7 @@ import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/const
 import {
   DOCUMENT_DISTRIBUTION_METHODS,
   DOCUMENT_SIGNATURE_TYPES,
+  type DocumentSignatureType,
 } from '@documenso/lib/constants/document';
 import { SUPPORTED_LANGUAGES } from '@documenso/lib/constants/i18n';
 import { DEFAULT_DOCUMENT_TIME_ZONE, TIME_ZONES } from '@documenso/lib/constants/time-zones';
@@ -86,6 +87,12 @@ export type AddTemplateSettingsFormProps = {
   isDocumentPdfLoaded: boolean;
   template: TTemplate;
   currentTeamMemberRole?: TeamMemberRole;
+
+  /**
+   * The signature types the organisation/team permits. A template may only narrow this list, so the
+   * revoked types are not offered at all.
+   */
+  allowedSignatureTypes: DocumentSignatureType[];
   onSubmit: (_data: TAddTemplateSettingsFormSchema) => void;
   onAutoSave: (_data: TAddTemplateSettingsFormSchema) => Promise<void>;
 };
@@ -97,12 +104,17 @@ export const AddTemplateSettingsFormPartial = ({
   isDocumentPdfLoaded,
   template,
   currentTeamMemberRole,
+  allowedSignatureTypes,
   onSubmit,
   onAutoSave,
 }: AddTemplateSettingsFormProps) => {
   const { t } = useLingui();
 
   const organisation = useCurrentOrganisation();
+
+  const signatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter((option) =>
+    allowedSignatureTypes.includes(option.value),
+  );
 
   const { documentAuthOption } = extractDocumentAuthMethods({
     documentAuth: template.authOptions,
@@ -442,7 +454,7 @@ export const AddTemplateSettingsFormPartial = ({
 
                   <FormControl>
                     <MultiSelectCombobox
-                      options={Object.values(DOCUMENT_SIGNATURE_TYPES).map((option) => ({
+                      options={signatureTypeOptions.map((option) => ({
                         label: t(option.label),
                         value: option.value,
                       }))}

@@ -13,6 +13,7 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { TDocumentAuthMethods } from '../../types/document-auth';
 import { ZEnvelopeFieldSchema, ZFieldSchema } from '../../types/field';
 import { ZRecipientLiteSchema } from '../../types/recipient';
+import { resolveLiveDocumentMeta } from '../../utils/document';
 import { isRecipientExpired } from '../../utils/recipients';
 import { isRecipientAuthorized } from '../document/is-recipient-authorized';
 import { getTeamSettings } from '../team/get-team-settings';
@@ -60,6 +61,9 @@ export const ZEnvelopeForSigningResponse = z.object({
       signingStatus: true,
       email: true,
       name: true,
+      firstName: true,
+      middleName: true,
+      lastName: true,
       documentDeletedAt: true,
       expired: true, //!: deprecated Not in use. To be removed in a future migration.
       expiresAt: true,
@@ -109,6 +113,9 @@ export const ZEnvelopeForSigningResponse = z.object({
     signingStatus: true,
     email: true,
     name: true,
+    firstName: true,
+    middleName: true,
+    lastName: true,
     documentDeletedAt: true,
     expiresAt: true,
     expirationNotifiedAt: true,
@@ -291,7 +298,13 @@ export const getEnvelopeForRecipientSigning = async ({
       };
 
   return ZEnvelopeForSigningResponse.parse({
-    envelope,
+    envelope: {
+      ...envelope,
+      // Re-cap the signature types and fill in an inherited date format against the organisation/team
+      // settings as they are now, so revoking either also applies to documents already out for
+      // signature. The server-side signing checks re-derive the same values independently.
+      documentMeta: resolveLiveDocumentMeta(settings, envelope.documentMeta, envelope.status),
+    },
     recipient,
     recipientSignature,
     isRecipientsTurn,

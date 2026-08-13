@@ -4,6 +4,7 @@ import { type Envelope, type Field, FieldType } from '@prisma/client';
 
 import { PDF_VIEWER_CONTENT_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
 
+import type { TFieldNamePartSchema } from '../types/field-meta';
 import { extractLegacyIds } from '../universal/id';
 
 /**
@@ -121,8 +122,24 @@ export const toRadioCustomText = (value: number): string => {
   return value.toString();
 };
 
-export const getClientSideFieldTranslations = ({ t }: I18n): Record<FieldType, string> => {
+/**
+ * Labels used by the canvas renderer for a field's placeholder text.
+ *
+ * NAME fields carry an extra per-part map, because a NAME field bound to a single part should read
+ * "First Name" rather than the generic "Name".
+ */
+export type FieldRenderTranslations = Record<FieldType, string> & {
+  namePart: Record<TFieldNamePartSchema, string>;
+};
+
+export const getClientSideFieldTranslations = ({ t }: I18n): FieldRenderTranslations => {
   return {
+    namePart: {
+      full: t(msg`Name`),
+      first: t(msg`First Name`),
+      middle: t(msg`Middle Name`),
+      last: t(msg`Last Name`),
+    },
     [FieldType.TEXT]: t(msg`Text`),
     [FieldType.CHECKBOX]: t(msg`Checkbox`),
     [FieldType.RADIO]: t(msg`Radio`),

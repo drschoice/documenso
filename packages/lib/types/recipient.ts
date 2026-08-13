@@ -21,6 +21,9 @@ export const ZRecipientSchema = RecipientSchema.pick({
   id: true,
   email: true,
   name: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
   token: true,
   documentDeletedAt: true,
   expired: true, // deprecated Not in use. To be removed in a future migration.
@@ -50,6 +53,9 @@ export const ZRecipientLiteSchema = RecipientSchema.pick({
   id: true,
   email: true,
   name: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
   token: true,
   documentDeletedAt: true,
   expired: true, // !: deprecated Not in use. To be removed in a future migration.
@@ -77,6 +83,9 @@ export const ZRecipientManySchema = RecipientSchema.pick({
   id: true,
   email: true,
   name: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
   token: true,
   documentDeletedAt: true,
   expired: true, // !: deprecated Not in use. To be removed in a future migration.
@@ -122,3 +131,17 @@ export const ZRecipientEmailSchema = z.union([
   z.literal(''),
   zEmail('Invalid email').trim().toLowerCase().max(254),
 ]);
+
+/**
+ * The individual name parts accepted on recipient write requests.
+ *
+ * These are optional everywhere: callers that only send `name` (the public API, CSV bulk send,
+ * direct links) keep working, and the parts are derived from it on read when they are absent.
+ *
+ * Spread into a request schema with `...ZRecipientNamePartsRequestSchema`.
+ */
+export const ZRecipientNamePartsRequestSchema = {
+  firstName: z.string().max(255).optional(),
+  middleName: z.string().max(255).optional(),
+  lastName: z.string().max(255).optional(),
+};

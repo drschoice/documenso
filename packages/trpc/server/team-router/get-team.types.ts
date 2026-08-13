@@ -34,6 +34,15 @@ export const ZGetTeamResponseSchema = TeamSchema.pick({
   derivedSettings: OrganisationGlobalSettingsSchema.omit({
     id: true,
   }),
+  /**
+   * The organisation's own settings, before the team's overrides are applied. Needed where the
+   * organisation acts as a cap rather than a default (signature types) — `derivedSettings` is
+   * already intersected with the team's choices and so cannot express what the team is allowed to
+   * turn back on.
+   */
+  organisationSettings: OrganisationGlobalSettingsSchema.omit({
+    id: true,
+  }),
 });
 
 export type TGetTeamResponse = z.infer<typeof ZGetTeamResponseSchema>;

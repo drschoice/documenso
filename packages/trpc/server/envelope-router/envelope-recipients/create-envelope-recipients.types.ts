@@ -8,6 +8,7 @@ import {
 import {
   ZEnvelopeRecipientLiteSchema,
   ZRecipientEmailSchema,
+  ZRecipientNamePartsRequestSchema,
 } from '@documenso/lib/types/recipient';
 
 import type { TrpcRouteMeta } from '../../trpc';
@@ -25,6 +26,7 @@ export const createEnvelopeRecipientsMeta: TrpcRouteMeta = {
 export const ZCreateEnvelopeRecipientSchema = z.object({
   email: ZRecipientEmailSchema,
   name: z.string().max(255),
+  ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole),
   signingOrder: z.number().optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),

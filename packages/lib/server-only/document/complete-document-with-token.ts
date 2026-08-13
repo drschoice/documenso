@@ -26,6 +26,7 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
 import type { TRecipientAccessAuth } from '../../types/document-auth';
 import { DocumentAuth } from '../../types/document-auth';
+import { isFullNameField } from '../../types/field-meta';
 import {
   ZWebhookDocumentSchema,
   mapEnvelopeToWebhookDocumentPayload,
@@ -226,7 +227,10 @@ export const completeDocumentWithToken = async ({
   if (!recipientName) {
     recipientName = (
       recipientOverride?.name ||
-      fields.find((field) => field.type === FieldType.NAME)?.customText ||
+      // Only a NAME field holding the whole name can stand in for the recipient's name. A field
+      // bound to a single part would reduce it to just that part.
+      fields.find((field) => field.type === FieldType.NAME && isFullNameField(field.fieldMeta))
+        ?.customText ||
       ''
     ).trim();
   }

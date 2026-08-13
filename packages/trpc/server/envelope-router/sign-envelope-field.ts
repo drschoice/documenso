@@ -1,12 +1,20 @@
-import { DocumentStatus, FieldType, type Prisma, RecipientRole, SigningStatus } from '@prisma/client';
+import {
+  DocumentStatus,
+  FieldType,
+  type Prisma,
+  RecipientRole,
+  SigningStatus,
+} from '@prisma/client';
 import { match } from 'ts-pattern';
 
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { validateFieldAuth } from '@documenso/lib/server-only/document/validate-field-auth';
+import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settings';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { getLinkGroupId } from '@documenso/lib/universal/field-linking';
+import { resolveLiveDocumentMeta } from '@documenso/lib/utils/document';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { prisma } from '@documenso/prisma';
@@ -77,7 +85,12 @@ export const signEnvelopeFieldRoute = procedure
     }
 
     const { envelope } = field;
-    const { documentMeta } = envelope;
+
+    // The stored meta is only a snapshot — re-resolve it so a signature type the organisation has
+    // since revoked is rejected, and so an inherited date format uses the current setting.
+    const settings = await getTeamSettings({ teamId: envelope.teamId });
+
+    const documentMeta = resolveLiveDocumentMeta(settings, envelope.documentMeta, envelope.status);
 
     if (envelope.internalVersion !== 2) {
       throw new AppError(AppErrorCode.NOT_FOUND, {

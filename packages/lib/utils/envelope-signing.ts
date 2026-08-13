@@ -28,7 +28,20 @@ import { checkboxValidationSigns } from '@documenso/ui/primitives/document-flow/
 export type ExtractFieldInsertionValuesOptions = {
   fieldValue: TSignEnvelopeFieldValue;
   field: Field;
-  documentMeta: Pick<TDocumentMeta, 'timezone' | 'dateFormat' | 'typedSignatureEnabled'>;
+
+  /**
+   * Must already be resolved against the current organisation/team settings via
+   * `resolveLiveDocumentMeta` — the stored meta may carry a stale date format or a signature type
+   * the organisation has since revoked.
+   */
+  documentMeta: Pick<
+    TDocumentMeta,
+    | 'timezone'
+    | 'dateFormat'
+    | 'typedSignatureEnabled'
+    | 'uploadSignatureEnabled'
+    | 'drawSignatureEnabled'
+  >;
 };
 
 export const extractFieldInsertionValues = ({
@@ -251,6 +264,18 @@ export const extractFieldInsertionValues = ({
       if (documentMeta.typedSignatureEnabled === false && !isBase64) {
         throw new AppError(AppErrorCode.INVALID_BODY, {
           message: 'Typed signatures are not allowed. Please draw your signature',
+        });
+      }
+
+      // Drawn and uploaded signatures are both base64 images and are indistinguishable here, so
+      // they can only be rejected once neither is allowed.
+      if (
+        isBase64 &&
+        documentMeta.drawSignatureEnabled === false &&
+        documentMeta.uploadSignatureEnabled === false
+      ) {
+        throw new AppError(AppErrorCode.INVALID_BODY, {
+          message: 'Drawn and uploaded signatures are not allowed. Please type your signature',
         });
       }
 

@@ -72,7 +72,8 @@ export const ZWebhookDocumentMetaSchema = z.object({
   subject: z.string().nullable(),
   message: z.string().nullable(),
   timezone: z.string(),
-  dateFormat: z.string(),
+  // Null means the document inherits the organisation/team date format rather than pinning one.
+  dateFormat: z.string().nullable(),
   redirectUrl: z.string().nullable(),
   signingOrder: z.nativeEnum(DocumentSigningOrder),
   allowDictateNextSigner: z.boolean(),

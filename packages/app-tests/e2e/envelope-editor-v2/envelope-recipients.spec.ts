@@ -13,7 +13,7 @@ import {
   clickEnvelopeEditorStep,
   getEnvelopeEditorSettingsTrigger,
   getRecipientEmailInputs,
-  getRecipientNameInputs,
+  getRecipientFullNamePreviews,
   getRecipientRemoveButtons,
   getSigningOrderInputs,
   openDocumentEnvelopeEditor,
@@ -130,10 +130,11 @@ const runRecipientFlow = async (surface: TEnvelopeEditorSurface): Promise<Recipi
   );
   await expect(getRecipientEmailInputs(surface.root).nth(1)).toHaveValue(primaryRecipient.email);
 
-  await expect(getRecipientNameInputs(surface.root).nth(0)).toHaveValue(
+  // The name is edited as first/middle/last, so assert on the derived full-name preview.
+  await expect(getRecipientFullNamePreviews(surface.root).nth(0)).toHaveText(
     TEST_RECIPIENT_VALUES.secondRecipient.name,
   );
-  await expect(getRecipientNameInputs(surface.root).nth(1)).toHaveValue(primaryRecipient.name);
+  await expect(getRecipientFullNamePreviews(surface.root).nth(1)).toHaveText(primaryRecipient.name);
 
   await assertRecipientRole(surface.root, 0, 'Needs to approve');
   await assertRecipientRole(surface.root, 1, 'Needs to sign');

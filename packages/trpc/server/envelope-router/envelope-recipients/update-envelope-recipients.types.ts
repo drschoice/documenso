@@ -5,7 +5,11 @@ import {
   ZRecipientAccessAuthTypesSchema,
   ZRecipientActionAuthTypesSchema,
 } from '@documenso/lib/types/document-auth';
-import { ZRecipientEmailSchema, ZRecipientLiteSchema } from '@documenso/lib/types/recipient';
+import {
+  ZRecipientEmailSchema,
+  ZRecipientLiteSchema,
+  ZRecipientNamePartsRequestSchema,
+} from '@documenso/lib/types/recipient';
 
 import type { TrpcRouteMeta } from '../../trpc';
 
@@ -23,6 +27,7 @@ export const ZUpdateEnvelopeRecipientSchema = z.object({
   id: z.number().describe('The ID of the recipient to update.'),
   email: ZRecipientEmailSchema.optional(),
   name: z.string().max(255).optional(),
+  ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole).optional(),
   signingOrder: z.number().optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),

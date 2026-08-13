@@ -5,6 +5,7 @@ import { useLoaderData } from 'react-router';
 
 import { IS_AI_FEATURES_CONFIGURED } from '@documenso/lib/constants/app';
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
+import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
@@ -118,6 +119,9 @@ export default function TeamsSettingsPage() {
           canInherit={true}
           isAiFeaturesConfigured={isAiFeaturesConfigured}
           settings={teamWithSettings.teamSettings}
+          allowedSignatureTypes={extractTeamSignatureSettings(
+            teamWithSettings.organisationSettings,
+          )}
           onFormSubmit={onDocumentPreferencesSubmit}
         />
       </section>

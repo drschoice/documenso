@@ -88,6 +88,14 @@ export const getOrganisationSession = async ({
           currentTeamRole: getHighestTeamRoleInGroup(team.teamGroups),
           preferences: {
             aiFeaturesEnabled: derivedSettings.aiFeaturesEnabled,
+
+            // The ceiling every document and template in this team is held to. Authoring UIs use
+            // these to hide options the organisation/team has revoked; the server re-derives the
+            // same values rather than trusting the client.
+            typedSignatureEnabled: derivedSettings.typedSignatureEnabled,
+            uploadSignatureEnabled: derivedSettings.uploadSignatureEnabled,
+            drawSignatureEnabled: derivedSettings.drawSignatureEnabled,
+            documentDateFormat: derivedSettings.documentDateFormat,
           },
         };
       }),

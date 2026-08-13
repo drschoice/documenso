@@ -11,11 +11,18 @@ import {
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
-import { ZDateFieldMeta, ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
+import {
+  ZDateFieldMeta,
+  ZFieldAndMetaSchema,
+  getFieldNamePart,
+} from '@documenso/lib/types/field-meta';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
+import {
+  extractInitials,
+  resolveRecipientNamePart,
+} from '@documenso/lib/utils/recipient-formatter';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { RecipientSelector } from '@documenso/ui/primitives/recipient-selector';
@@ -23,6 +30,7 @@ import { Separator } from '@documenso/ui/primitives/separator';
 
 import { EnvelopeGenericPageRenderer } from '~/components/general/envelope-editor/envelope-generic-page-renderer';
 import { EnvelopePdfViewer } from '~/components/general/pdf-viewer/envelope-pdf-viewer';
+import { useCurrentTeam } from '~/providers/team';
 
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
 
@@ -30,6 +38,8 @@ export const EnvelopeEditorPreviewPage = () => {
   const { envelope, editorFields, editorConfig } = useCurrentEnvelopeEditor();
 
   const { currentEnvelopeItem, fields } = useCurrentEnvelopeRender();
+
+  const team = useCurrentTeam();
 
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +96,12 @@ export const EnvelopeEditorPreviewPage = () => {
               value: dateMeta.data.value,
             },
             field,
-            documentMeta: envelope.documentMeta,
+            documentMeta: {
+              ...envelope.documentMeta,
+              // The editor keeps `dateFormat` raw so it can offer "inherit"; previewing needs the
+              // concrete format the document will actually be signed with.
+              dateFormat: envelope.documentMeta.dateFormat ?? team.preferences.documentDateFormat,
+            },
           });
 
           return { customText: date.customText, inserted: date.customText !== '' };
@@ -94,8 +109,12 @@ export const EnvelopeEditorPreviewPage = () => {
         .with({ type: FieldType.EMAIL }, () => {
           return { customText: recipientEmail, inserted: recipientEmail !== '' };
         })
-        .with({ type: FieldType.NAME }, () => {
-          return { customText: recipientName, inserted: recipientName !== '' };
+        .with({ type: FieldType.NAME }, ({ fieldMeta }) => {
+          const namePartValue = resolveRecipientNamePart(getFieldNamePart(fieldMeta), {
+            recipient,
+          });
+
+          return { customText: namePartValue, inserted: namePartValue !== '' };
         })
         .with({ type: FieldType.INITIALS }, () => {
           const initials = recipientName ? extractInitials(recipientName) : '';
@@ -154,7 +173,13 @@ export const EnvelopeEditorPreviewPage = () => {
         ...overrides,
       };
     });
-  }, [fields, envelope, envelope.recipients, envelope.documentMeta]);
+  }, [
+    fields,
+    envelope,
+    envelope.recipients,
+    envelope.documentMeta,
+    team.preferences.documentDateFormat,
+  ]);
 
   /**
    * Apply conditional-visibility to the placeholder data so the preview reflects

@@ -16,6 +16,7 @@ import { type TFieldMetaSchema, ZFieldMetaSchema } from '@documenso/lib/types/fi
 import { nanoid } from '@documenso/lib/universal/id';
 import { ADVANCED_FIELD_TYPES_WITH_OPTIONAL_SETTING } from '@documenso/lib/utils/advanced-fields-helpers';
 import { getDocumentDataUrlForPdfViewer } from '@documenso/lib/utils/envelope-download';
+import { splitFullName } from '@documenso/lib/utils/recipient-formatter';
 import { getRecipientColorStyles } from '@documenso/ui/lib/recipient-colors';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
@@ -108,6 +109,7 @@ export const ConfigureFieldsView = ({
     return configData.signers.map<Recipient>((signer, index) => ({
       id: signer.nativeId || index,
       name: signer.name || '',
+      ...splitFullName(signer.name || ''),
       email: signer.email || '',
       role: signer.role,
       signingOrder: signer.signingOrder || null,

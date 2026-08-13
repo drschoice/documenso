@@ -8,7 +8,8 @@ import { useRevalidator } from 'react-router';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
-import { ZNameFieldMeta } from '@documenso/lib/types/field-meta';
+import { ZNameFieldMeta, getFieldNamePart, isFullNameField } from '@documenso/lib/types/field-meta';
+import { resolveRecipientNamePart } from '@documenso/lib/utils/recipient-formatter';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
 import { trpc } from '@documenso/trpc/react';
 import type {
@@ -83,7 +84,12 @@ export const DocumentSigningNameField = ({
    */
   const onDialogSignClick = () => {
     setShowFullNameModal(false);
-    setProvidedFullName(localFullName);
+
+    // A field bound to a single name part must not overwrite the signer's full name, which also
+    // drives the initials and typed signature.
+    if (isFullNameField(parsedFieldMeta)) {
+      setProvidedFullName(localFullName);
+    }
 
     void executeActionAuthProcedure({
       onReauthFormSubmit: async (authOptions) => await onSign(authOptions, localFullName),
@@ -93,7 +99,10 @@ export const DocumentSigningNameField = ({
 
   const onSign = async (authOptions?: TRecipientActionAuth, name?: string) => {
     try {
-      const value = name || providedFullName || '';
+      const value = resolveRecipientNamePart(getFieldNamePart(parsedFieldMeta), {
+        recipient,
+        fullName: name || providedFullName || '',
+      });
 
       if (!value && !isAssistantMode) {
         setShowFullNameModal(true);

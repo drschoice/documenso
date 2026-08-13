@@ -23,6 +23,11 @@ import {
 import { AppError } from '@documenso/lib/errors/app-error';
 import { ZRecipientEmailSchema } from '@documenso/lib/types/recipient';
 import { putPdfFile } from '@documenso/lib/universal/upload/put-file';
+import {
+  buildRecipientFullName,
+  getRecipientNameParts,
+  splitFullName,
+} from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
@@ -46,6 +51,7 @@ import {
   FormMessage,
 } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
+import { Label } from '@documenso/ui/primitives/label';
 import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
 import { SpinnerBox } from '@documenso/ui/primitives/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
@@ -84,13 +90,19 @@ const ZAddRecipientsForNewDocumentSchema = z.object({
     z.object({
       id: z.number(),
       email: ZRecipientEmailSchema,
+      // Derived from the parts below; kept so placeholder handling and the API payload stay simple.
       name: z.string(),
+      firstName: z.string().max(255),
+      middleName: z.string().max(255),
+      lastName: z.string().max(255),
       signingOrder: z.number().optional(),
     }),
   ),
 });
 
 type TAddRecipientsForNewDocumentSchema = z.infer<typeof ZAddRecipientsForNewDocumentSchema>;
+
+const blankNameParts = { firstName: '', middleName: '', lastName: '' };
 
 export type TemplateUseDialogProps = {
   envelopeId: string;
@@ -158,9 +170,12 @@ export function TemplateUseDialog({
             TEMPLATE_RECIPIENT_NAME_PLACEHOLDER_REGEX,
           );
 
+          const name = !isRecipientNamePlaceholder ? recipient.name : '';
+
           return {
             id: recipient.id,
-            name: !isRecipientNamePlaceholder ? recipient.name : '',
+            name,
+            ...(name ? getRecipientNameParts({ ...recipient, name }) : blankNameParts),
             email: !isRecipientEmailPlaceholder ? recipient.email : '',
             signingOrder: recipient.signingOrder ?? undefined,
           };
@@ -249,6 +264,39 @@ export function TemplateUseDialog({
     }
   };
 
+  /**
+   * Editing a name part rebuilds the full name from the parts.
+   */
+  const onNamePartChange = (
+    index: number,
+    part: 'firstName' | 'middleName' | 'lastName',
+    value: string,
+  ) => {
+    const options = { shouldDirty: true, shouldValidate: true };
+
+    form.setValue(`recipients.${index}.${part}`, value, options);
+
+    const parts = { ...form.getValues(`recipients.${index}`), [part]: value };
+
+    form.setValue(`recipients.${index}.name`, buildRecipientFullName(parts), options);
+  };
+
+  /**
+   * Overwriting the full name splits it back into parts.
+   *
+   * Joining the split parts reproduces the entered name exactly, so the server rebuilding `name`
+   * from the parts preserves whatever was typed here.
+   */
+  const onFullNameChange = (index: number, value: string) => {
+    const options = { shouldDirty: true, shouldValidate: true };
+    const parts = splitFullName(value);
+
+    form.setValue(`recipients.${index}.name`, value, options);
+    form.setValue(`recipients.${index}.firstName`, parts.firstName, options);
+    form.setValue(`recipients.${index}.middleName`, parts.middleName, options);
+    form.setValue(`recipients.${index}.lastName`, parts.lastName, options);
+  };
+
   const { fields: formRecipients } = useFieldArray({
     control: form.control,
     name: 'recipients',
@@ -282,7 +330,7 @@ export function TemplateUseDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
             <Trans>Create document from template</Trans>
@@ -348,28 +396,94 @@ export function TemplateUseDialog({
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name={`recipients.${index}.name`}
-                      render={({ field }) => (
-                        <FormItem className="w-full">
-                          {index === 0 && (
-                            <FormLabel>
-                              <Trans>Name</Trans>
-                            </FormLabel>
-                          )}
-
-                          <FormControl>
-                            <Input
-                              {...field}
-                              aria-label="Name"
-                              placeholder={recipients[index].name || _(msg`Recipient ${index + 1}`)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="w-full">
+                      {index === 0 && (
+                        <Label className="mb-2 block">
+                          <Trans>Name</Trans>
+                        </Label>
                       )}
-                    />
+
+                      <div className="flex items-start gap-x-1">
+                        <FormField
+                          control={form.control}
+                          name={`recipients.${index}.firstName`}
+                          render={({ field }) => (
+                            <FormItem className="w-full">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  aria-label={_(msg`First name`)}
+                                  placeholder={_(msg`First`)}
+                                  onChange={(e) =>
+                                    onNamePartChange(index, 'firstName', e.target.value)
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`recipients.${index}.middleName`}
+                          render={({ field }) => (
+                            <FormItem className="w-2/5 flex-shrink-0">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  aria-label={_(msg`Middle name`)}
+                                  placeholder={_(msg`Middle`)}
+                                  onChange={(e) =>
+                                    onNamePartChange(index, 'middleName', e.target.value)
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`recipients.${index}.lastName`}
+                          render={({ field }) => (
+                            <FormItem className="w-full">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  aria-label={_(msg`Last name`)}
+                                  placeholder={_(msg`Last`)}
+                                  onChange={(e) =>
+                                    onNamePartChange(index, 'lastName', e.target.value)
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name={`recipients.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem className="mt-1.5">
+                            <FormControl>
+                              <Input
+                                {...field}
+                                className="h-8 text-xs text-muted-foreground"
+                                aria-label={_(msg`Full name`)}
+                                placeholder={_(msg`Full name`)}
+                                onChange={(e) => onFullNameChange(index, e.target.value)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 ))}
 

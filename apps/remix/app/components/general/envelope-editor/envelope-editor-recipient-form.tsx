@@ -25,6 +25,11 @@ import { useOptionalSession } from '@documenso/lib/client-only/providers/session
 import type { TDetectedRecipientSchema } from '@documenso/lib/server-only/ai/envelope/detect-recipients/schema';
 import { ZRecipientAuthOptionsSchema } from '@documenso/lib/types/document-auth';
 import { nanoid } from '@documenso/lib/universal/id';
+import {
+  buildRecipientFullName,
+  getRecipientNameParts,
+  splitFullName,
+} from '@documenso/lib/utils/recipient-formatter';
 import { canRecipientBeModified as utilCanRecipientBeModified } from '@documenso/lib/utils/recipients';
 import { trpc } from '@documenso/trpc/react';
 import { RecipientActionAuthSelect } from '@documenso/ui/components/recipient/recipient-action-auth-select';
@@ -54,6 +59,7 @@ import {
 } from '@documenso/ui/primitives/form/form';
 import { FormErrorMessage } from '@documenso/ui/primitives/form/form-error-message';
 import { Input } from '@documenso/ui/primitives/input';
+import { Label } from '@documenso/ui/primitives/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
@@ -203,7 +209,7 @@ export const EnvelopeEditorRecipientForm = () => {
 
   const emptySignerIndex = watchedSigners.findIndex(
     (signer) =>
-      !signer.name &&
+      !buildRecipientFullName(signer) &&
       !signer.email &&
       envelope.fields.filter((field) => field.recipientId === signer.id).length === 0,
   );
@@ -234,10 +240,34 @@ export const EnvelopeEditorRecipientForm = () => {
     return utilCanRecipientBeModified(recipient, fields);
   };
 
+  /**
+   * Expand a full name that came from somewhere else — the signed-in user, a recipient suggestion,
+   * or AI detection — into the name parts the form now edits.
+   */
+  const splitDetectedName = (fullName: string) => {
+    const parts = splitFullName(fullName);
+
+    return { name: buildRecipientFullName(parts), ...parts };
+  };
+
+  const setSignerFullName = (index: number, fullName: string) => {
+    const { name, firstName, middleName, lastName } = splitDetectedName(fullName);
+
+    const options = { shouldValidate: true, shouldDirty: true };
+
+    setValue(`signers.${index}.name`, name, options);
+    setValue(`signers.${index}.firstName`, firstName, options);
+    setValue(`signers.${index}.middleName`, middleName, options);
+    setValue(`signers.${index}.lastName`, lastName, options);
+  };
+
   const onAddSigner = () => {
     appendSigner({
       formId: nanoid(12),
       name: '',
+      firstName: '',
+      middleName: '',
+      lastName: '',
       email: '',
       role: RecipientRole.SIGNER,
       actionAuth: [],
@@ -254,12 +284,16 @@ export const EnvelopeEditorRecipientForm = () => {
         : 1;
 
     // If the only signer is the default empty signer lets just replace it with the detected recipients
-    if (currentSigners.length === 1 && !currentSigners[0].name && !currentSigners[0].email) {
+    if (
+      currentSigners.length === 1 &&
+      !buildRecipientFullName(currentSigners[0]) &&
+      !currentSigners[0].email
+    ) {
       form.setValue(
         'signers',
         detectedRecipients.map((recipient, index) => ({
           formId: nanoid(12),
-          name: recipient.name,
+          ...splitDetectedName(recipient.name),
           email: recipient.email,
           role: recipient.role,
           actionAuth: [],
@@ -280,7 +314,7 @@ export const EnvelopeEditorRecipientForm = () => {
       );
 
       const nameExists = currentSigners.some(
-        (s) => s.name.toLowerCase() === recipient.name.toLowerCase(),
+        (s) => buildRecipientFullName(s).toLowerCase() === recipient.name.toLowerCase(),
       );
 
       if ((emailExists && recipient.email) || (nameExists && recipient.name)) {
@@ -289,7 +323,7 @@ export const EnvelopeEditorRecipientForm = () => {
 
       currentSigners.push({
         formId: nanoid(12),
-        name: recipient.name,
+        ...splitDetectedName(recipient.name),
         email: recipient.email,
         role: recipient.role,
         actionAuth: [],
@@ -344,10 +378,7 @@ export const EnvelopeEditorRecipientForm = () => {
 
   const onAddSelfSigner = () => {
     if (emptySignerIndex !== -1) {
-      setValue(`signers.${emptySignerIndex}.name`, user?.name ?? '', {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
+      setSignerFullName(emptySignerIndex, user?.name ?? '');
       setValue(`signers.${emptySignerIndex}.email`, user?.email ?? '', {
         shouldValidate: true,
         shouldDirty: true,
@@ -358,7 +389,7 @@ export const EnvelopeEditorRecipientForm = () => {
       appendSigner(
         {
           formId: nanoid(12),
-          name: user?.name ?? '',
+          ...splitDetectedName(user?.name ?? ''),
           email: user?.email ?? '',
           role: RecipientRole.SIGNER,
           actionAuth: [],
@@ -382,10 +413,7 @@ export const EnvelopeEditorRecipientForm = () => {
       shouldValidate: true,
       shouldDirty: true,
     });
-    setValue(`signers.${index}.name`, suggestion.name || '', {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
+    setSignerFullName(index, suggestion.name || '');
   };
 
   const onDragEnd = useCallback(
@@ -550,13 +578,21 @@ export const EnvelopeEditorRecipientForm = () => {
     // with no signing order. If they come to this page it will show an error
     // since they aren't equal and the recipient is no longer editable.
     const envelopeRecipients = data.signers.map((recipient) => {
+      // `name` is derived from the parts, so keep it in step with what was typed. The server
+      // rebuilds it too, but the optimistic recipient in the editor reads this value.
+      const withDerivedName = {
+        ...recipient,
+        name: buildRecipientFullName(recipient),
+      };
+
       if (!canRecipientBeModified(recipient.id)) {
         return {
-          ...recipient,
+          ...withDerivedName,
           signingOrder: recipient.signingOrder,
         };
       }
-      return recipient;
+
+      return withDerivedName;
     });
 
     const hasSigningOrderChanged = envelope.documentMeta.signingOrder !== data.signingOrder;
@@ -575,9 +611,15 @@ export const EnvelopeEditorRecipientForm = () => {
         const signerActionAuth = signer.actionAuth;
         const recipientActionAuth = recipient.authOptions?.actionAuth || [];
 
+        // Compare against the recipient's derived parts so simply opening an editor for a
+        // pre-split recipient doesn't look like an edit.
+        const recipientNameParts = getRecipientNameParts(recipient);
+
         return (
           signer.email !== recipient.email ||
-          signer.name !== recipient.name ||
+          signer.firstName !== recipientNameParts.firstName ||
+          signer.middleName !== recipientNameParts.middleName ||
+          signer.lastName !== recipientNameParts.lastName ||
           signer.role !== recipient.role ||
           signer.signingOrder !== recipient.signingOrder ||
           !isDeepEqual(signerActionAuth, recipientActionAuth)
@@ -944,51 +986,123 @@ export const EnvelopeEditorRecipientForm = () => {
                                   )}
                                 />
 
-                                <FormField
-                                  control={form.control}
-                                  name={`signers.${index}.name`}
-                                  render={({ field }) => (
-                                    <FormItem
-                                      className={cn('w-full', {
-                                        'mb-6':
-                                          form.formState.errors.signers?.[index] &&
-                                          !form.formState.errors.signers[index]?.name,
-                                      })}
-                                    >
-                                      {!showAdvancedSettings && index === 0 && (
-                                        <FormLabel>
-                                          <Trans>Name</Trans>
-                                        </FormLabel>
-                                      )}
-
-                                      <FormControl>
-                                        <RecipientAutoCompleteInput
-                                          type="text"
-                                          placeholder={t`Recipient ${index + 1}`}
-                                          {...field}
-                                          disabled={
-                                            snapshot.isDragging ||
-                                            isSubmitting ||
-                                            !canRecipientBeModified(signer.id) ||
-                                            isDirectRecipient
-                                          }
-                                          options={recipientSuggestions}
-                                          onSelect={(suggestion) =>
-                                            handleRecipientAutoCompleteSelect(index, suggestion)
-                                          }
-                                          onSearchQueryChange={(query) => {
-                                            field.onChange(query);
-                                            setRecipientSearchQuery(query);
-                                          }}
-                                          loading={isLoading}
-                                          maxLength={255}
-                                        />
-                                      </FormControl>
-
-                                      <FormMessage />
-                                    </FormItem>
+                                <div
+                                  className={cn('w-full', {
+                                    'mb-6':
+                                      form.formState.errors.signers?.[index] &&
+                                      !form.formState.errors.signers[index]?.firstName &&
+                                      !form.formState.errors.signers[index]?.middleName &&
+                                      !form.formState.errors.signers[index]?.lastName,
+                                  })}
+                                >
+                                  {!showAdvancedSettings && index === 0 && (
+                                    <Label className="mb-2 block">
+                                      <Trans>Name</Trans>
+                                    </Label>
                                   )}
-                                />
+
+                                  <div className="flex items-start gap-x-1">
+                                    <FormField
+                                      control={form.control}
+                                      name={`signers.${index}.firstName`}
+                                      render={({ field }) => (
+                                        <FormItem className="w-full">
+                                          <FormControl>
+                                            <RecipientAutoCompleteInput
+                                              type="text"
+                                              placeholder={t`First`}
+                                              aria-label={t`First name`}
+                                              {...field}
+                                              disabled={
+                                                snapshot.isDragging ||
+                                                isSubmitting ||
+                                                !canRecipientBeModified(signer.id) ||
+                                                isDirectRecipient
+                                              }
+                                              options={recipientSuggestions}
+                                              onSelect={(suggestion) =>
+                                                handleRecipientAutoCompleteSelect(index, suggestion)
+                                              }
+                                              onSearchQueryChange={(query) => {
+                                                field.onChange(query);
+                                                setRecipientSearchQuery(query);
+                                              }}
+                                              loading={isLoading}
+                                              data-testid="signer-first-name-input"
+                                              maxLength={255}
+                                            />
+                                          </FormControl>
+
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name={`signers.${index}.middleName`}
+                                      render={({ field }) => (
+                                        <FormItem className="w-2/5 flex-shrink-0">
+                                          <FormControl>
+                                            <Input
+                                              type="text"
+                                              placeholder={t`Middle`}
+                                              aria-label={t`Middle name`}
+                                              {...field}
+                                              disabled={
+                                                snapshot.isDragging ||
+                                                isSubmitting ||
+                                                !canRecipientBeModified(signer.id) ||
+                                                isDirectRecipient
+                                              }
+                                              data-testid="signer-middle-name-input"
+                                              maxLength={255}
+                                            />
+                                          </FormControl>
+
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name={`signers.${index}.lastName`}
+                                      render={({ field }) => (
+                                        <FormItem className="w-full">
+                                          <FormControl>
+                                            <Input
+                                              type="text"
+                                              placeholder={t`Last`}
+                                              aria-label={t`Last name`}
+                                              {...field}
+                                              disabled={
+                                                snapshot.isDragging ||
+                                                isSubmitting ||
+                                                !canRecipientBeModified(signer.id) ||
+                                                isDirectRecipient
+                                              }
+                                              data-testid="signer-last-name-input"
+                                              maxLength={255}
+                                            />
+                                          </FormControl>
+
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+
+                                  {buildRecipientFullName(watchedSigners[index] ?? {}) && (
+                                    <p
+                                      className="mt-1.5 truncate text-xs text-muted-foreground"
+                                      title={buildRecipientFullName(watchedSigners[index] ?? {})}
+                                      data-testid="signer-full-name-preview"
+                                    >
+                                      {buildRecipientFullName(watchedSigners[index] ?? {})}
+                                    </p>
+                                  )}
+                                </div>
 
                                 <FormField
                                   control={form.control}

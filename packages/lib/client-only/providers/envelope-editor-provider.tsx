@@ -1,7 +1,14 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { useLingui } from '@lingui/react/macro';
-import { EnvelopeType, type FieldType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
+import {
+  EnvelopeType,
+  type FieldType,
+  Prisma,
+  ReadStatus,
+  SendStatus,
+  SigningStatus,
+} from '@prisma/client';
 import { useSearchParams } from 'react-router';
 
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
@@ -19,6 +26,7 @@ import { getRecipientColor } from '@documenso/ui/lib/recipient-colors';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import type { TDocumentEmailSettings } from '../../types/document-email';
+import { resolveRecipientNameOnCreate } from '../../utils/recipient-formatter';
 import { formatDocumentsPath, formatTemplatesPath } from '../../utils/teams';
 import { useEditorFields } from '../hooks/use-editor-fields';
 import type { TLocalField } from '../hooks/use-editor-fields';
@@ -151,8 +159,9 @@ export const EnvelopeEditorProvider = ({
 
   const [envelope, _setEnvelope] = useState(initialEnvelope);
   const [autosaveError, setAutosaveError] = useState<boolean>(false);
-  const [visibilityPickTarget, setVisibilityPickTarget] =
-    useState<VisibilityPickModeTarget | null>(null);
+  const [visibilityPickTarget, setVisibilityPickTarget] = useState<VisibilityPickModeTarget | null>(
+    null,
+  );
   const [linkPickTarget, setLinkPickTarget] = useState<LinkPickModeTarget | null>(null);
 
   const envelopeRef = useRef(initialEnvelope);
@@ -602,7 +611,9 @@ const mapLocalRecipientsToRecipients = ({
       id: recipientId,
       envelopeId: envelope.id,
       email: recipient.email,
-      name: recipient.name,
+      // Derive the full name from the parts the same way the server does, so the optimistic
+      // recipient matches what comes back from `setEnvelopeRecipients`.
+      ...resolveRecipientNameOnCreate(recipient),
       token: foundRecipient?.token || '',
       documentDeletedAt: foundRecipient?.documentDeletedAt || null,
       expired: foundRecipient?.expired || null,

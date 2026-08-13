@@ -3,7 +3,9 @@ import { EnvelopeType } from '@prisma/client';
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { resolveLiveDocumentMeta } from '../../utils/document';
 import { mapSecondaryIdToTemplateId } from '../../utils/envelope';
+import { getTeamSettings } from '../team/get-team-settings';
 
 export interface GetTemplateByDirectLinkTokenOptions {
   token: string;
@@ -45,6 +47,12 @@ export const getTemplateByDirectLinkToken = async ({
     throw new AppError(AppErrorCode.NOT_FOUND);
   }
 
+  // A direct-link template is signed against the organisation/team settings as they are now rather
+  // than the ones snapshotted when the template was created.
+  const settings = await getTeamSettings({ teamId: envelope.teamId });
+
+  const templateMeta = resolveLiveDocumentMeta(settings, envelope.documentMeta, envelope.status);
+
   const recipientsWithMappedFields = envelope.recipients.map((recipient) => ({
     ...recipient,
     templateId: mapSecondaryIdToTemplateId(envelope.secondaryId),
@@ -82,7 +90,7 @@ export const getTemplateByDirectLinkToken = async ({
       templateId: mapSecondaryIdToTemplateId(envelope.secondaryId),
     },
     templateMeta: {
-      ...envelope.documentMeta,
+      ...templateMeta,
       templateId: mapSecondaryIdToTemplateId(envelope.secondaryId),
     },
     recipients: recipientsWithMappedFields,

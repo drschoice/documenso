@@ -89,6 +89,7 @@ export const getTeam = async ({
     ...team,
     currentTeamRole: getHighestTeamRoleInGroup(team.teamGroups),
     teamSettings,
+    organisationSettings,
     derivedSettings: extractDerivedTeamSettings(organisationSettings, teamSettings),
   };
 };

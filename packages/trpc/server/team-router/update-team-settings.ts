@@ -93,6 +93,34 @@ export const updateTeamSettingsRoute = authenticatedProcedure
       });
     }
 
+    // The organisation's signature types are a cap, not a default — a team may narrow them further
+    // but can never re-enable one the organisation has turned off. Null means "inherit", which is
+    // always within the cap.
+    if (typedSignatureEnabled || uploadSignatureEnabled || drawSignatureEnabled) {
+      const organisationSettings = await prisma.organisationGlobalSettings.findFirstOrThrow({
+        where: {
+          organisation: {
+            id: team.organisationId,
+          },
+        },
+        select: {
+          typedSignatureEnabled: true,
+          uploadSignatureEnabled: true,
+          drawSignatureEnabled: true,
+        },
+      });
+
+      if (
+        (typedSignatureEnabled && !organisationSettings.typedSignatureEnabled) ||
+        (uploadSignatureEnabled && !organisationSettings.uploadSignatureEnabled) ||
+        (drawSignatureEnabled && !organisationSettings.drawSignatureEnabled)
+      ) {
+        throw new AppError(AppErrorCode.INVALID_BODY, {
+          message: 'Cannot enable a signature type which is disabled for the organisation',
+        });
+      }
+    }
+
     // Validate that the email ID belongs to the organisation.
     if (emailId) {
       const email = await prisma.organisationEmail.findFirst({

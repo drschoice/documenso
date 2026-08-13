@@ -18,6 +18,10 @@ export const ZGetOrganisationSessionResponseSchema = ZOrganisationSchema.extend(
       currentTeamRole: z.nativeEnum(TeamMemberRole),
       preferences: z.object({
         aiFeaturesEnabled: z.boolean(),
+        typedSignatureEnabled: z.boolean(),
+        uploadSignatureEnabled: z.boolean(),
+        drawSignatureEnabled: z.boolean(),
+        documentDateFormat: z.string(),
       }),
     }),
   ),

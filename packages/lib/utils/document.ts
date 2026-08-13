@@ -20,6 +20,110 @@ export const isDocumentCompleted = (document: Pick<Envelope, 'status'> | Documen
   return status === DocumentStatus.COMPLETED || status === DocumentStatus.REJECTED;
 };
 
+type SignatureSettings = Pick<
+  OrganisationGlobalSettings,
+  'typedSignatureEnabled' | 'uploadSignatureEnabled' | 'drawSignatureEnabled'
+>;
+
+type PartialSignatureSettings = Partial<{
+  [K in keyof SignatureSettings]: boolean | null;
+}>;
+
+/**
+ * The organisation/team settings are a ceiling, not a default.
+ *
+ * A signature type disabled upstream can never be re-enabled by a team, a template or a document —
+ * downstream values may only narrow the allowance further. Applied both when writing a document and
+ * when reading one back, so disabling a signature type also takes effect on envelopes which already
+ * exist.
+ *
+ * @param settings - The merged organisation/team settings acting as the cap.
+ * @param value - The downstream value to narrow. Missing/null keys mean "no opinion".
+ */
+export const capSignatureSettings = (
+  settings: SignatureSettings,
+  value: PartialSignatureSettings | undefined | null,
+): SignatureSettings => {
+  const narrowed = value ?? {};
+
+  return {
+    typedSignatureEnabled:
+      settings.typedSignatureEnabled && (narrowed.typedSignatureEnabled ?? true),
+    uploadSignatureEnabled:
+      settings.uploadSignatureEnabled && (narrowed.uploadSignatureEnabled ?? true),
+    drawSignatureEnabled: settings.drawSignatureEnabled && (narrowed.drawSignatureEnabled ?? true),
+  };
+};
+
+type LiveResolvableMeta = SignatureSettings & Pick<DocumentMeta, 'dateFormat'>;
+
+/**
+ * Resolve a stored date format, where null means "inherit from the organisation/team".
+ *
+ * @param settings - The merged organisation/team settings.
+ * @param meta - The stored document meta.
+ */
+export const resolveDateFormat = (
+  settings: Pick<OrganisationGlobalSettings, 'documentDateFormat'>,
+  meta: Pick<DocumentMeta, 'dateFormat'> | undefined | null,
+): string => meta?.dateFormat ?? settings.documentDateFormat;
+
+/**
+ * Re-cap a stored document meta's signature types against the organisation/team settings as they are
+ * *now*, so revoking a signature type also applies to envelopes which already exist.
+ *
+ * Use this for authoring surfaces, which need `dateFormat` left raw so they can tell an inherited
+ * format from a pinned one. Everything that consumes the meta wants `resolveLiveDocumentMeta`.
+ *
+ * Completed and rejected envelopes are returned untouched — there is nothing left to sign.
+ *
+ * @param settings - The merged organisation/team settings.
+ * @param meta - The stored document meta.
+ * @param status - The status of the envelope owning the meta.
+ */
+export const capLiveDocumentMeta = <T extends SignatureSettings>(
+  settings: SignatureSettings,
+  meta: T,
+  status: DocumentStatus,
+): T => {
+  if (isDocumentCompleted(status)) {
+    return meta;
+  }
+
+  return {
+    ...meta,
+    ...capSignatureSettings(settings, meta),
+  };
+};
+
+/**
+ * Resolve a stored document meta against the organisation/team settings as they are *now*.
+ *
+ * - Signature types are re-capped, so revoking one applies to envelopes created before the change.
+ * - A null `dateFormat` means "inherit", and is filled in from the current settings.
+ *
+ * Completed and rejected envelopes are returned untouched: their fields are already stamped with the
+ * format they were signed under, and there is nothing left to sign.
+ *
+ * @param settings - The merged organisation/team settings.
+ * @param meta - The stored document meta.
+ * @param status - The status of the envelope owning the meta.
+ */
+export const resolveLiveDocumentMeta = <T extends LiveResolvableMeta>(
+  settings: SignatureSettings & Pick<OrganisationGlobalSettings, 'documentDateFormat'>,
+  meta: T,
+  status: DocumentStatus,
+): T => {
+  if (isDocumentCompleted(status)) {
+    return meta;
+  }
+
+  return {
+    ...capLiveDocumentMeta(settings, meta, status),
+    dateFormat: resolveDateFormat(settings, meta),
+  };
+};
+
 /**
  * Extracts the derived document meta which should be used when creating a document
  * from scratch, or from a template.
@@ -43,7 +147,8 @@ export const extractDerivedDocumentMeta = (
   return {
     language: meta.language || settings.documentLanguage,
     timezone: meta.timezone || settings.documentTimezone || DEFAULT_DOCUMENT_TIME_ZONE,
-    dateFormat: meta.dateFormat || settings.documentDateFormat,
+    // Only pinned when explicitly chosen — null keeps inheriting the org/team format on read.
+    dateFormat: meta.dateFormat || null,
     message: meta.message || null,
     subject: meta.subject || null,
     redirectUrl: meta.redirectUrl || null,
@@ -54,10 +159,8 @@ export const extractDerivedDocumentMeta = (
     nextFieldNavigationLabels: meta.nextFieldNavigationLabels ?? [],
     distributionMethod: meta.distributionMethod || DocumentDistributionMethod.EMAIL, // Todo: Make this a setting.
 
-    // Signature settings.
-    typedSignatureEnabled: meta.typedSignatureEnabled ?? settings.typedSignatureEnabled,
-    uploadSignatureEnabled: meta.uploadSignatureEnabled ?? settings.uploadSignatureEnabled,
-    drawSignatureEnabled: meta.drawSignatureEnabled ?? settings.drawSignatureEnabled,
+    // Signature settings. The org/team allowance is a cap — the meta may only narrow it.
+    ...capSignatureSettings(settings, meta),
     signatureFontFamily: meta.signatureFontFamily ?? settings.signatureFontFamily,
     signatureFontSize: meta.signatureFontSize ?? settings.signatureFontSize,
 

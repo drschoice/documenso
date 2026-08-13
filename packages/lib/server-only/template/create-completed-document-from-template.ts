@@ -25,18 +25,19 @@ import {
   ZNumberFieldMeta,
   ZRadioFieldMeta,
   ZTextFieldMeta,
+  getFieldNamePart,
 } from '../../types/field-meta';
 import type { TTemplateFieldFillValue } from '../../types/template-field-fill';
 import { toCheckboxValue } from '../../universal/field-checkbox';
 import { evaluateAllVisibility } from '../../universal/field-visibility';
 import { isRequiredField } from '../../utils/advanced-fields-helpers';
-import { extractDerivedDocumentMeta } from '../../utils/document';
+import { extractDerivedDocumentMeta, resolveDateFormat } from '../../utils/document';
 import type { CreateDocumentAuditLogDataResponse } from '../../utils/document-audit-logs';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { extractFieldInsertionValues } from '../../utils/envelope-signing';
-import { extractInitials } from '../../utils/recipient-formatter';
+import { extractInitials, resolveRecipientNamePart } from '../../utils/recipient-formatter';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { getTeamSettings } from '../team/get-team-settings';
 import type { CreateDocumentFromTemplateOptions } from './create-document-from-template';
@@ -154,17 +155,30 @@ const getFieldMetaDefaultFillValue = (field: Field): TTemplateFieldFillValue | n
   return null;
 };
 
+type TDefaultFillRecipient = {
+  name: string;
+  email: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+};
+
 /**
  * Derive a default fill value for fields that were not explicitly provided.
  */
 const getDefaultFillValue = (
   field: Field,
-  mergedRecipient: { name: string; email: string } | undefined,
+  mergedRecipient: TDefaultFillRecipient | undefined,
 ): TTemplateFieldFillValue | null => {
   if (field.type === FieldType.NAME) {
-    return mergedRecipient?.name
-      ? { id: field.id, type: 'name', value: mergedRecipient.name }
-      : null;
+    const value = resolveRecipientNamePart(
+      getFieldNamePart(ZFieldMetaSchema.parse(field.fieldMeta)),
+      {
+        recipient: mergedRecipient,
+      },
+    );
+
+    return value ? { id: field.id, type: 'name', value } : null;
   }
 
   if (field.type === FieldType.INITIALS) {
@@ -476,7 +490,10 @@ export const createCompletedDocumentFromTemplate = async ({
           insertionValues = extractFieldInsertionValues({
             fieldValue: toSignEnvelopeFieldValue(field, fillValue),
             field,
-            documentMeta: derivedDocumentMeta,
+            documentMeta: {
+              ...derivedDocumentMeta,
+              dateFormat: resolveDateFormat(settings, derivedDocumentMeta),
+            },
           });
         }
       } catch (err) {

@@ -56,6 +56,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     organisationClaim,
     preferences: {
       aiFeaturesEnabled: teamSettings.aiFeaturesEnabled,
+      typedSignatureEnabled: teamSettings.typedSignatureEnabled,
+      uploadSignatureEnabled: teamSettings.uploadSignatureEnabled,
+      drawSignatureEnabled: teamSettings.drawSignatureEnabled,
+      documentDateFormat: teamSettings.documentDateFormat,
     },
   };
 };
@@ -115,9 +119,7 @@ export default function AuthoringLayout() {
     avatarImageId: null,
     organisationId: '',
     currentTeamRole: TeamMemberRole.MEMBER,
-    preferences: {
-      aiFeaturesEnabled: preferences.aiFeaturesEnabled,
-    },
+    preferences,
   };
 
   /**

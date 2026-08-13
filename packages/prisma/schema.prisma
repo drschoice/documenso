@@ -513,13 +513,19 @@ model DocumentMeta {
   subject                String?
   message                String?
   timezone               String?              @default("Etc/UTC") @db.Text
-  dateFormat             String?              @default("yyyy-MM-dd hh:mm a") @db.Text
+  // Null = inherit the organisation/team date format, resolved live on read rather than snapshotted
+  // at creation. Deliberately has no `@default` so that "inherit" survives a bare insert.
+  // Completed/rejected envelopes keep whatever concrete value they were signed with.
+  dateFormat             String?              @db.Text
   redirectUrl            String?
   signingOrder           DocumentSigningOrder @default(PARALLEL)
   allowDictateNextSigner      Boolean     @default(false)
   nextFieldNavigationTypes    FieldType[] @default([])
   nextFieldNavigationLabels   String[]    @default([])
 
+  // These may only narrow the organisation/team allowance, never widen it — a signature type
+  // disabled on `OrganisationGlobalSettings` is re-capped off on read and at sign time, including
+  // for envelopes created before it was disabled. See `capSignatureSettings` in `utils/document.ts`.
   typedSignatureEnabled  Boolean @default(true)
   uploadSignatureEnabled Boolean @default(true)
   drawSignatureEnabled   Boolean @default(true)
@@ -594,6 +600,9 @@ model Recipient {
   envelopeId           String
   email                String        @db.VarChar(255)
   name                 String        @default("") @db.VarChar(255)
+  firstName            String        @default("") @db.VarChar(255)
+  middleName           String        @default("") @db.VarChar(255)
+  lastName             String        @default("") @db.VarChar(255)
   token                String
   documentDeletedAt    DateTime?
   expired              DateTime? // deprecated Not in use. To be removed in a future migration.

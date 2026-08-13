@@ -26,9 +26,11 @@ import {
 } from '../../types/field-meta';
 import type { RequestMetadata } from '../../universal/extract-request-metadata';
 import { evaluateAllVisibility } from '../../universal/field-visibility';
+import { resolveLiveDocumentMeta } from '../../utils/document';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import { assertRecipientNotExpired } from '../../utils/recipients';
 import { validateFieldAuth } from '../document/validate-field-auth';
+import { getTeamSettings } from '../team/get-team-settings';
 
 export type SignFieldWithTokenOptions = {
   token: string;
@@ -208,13 +210,21 @@ export const signFieldWithToken = async ({
     });
   }
 
-  const documentMeta = await prisma.documentMeta.findFirst({
+  const storedDocumentMeta = await prisma.documentMeta.findFirst({
     where: {
       envelope: {
         id: envelope.id,
       },
     },
   });
+
+  // The stored meta is only a snapshot — re-resolve it so a signature type the organisation has
+  // since revoked is rejected, and so an inherited date format uses the current setting.
+  const settings = await getTeamSettings({ teamId: envelope.teamId });
+
+  const documentMeta = storedDocumentMeta
+    ? resolveLiveDocumentMeta(settings, storedDocumentMeta, envelope.status)
+    : null;
 
   const isSignatureField =
     field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
@@ -239,6 +249,17 @@ export const signFieldWithToken = async ({
 
   if (isSignatureField && documentMeta?.typedSignatureEnabled === false && typedSignature) {
     throw new Error('Typed signatures are not allowed. Please draw your signature');
+  }
+
+  // Drawn and uploaded signatures are both base64 images and are indistinguishable here, so they
+  // can only be rejected once neither is allowed.
+  if (
+    isSignatureField &&
+    signatureImageAsBase64 &&
+    documentMeta?.drawSignatureEnabled === false &&
+    documentMeta?.uploadSignatureEnabled === false
+  ) {
+    throw new Error('Drawn and uploaded signatures are not allowed. Please type your signature');
   }
 
   if (field.fieldMeta?.readOnly && !AUTO_SIGNABLE_FIELD_TYPES.includes(field.type)) {

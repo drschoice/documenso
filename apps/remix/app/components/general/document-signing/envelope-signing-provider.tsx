@@ -20,6 +20,12 @@ import {
   isRequiredField,
 } from '@documenso/lib/utils/advanced-fields-helpers';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
+import type { RecipientNameParts } from '@documenso/lib/utils/recipient-formatter';
+import {
+  buildRecipientFullName,
+  getRecipientNameParts,
+  splitFullName,
+} from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
 
@@ -28,6 +34,14 @@ export type EnvelopeSigningContextValue = {
 
   fullName: string;
   setFullName: (_value: string) => void;
+  /**
+   * The signer's name broken into parts. NAME fields bound to a single part read from here.
+   *
+   * Kept in step with `fullName` in both directions: editing a part rebuilds the full name, and
+   * overwriting the full name re-splits it into parts.
+   */
+  nameParts: RecipientNameParts;
+  setNamePart: (_part: keyof RecipientNameParts, _value: string) => void;
   email: string;
   setEmail: (_value: string) => void;
   signature: string | null;
@@ -98,7 +112,38 @@ export const EnvelopeSigningProvider = ({
 
   const { envelope, recipient } = envelopeData;
 
-  const [fullName, setFullName] = useState(initialFullName || '');
+  const [nameParts, setNameParts] = useState<RecipientNameParts>(() =>
+    initialFullName && initialFullName !== recipient.name
+      ? splitFullName(initialFullName)
+      : getRecipientNameParts({ ...recipient, name: initialFullName || recipient.name }),
+  );
+
+  // The full name is what the parts add up to, unless the signer overwrote it with something that
+  // isn't simply the parts joined (e.g. a mononym or a different ordering).
+  const [fullNameOverride, setFullNameOverride] = useState<string | null>(null);
+
+  const fullName = fullNameOverride ?? buildRecipientFullName(nameParts);
+
+  const setFullName = (value: string) => {
+    // Re-setting the same full name must not re-split it. Signing a full-name field echoes its value
+    // back through here, and splitting "Jean Luc Q de la Cruz" would overwrite the parts the signer
+    // actually typed with a naive first/middle/last guess.
+    if (value === fullName) {
+      return;
+    }
+
+    // An overwritten full name still has to feed the part-bound fields, so split it back out.
+    const parts = splitFullName(value);
+
+    setNameParts(parts);
+    setFullNameOverride(buildRecipientFullName(parts) === value ? null : value);
+  };
+
+  const setNamePart = (part: keyof RecipientNameParts, value: string) => {
+    setFullNameOverride(null);
+    setNameParts((prev) => ({ ...prev, [part]: value }));
+  };
+
   const [email, setEmail] = useState(initialEmail || '');
 
   const [showPendingFieldTooltip, setShowPendingFieldTooltip] = useState(false);
@@ -500,6 +545,8 @@ export const EnvelopeSigningProvider = ({
         isDirectTemplate,
         fullName,
         setFullName,
+        nameParts,
+        setNamePart,
         email,
         setEmail,
         signature,

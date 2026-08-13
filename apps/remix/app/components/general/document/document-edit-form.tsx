@@ -15,6 +15,7 @@ import {
 import type { TDocument } from '@documenso/lib/types/document';
 import { ZDocumentAccessAuthTypesSchema } from '@documenso/lib/types/document-auth';
 import { getDocumentDataUrlForPdfViewer } from '@documenso/lib/utils/envelope-download';
+import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import { Card, CardContent } from '@documenso/ui/primitives/card';
@@ -471,6 +472,7 @@ export const DocumentEditForm = ({
               documentFlow={documentFlow.settings}
               document={document}
               currentTeamMemberRole={team.currentTeamRole}
+              allowedSignatureTypes={extractTeamSignatureSettings(team.preferences)}
               recipients={recipients}
               fields={fields}
               isDocumentPdfLoaded={isDocumentPdfLoaded}
