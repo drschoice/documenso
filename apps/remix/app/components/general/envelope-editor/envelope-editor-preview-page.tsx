@@ -11,11 +11,18 @@ import {
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
-import { ZDateFieldMeta, ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
+import {
+  ZDateFieldMeta,
+  ZFieldAndMetaSchema,
+  getFieldNamePart,
+} from '@documenso/lib/types/field-meta';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
+import {
+  extractInitials,
+  resolveRecipientNamePart,
+} from '@documenso/lib/utils/recipient-formatter';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { RecipientSelector } from '@documenso/ui/primitives/recipient-selector';
@@ -102,8 +109,12 @@ export const EnvelopeEditorPreviewPage = () => {
         .with({ type: FieldType.EMAIL }, () => {
           return { customText: recipientEmail, inserted: recipientEmail !== '' };
         })
-        .with({ type: FieldType.NAME }, () => {
-          return { customText: recipientName, inserted: recipientName !== '' };
+        .with({ type: FieldType.NAME }, ({ fieldMeta }) => {
+          const namePartValue = resolveRecipientNamePart(getFieldNamePart(fieldMeta), {
+            recipient,
+          });
+
+          return { customText: namePartValue, inserted: namePartValue !== '' };
         })
         .with({ type: FieldType.INITIALS }, () => {
           const initials = recipientName ? extractInitials(recipientName) : '';

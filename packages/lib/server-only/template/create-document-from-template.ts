@@ -54,6 +54,7 @@ import {
 } from '../../utils/document-auth';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToTemplateId } from '../../utils/envelope';
+import { resolveRecipientNameOnCreate } from '../../utils/recipient-formatter';
 import { buildTeamWhereQuery } from '../../utils/teams';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { incrementDocumentId } from '../envelope/increment-id';
@@ -64,7 +65,15 @@ import { getOrganisationTemplateWhereInput } from './get-organisation-template-b
 
 type FinalRecipient = Pick<
   Recipient,
-  'name' | 'email' | 'role' | 'authOptions' | 'signingOrder' | 'token'
+  | 'name'
+  | 'firstName'
+  | 'middleName'
+  | 'lastName'
+  | 'email'
+  | 'role'
+  | 'authOptions'
+  | 'signingOrder'
+  | 'token'
 > & {
   templateRecipientId: number;
   fields: Field[];
@@ -80,6 +89,9 @@ export type CreateDocumentFromTemplateOptions = {
   recipients: {
     id: number;
     name?: string;
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
     email: string;
     signingOrder?: number | null;
   }[];
@@ -413,7 +425,16 @@ export const createDocumentFromTemplate = async ({
     return {
       templateRecipientId: templateRecipient.id,
       fields: templateRecipient.fields,
-      name: foundRecipient ? (foundRecipient.name ?? '') : templateRecipient.name,
+      ...resolveRecipientNameOnCreate(
+        foundRecipient
+          ? {
+              name: foundRecipient.name ?? '',
+              firstName: foundRecipient.firstName,
+              middleName: foundRecipient.middleName,
+              lastName: foundRecipient.lastName,
+            }
+          : templateRecipient,
+      ),
       email: foundRecipient ? foundRecipient.email : templateRecipient.email,
       role: templateRecipient.role,
       signingOrder: foundRecipient?.signingOrder ?? templateRecipient.signingOrder,
@@ -432,7 +453,7 @@ export const createDocumentFromTemplate = async ({
     return {
       templateRecipientId: -1,
       fields: [],
-      name: recipient.name || recipient.email,
+      ...resolveRecipientNameOnCreate({ name: recipient.name || recipient.email }),
       email: recipient.email,
       role: recipient.role,
       signingOrder: null,
@@ -592,6 +613,9 @@ export const createDocumentFromTemplate = async ({
                 return {
                   email: recipient.email,
                   name: recipient.name,
+                  firstName: recipient.firstName,
+                  middleName: recipient.middleName,
+                  lastName: recipient.lastName,
                   role: recipient.role,
                   authOptions: createRecipientAuthOptions({
                     accessAuth: authOptions.accessAuth,

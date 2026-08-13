@@ -10,7 +10,7 @@ export const updateRecipientRoute = adminProcedure
   .input(ZUpdateRecipientRequestSchema)
   .output(ZUpdateRecipientResponseSchema)
   .mutation(async ({ input, ctx }) => {
-    const { id, name, email, role } = input;
+    const { id, name, firstName, middleName, lastName, email, role } = input;
 
     ctx.logger.info({
       input: {
@@ -18,5 +18,5 @@ export const updateRecipientRoute = adminProcedure
       },
     });
 
-    await updateRecipient({ id, name, email, role });
+    await updateRecipient({ id, name, firstName, middleName, lastName, email, role });
   });

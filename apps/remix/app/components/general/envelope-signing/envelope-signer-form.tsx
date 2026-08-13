@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Plural, Trans } from '@lingui/react/macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { RecipientRole } from '@prisma/client';
 
 import { isSignatureFieldType } from '@documenso/prisma/guards/is-signature-field';
@@ -16,6 +16,8 @@ import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-
 export default function EnvelopeSignerForm() {
   const {
     fullName,
+    nameParts,
+    setNamePart,
     signature,
     setFullName,
     setSignature,
@@ -29,6 +31,7 @@ export default function EnvelopeSignerForm() {
   } = useRequiredEnvelopeSigningContext();
 
   const { isNameLocked, isEmailLocked } = useEmbedSigningContext() || {};
+  const { t } = useLingui();
 
   const hasSignatureField = useMemo(() => {
     return recipientFields.some((field) => isSignatureFieldType(field.type));
@@ -97,6 +100,53 @@ export default function EnvelopeSignerForm() {
     <fieldset disabled={isSubmitting} className="flex flex-1 flex-col gap-4">
       <div className="flex flex-1 flex-col gap-y-4">
         <div>
+          <Label htmlFor="first-name">
+            <Trans>Name</Trans>
+          </Label>
+
+          {/* Stacked rather than side-by-side: the signing sidebar is too narrow to show three
+              name values without truncating them. */}
+          <div className="mt-2 flex flex-col gap-y-2">
+            <Input
+              type="text"
+              id="first-name"
+              className="bg-background"
+              placeholder={t`First`}
+              aria-label={t`First name`}
+              value={nameParts.firstName}
+              disabled={isNameLocked}
+              onChange={(e) =>
+                !isNameLocked && setNamePart('firstName', e.target.value.trimStart())
+              }
+            />
+
+            <Input
+              type="text"
+              id="middle-name"
+              className="bg-background"
+              placeholder={t`Middle`}
+              aria-label={t`Middle name`}
+              value={nameParts.middleName}
+              disabled={isNameLocked}
+              onChange={(e) =>
+                !isNameLocked && setNamePart('middleName', e.target.value.trimStart())
+              }
+            />
+
+            <Input
+              type="text"
+              id="last-name"
+              className="bg-background"
+              placeholder={t`Last`}
+              aria-label={t`Last name`}
+              value={nameParts.lastName}
+              disabled={isNameLocked}
+              onChange={(e) => !isNameLocked && setNamePart('lastName', e.target.value.trimStart())}
+            />
+          </div>
+        </div>
+
+        <div>
           <Label htmlFor="full-name">
             <Trans>Full Name</Trans>
           </Label>
@@ -109,6 +159,10 @@ export default function EnvelopeSignerForm() {
             disabled={isNameLocked}
             onChange={(e) => !isNameLocked && setFullName(e.target.value.trimStart())}
           />
+
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            <Trans>Built from the name above. You can edit it directly if you prefer.</Trans>
+          </p>
         </div>
 
         {hasSignatureField && (

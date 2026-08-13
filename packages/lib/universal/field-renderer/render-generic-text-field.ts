@@ -1,3 +1,4 @@
+import { FieldType } from '@prisma/client';
 import Konva from 'konva';
 
 import { DEFAULT_STANDARD_FONT_SIZE } from '../../constants/pdf';
@@ -13,6 +14,7 @@ import {
   FIELD_DEFAULT_LETTER_SPACING,
   FIELD_DEFAULT_LINE_HEIGHT,
   getCombFieldCells,
+  getFieldNamePart,
 } from '../../types/field-meta';
 import {
   createFieldHoverInteraction,
@@ -120,7 +122,14 @@ const upsertFieldText = (field: FieldToRender, options: RenderFieldElementOption
 
   const fieldMeta = field.fieldMeta as GenericTextFieldTypeMetas | undefined;
 
-  const fieldTypeName = translations?.[field.type] || field.type;
+  // A NAME field bound to a single part is labelled for that part, so the author and the signer can
+  // tell the boxes apart on the page.
+  const fieldTypeName =
+    (field.type === FieldType.NAME
+      ? translations?.namePart[getFieldNamePart(field.fieldMeta)]
+      : translations?.[field.type]) ||
+    translations?.[field.type] ||
+    field.type;
 
   const fieldText: Konva.Text =
     pageLayer.findOne(`#${field.renderId}-text`) ||

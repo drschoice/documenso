@@ -8,7 +8,11 @@ import {
   ZRecipientActionAuthSchema,
   ZRecipientActionAuthTypesSchema,
 } from '@documenso/lib/types/document-auth';
-import { ZRecipientLiteSchema, ZRecipientSchema } from '@documenso/lib/types/recipient';
+import {
+  ZRecipientLiteSchema,
+  ZRecipientNamePartsRequestSchema,
+  ZRecipientSchema,
+} from '@documenso/lib/types/recipient';
 import { zEmail } from '@documenso/lib/utils/zod';
 
 export const ZGetRecipientRequestSchema = z.object({
@@ -27,6 +31,7 @@ export const ZGetRecipientResponseSchema = ZRecipientSchema;
 export const ZCreateRecipientSchema = z.object({
   email: zEmail().toLowerCase().min(1).max(254),
   name: z.string().max(255),
+  ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole),
   signingOrder: z.number().optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
@@ -37,6 +42,7 @@ export const ZUpdateRecipientSchema = z.object({
   id: z.number().describe('The ID of the recipient to update.'),
   email: zEmail().toLowerCase().min(1).max(254).optional(),
   name: z.string().max(255).optional(),
+  ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole).optional(),
   signingOrder: z.number().optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
@@ -86,6 +92,7 @@ export const ZSetDocumentRecipientsRequestSchema = z.object({
       id: z.number().optional(),
       email: zEmail().toLowerCase().min(1).max(254),
       name: z.string().max(255),
+      ...ZRecipientNamePartsRequestSchema,
       role: z.nativeEnum(RecipientRole),
       signingOrder: z.number().optional(),
       actionAuth: z.array(ZRecipientActionAuthTypesSchema).optional().default([]),
@@ -148,6 +155,7 @@ export const ZSetTemplateRecipientsRequestSchema = z.object({
           { message: 'Please enter a valid email address' },
         ),
       name: z.string(),
+      ...ZRecipientNamePartsRequestSchema,
       role: z.nativeEnum(RecipientRole),
       signingOrder: z.number().optional(),
       actionAuth: z.array(ZRecipientActionAuthTypesSchema).optional().default([]),

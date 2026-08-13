@@ -5,6 +5,7 @@ import {
   DIRECT_TEMPLATE_RECIPIENT_EMAIL,
   DIRECT_TEMPLATE_RECIPIENT_NAME,
 } from '@documenso/lib/constants/direct-templates';
+import { resolveRecipientNameOnCreate } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
@@ -76,11 +77,15 @@ export const setTemplateRecipients = async ({
         ...recipient,
         email: DIRECT_TEMPLATE_RECIPIENT_EMAIL,
         name: DIRECT_TEMPLATE_RECIPIENT_NAME,
+        firstName: '',
+        middleName: '',
+        lastName: '',
       };
     }
 
     return {
       ...recipient,
+      ...resolveRecipientNameOnCreate(recipient),
       email: recipient.email.toLowerCase(),
     };
   });
@@ -144,6 +149,9 @@ export const setTemplateRecipients = async ({
           },
           update: {
             name: recipient.name,
+            firstName: recipient.firstName,
+            middleName: recipient.middleName,
+            lastName: recipient.lastName,
             email: recipient.email,
             role: recipient.role,
             signingOrder: recipient.signingOrder,
@@ -152,6 +160,9 @@ export const setTemplateRecipients = async ({
           },
           create: {
             name: recipient.name,
+            firstName: recipient.firstName,
+            middleName: recipient.middleName,
+            lastName: recipient.lastName,
             email: recipient.email,
             role: recipient.role,
             signingOrder: recipient.signingOrder,

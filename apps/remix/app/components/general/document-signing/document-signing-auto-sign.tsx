@@ -12,7 +12,11 @@ import { P, match } from 'ts-pattern';
 import { unsafe_useEffectOnce } from '@documenso/lib/client-only/hooks/use-effect-once';
 import { AUTO_SIGNABLE_FIELD_TYPES } from '@documenso/lib/constants/autosign';
 import { DocumentAuth } from '@documenso/lib/types/document-auth';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
+import { getFieldNamePart } from '@documenso/lib/types/field-meta';
+import {
+  extractInitials,
+  resolveRecipientNamePart,
+} from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -49,7 +53,7 @@ const NON_AUTO_SIGNABLE_ACTION_AUTH_TYPES: string[] = [
 const AUTO_SIGN_THRESHOLD = 5;
 
 export type DocumentSigningAutoSignProps = {
-  recipient: Pick<Recipient, 'id' | 'token'>;
+  recipient: Pick<Recipient, 'id' | 'token' | 'name' | 'firstName' | 'middleName' | 'lastName'>;
   fields: Field[];
 };
 
@@ -99,7 +103,9 @@ export const DocumentSigningAutoSign = ({ recipient, fields }: DocumentSigningAu
     const results = await Promise.allSettled(
       autoSignableFields.map(async (field) => {
         const value = match(field.type)
-          .with(FieldType.NAME, () => fullName)
+          .with(FieldType.NAME, () =>
+            resolveRecipientNamePart(getFieldNamePart(field.fieldMeta), { recipient, fullName }),
+          )
           .with(FieldType.INITIALS, () => extractInitials(fullName))
           .with(FieldType.EMAIL, () => email)
           .with(FieldType.DATE, () => new Date().toISOString())

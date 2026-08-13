@@ -600,6 +600,9 @@ model Recipient {
   envelopeId           String
   email                String        @db.VarChar(255)
   name                 String        @default("") @db.VarChar(255)
+  firstName            String        @default("") @db.VarChar(255)
+  middleName           String        @default("") @db.VarChar(255)
+  lastName             String        @default("") @db.VarChar(255)
   token                String
   documentDeletedAt    DateTime?
   expired              DateTime? // deprecated Not in use. To be removed in a future migration.
