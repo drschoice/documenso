@@ -24,6 +24,7 @@ import { isBase64Image } from '@documenso/lib/constants/signatures';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
 import type { TEnvelope } from '@documenso/lib/types/envelope';
 import { ZFullFieldSchema } from '@documenso/lib/types/field';
+import { isFullNameField } from '@documenso/lib/types/field-meta';
 import { createSpinner } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
@@ -72,6 +73,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     setEmail,
     fullName,
     setFullName,
+    nameParts,
     signature,
     setSignature,
     selectedAssistantRecipientFields,
@@ -338,14 +340,24 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * NAME FIELD.
          */
         .with({ type: FieldType.NAME }, (field) => {
-          handleNameFieldClick({ field, name: localFullName })
+          // In assistant mode the name belongs to the recipient being filled for, so use their
+          // stored parts. Otherwise use the parts the signer is editing in the sidebar.
+          const localRecipient =
+            recipient.role === RecipientRole.ASSISTANT
+              ? selectedAssistantRecipient
+              : { ...recipient, ...nameParts, name: fullName };
+
+          handleNameFieldClick({ field, name: localFullName, recipient: localRecipient })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
                 await signField(field.id, payload);
               }
 
-              if (payload?.value) {
+              // Only a field holding the whole name may update the signer's full name. A field
+              // bound to a single part would otherwise reduce it to just that part, which also
+              // drives the initials and typed signature.
+              if (payload?.value && isFullNameField(field.fieldMeta)) {
                 setFullName(payload.value);
               }
             })

@@ -1,4 +1,4 @@
-import type { FieldType, Signature } from '@prisma/client';
+import type { Signature } from '@prisma/client';
 import { type Field } from '@prisma/client';
 import type Konva from 'konva';
 
@@ -6,6 +6,7 @@ import type { TRecipientColor } from '@documenso/ui/lib/recipient-colors';
 
 import { DEFAULT_STANDARD_FONT_SIZE } from '../../constants/pdf';
 import type { TFieldMetaSchema } from '../../types/field-meta';
+import type { FieldRenderTranslations } from '../../utils/fields';
 
 export const MIN_FIELD_HEIGHT_PX = 12;
 export const MIN_FIELD_WIDTH_PX = 36;
@@ -31,7 +32,7 @@ export type RenderFieldElementOptions = {
   editable?: boolean;
   scale: number;
   color?: TRecipientColor;
-  translations: Record<FieldType, string> | null;
+  translations: FieldRenderTranslations | null;
 
   /**
    * The typed-signature font family to render signature fields with. One of the curated families in

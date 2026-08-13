@@ -12,6 +12,7 @@ import {
   diffRecipientChanges,
 } from '@documenso/lib/utils/document-audit-logs';
 import { createRecipientAuthOptions } from '@documenso/lib/utils/document-auth';
+import { resolveRecipientNameOnUpdate } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
@@ -129,6 +130,7 @@ export const updateEnvelopeRecipients = async ({
         const mergedRecipient = {
           ...originalRecipient,
           ...updateData,
+          ...resolveRecipientNameOnUpdate(updateData, originalRecipient),
         };
 
         const updatedRecipient = await tx.recipient.update({
@@ -138,6 +140,9 @@ export const updateEnvelopeRecipients = async ({
           },
           data: {
             name: mergedRecipient.name,
+            firstName: mergedRecipient.firstName,
+            middleName: mergedRecipient.middleName,
+            lastName: mergedRecipient.lastName,
             email: mergedRecipient.email,
             role: mergedRecipient.role,
             signingOrder: mergedRecipient.signingOrder,

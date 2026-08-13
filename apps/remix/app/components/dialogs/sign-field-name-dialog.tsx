@@ -3,8 +3,10 @@ import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { createCallable } from 'react-call';
 import { useForm } from 'react-hook-form';
+import { match } from 'ts-pattern';
 import { z } from 'zod';
 
+import type { TFieldNamePartSchema } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import {
   Dialog,
@@ -30,11 +32,11 @@ const ZSignFieldNameFormSchema = z.object({
 type TSignFieldNameFormSchema = z.infer<typeof ZSignFieldNameFormSchema>;
 
 export type SignFieldNameDialogProps = {
-  //
+  namePart?: TFieldNamePartSchema;
 };
 
 export const SignFieldNameDialog = createCallable<SignFieldNameDialogProps, string | null>(
-  ({ call }) => {
+  ({ call, namePart = 'full' }) => {
     const form = useForm<TSignFieldNameFormSchema>({
       resolver: zodResolver(ZSignFieldNameFormSchema),
       defaultValues: {
@@ -47,11 +49,23 @@ export const SignFieldNameDialog = createCallable<SignFieldNameDialogProps, stri
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <Trans>Enter Name</Trans>
+              {match(namePart)
+                .with('first', () => <Trans>Enter First Name</Trans>)
+                .with('middle', () => <Trans>Enter Middle Name</Trans>)
+                .with('last', () => <Trans>Enter Last Name</Trans>)
+                .otherwise(() => (
+                  <Trans>Enter Name</Trans>
+                ))}
             </DialogTitle>
 
             <DialogDescription className="mt-4">
-              <Trans>Please enter your full name</Trans>
+              {match(namePart)
+                .with('first', () => <Trans>Please enter your first name</Trans>)
+                .with('middle', () => <Trans>Please enter your middle name</Trans>)
+                .with('last', () => <Trans>Please enter your last name</Trans>)
+                .otherwise(() => (
+                  <Trans>Please enter your full name</Trans>
+                ))}
             </DialogDescription>
           </DialogHeader>
 

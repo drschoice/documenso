@@ -25,7 +25,10 @@ import {
 import { ZEnvelopeSchema } from '@documenso/lib/types/envelope';
 import { ZEnvelopeAttachmentTypeSchema } from '@documenso/lib/types/envelope-attachment';
 import { ZFieldMetaPrefillFieldsSchema } from '@documenso/lib/types/field-meta';
-import { ZRecipientEmailSchema } from '@documenso/lib/types/recipient';
+import {
+  ZRecipientEmailSchema,
+  ZRecipientNamePartsRequestSchema,
+} from '@documenso/lib/types/recipient';
 import { ZFindResultResponse, ZFindSearchParamsSchema } from '@documenso/lib/types/search-params';
 import {
   ZTemplateLiteSchema,
@@ -110,6 +113,7 @@ export const ZCreateDocumentFromTemplateRequestSchema = z.object({
         id: z.number().describe('The ID of the recipient in the template.'),
         email: ZRecipientEmailSchema,
         name: z.string().max(255).optional(),
+        ...ZRecipientNamePartsRequestSchema,
       }),
     )
     .describe('The information of the recipients to create the document with.'),

@@ -21,6 +21,7 @@ import {
   diffRecipientChanges,
 } from '@documenso/lib/utils/document-audit-logs';
 import { createRecipientAuthOptions } from '@documenso/lib/utils/document-auth';
+import { resolveRecipientNameOnCreate } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 
 import { getI18nInstance } from '../../client-only/providers/i18n-server';
@@ -114,6 +115,7 @@ export const setDocumentRecipients = async ({
 
   const normalizedRecipients = recipients.map((recipient) => ({
     ...recipient,
+    ...resolveRecipientNameOnCreate(recipient),
     email: recipient.email.toLowerCase(),
   }));
 
@@ -175,6 +177,9 @@ export const setDocumentRecipients = async ({
           },
           update: {
             name: recipient.name,
+            firstName: recipient.firstName,
+            middleName: recipient.middleName,
+            lastName: recipient.lastName,
             email: recipient.email,
             role: recipient.role,
             signingOrder: recipient.signingOrder,
@@ -186,6 +191,9 @@ export const setDocumentRecipients = async ({
           },
           create: {
             name: recipient.name,
+            firstName: recipient.firstName,
+            middleName: recipient.middleName,
+            lastName: recipient.lastName,
             email: recipient.email,
             role: recipient.role,
             signingOrder: recipient.signingOrder,
@@ -365,6 +373,9 @@ type RecipientData = {
   clientId?: string | null;
   email: string;
   name: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   role: RecipientRole;
   signingOrder?: number | null;
   accessAuth?: TRecipientAccessAuthTypes[];
@@ -381,9 +392,14 @@ const hasRecipientBeenChanged = (recipient: Recipient, newRecipientData: Recipie
   const newRecipientAccessAuth = newRecipientData.accessAuth || [];
   const newRecipientActionAuth = newRecipientData.actionAuth || [];
 
+  const newRecipientName = resolveRecipientNameOnCreate(newRecipientData);
+
   return (
     recipient.email !== newRecipientData.email ||
-    recipient.name !== newRecipientData.name ||
+    recipient.name !== newRecipientName.name ||
+    recipient.firstName !== newRecipientName.firstName ||
+    recipient.middleName !== newRecipientName.middleName ||
+    recipient.lastName !== newRecipientName.lastName ||
     recipient.role !== newRecipientData.role ||
     recipient.signingOrder !== newRecipientData.signingOrder ||
     !isDeepEqual(authOptions.accessAuth, newRecipientAccessAuth) ||

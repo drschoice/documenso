@@ -264,8 +264,20 @@ export const addEnvelopeItemPdf = async (root: Page, fileName = 'embedded-envelo
 export const getRecipientEmailInputs = (root: Page) =>
   root.locator('[data-testid="signer-email-input"]');
 
-export const getRecipientNameInputs = (root: Page) =>
-  root.locator('input[placeholder^="Recipient "]');
+export const getRecipientFirstNameInputs = (root: Page) =>
+  root.locator('[data-testid="signer-first-name-input"]');
+
+export const getRecipientMiddleNameInputs = (root: Page) =>
+  root.locator('[data-testid="signer-middle-name-input"]');
+
+export const getRecipientLastNameInputs = (root: Page) =>
+  root.locator('[data-testid="signer-last-name-input"]');
+
+/**
+ * The read-only full-name preview rendered under the name inputs.
+ */
+export const getRecipientFullNamePreviews = (root: Page) =>
+  root.locator('[data-testid="signer-full-name-preview"]');
 
 export const getRecipientRows = (root: Page) =>
   root.locator('[data-testid="signer-email-input"]').locator('xpath=ancestor::fieldset[1]');
@@ -296,8 +308,40 @@ export const setRecipientEmail = async (root: Page, index: number, email: string
   await getRecipientEmailInputs(root).nth(index).fill(email);
 };
 
+/**
+ * Fill the recipient's name inputs from a full name, mirroring how the editor splits one.
+ *
+ * The first token becomes the first name, the last token the last name, and anything in between the
+ * middle name.
+ */
 export const setRecipientName = async (root: Page, index: number, name: string) => {
-  await getRecipientNameInputs(root).nth(index).fill(name);
+  const tokens = name.trim().split(/\s+/).filter(Boolean);
+
+  const firstName = tokens.at(0) ?? '';
+  const lastName = tokens.length > 1 ? tokens[tokens.length - 1] : '';
+  const middleName = tokens.slice(1, -1).join(' ');
+
+  await getRecipientFirstNameInputs(root).nth(index).fill(firstName);
+  await getRecipientMiddleNameInputs(root).nth(index).fill(middleName);
+  await getRecipientLastNameInputs(root).nth(index).fill(lastName);
+};
+
+export const setRecipientNameParts = async (
+  root: Page,
+  index: number,
+  parts: { firstName?: string; middleName?: string; lastName?: string },
+) => {
+  if (parts.firstName !== undefined) {
+    await getRecipientFirstNameInputs(root).nth(index).fill(parts.firstName);
+  }
+
+  if (parts.middleName !== undefined) {
+    await getRecipientMiddleNameInputs(root).nth(index).fill(parts.middleName);
+  }
+
+  if (parts.lastName !== undefined) {
+    await getRecipientLastNameInputs(root).nth(index).fill(parts.lastName);
+  }
 };
 
 export const setRecipientRole = async (

@@ -25,7 +25,7 @@ import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '../../types/docume
 import type { TRecipientActionAuthTypes } from '../../types/document-auth';
 import { DocumentAccessAuth, ZRecipientAuthOptionsSchema } from '../../types/document-auth';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
-import { ZFieldMetaSchema } from '../../types/field-meta';
+import { ZFieldMetaSchema, isFullNameField } from '../../types/field-meta';
 import {
   ZWebhookDocumentSchema,
   mapEnvelopeToWebhookDocumentPayload,
@@ -230,7 +230,13 @@ export const createDocumentFromDirectTemplate = async ({
         });
       }
 
-      if (templateField.type === FieldType.NAME && directRecipientName === undefined) {
+      // Only a NAME field holding the whole name can stand in for the recipient's name — a field
+      // bound to a single part would reduce it to just that part.
+      if (
+        templateField.type === FieldType.NAME &&
+        isFullNameField(templateField.fieldMeta) &&
+        directRecipientName === undefined
+      ) {
         directRecipientName = signedFieldValue?.value;
       }
 

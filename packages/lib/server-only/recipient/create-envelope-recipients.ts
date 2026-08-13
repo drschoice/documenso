@@ -8,6 +8,7 @@ import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-reques
 import { nanoid } from '@documenso/lib/universal/id';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { createRecipientAuthOptions } from '@documenso/lib/utils/document-auth';
+import { resolveRecipientNameOnCreate } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
@@ -85,6 +86,7 @@ export const createEnvelopeRecipients = async ({
 
   const normalizedRecipients = recipientsToCreate.map((recipient) => ({
     ...recipient,
+    ...resolveRecipientNameOnCreate(recipient),
     email: recipient.email.toLowerCase(),
   }));
 
@@ -100,6 +102,9 @@ export const createEnvelopeRecipients = async ({
           data: {
             envelopeId: envelope.id,
             name: recipient.name,
+            firstName: recipient.firstName,
+            middleName: recipient.middleName,
+            lastName: recipient.lastName,
             email: recipient.email,
             role: recipient.role,
             signingOrder: recipient.signingOrder,

@@ -26,6 +26,7 @@ import type { TEnvelopeFieldAndMeta } from '@documenso/lib/types/field-meta';
 import { extractDerivedDocumentMeta } from '@documenso/lib/utils/document';
 import { buildEmbeddedFeatures } from '@documenso/lib/utils/embed-config';
 import { buildEmbeddedEditorOptions } from '@documenso/lib/utils/embed-config';
+import { splitFullName } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 import { trpc } from '@documenso/trpc/react';
 import type { TCreateEnvelopePayload } from '@documenso/trpc/server/envelope-router/create-envelope.types';
@@ -318,6 +319,7 @@ const EnvelopeCreatePage = ({ embedAuthoringOptions }: EnvelopeCreatePageProps) 
       envelopeId: '',
       email: recipient.email,
       name: recipient.name,
+      ...splitFullName(recipient.name),
       role: recipient.role,
       token: '',
       readStatus: ReadStatus.NOT_OPENED,

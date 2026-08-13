@@ -6,6 +6,7 @@ import { match } from 'ts-pattern';
 import type { TRecipientColor } from '@documenso/ui/lib/recipient-colors';
 
 import type { TFieldMetaSchema } from '../../types/field-meta';
+import type { FieldRenderTranslations } from '../../utils/fields';
 import { renderCheckboxFieldElement } from './render-checkbox-field';
 import { renderDropdownFieldElement } from './render-dropdown-field';
 import { renderGenericTextFieldElement } from './render-generic-text-field';
@@ -47,7 +48,7 @@ type RenderFieldOptions = {
 
   color?: TRecipientColor;
 
-  translations: Record<FieldType, string> | null;
+  translations: FieldRenderTranslations | null;
 
   mode: FieldRenderMode;
 

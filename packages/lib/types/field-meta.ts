@@ -5,6 +5,7 @@ import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../constants/pdf';
 
 export const FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN = 'middle';
 export const FIELD_DEFAULT_GENERIC_ALIGN = 'left';
+export const FIELD_DEFAULT_NAME_PART = 'full';
 export const FIELD_DEFAULT_LINE_HEIGHT = 1;
 export const FIELD_DEFAULT_LETTER_SPACING = 0;
 
@@ -109,9 +110,21 @@ export const ZInitialsFieldMeta = ZBaseFieldMeta.extend({
 
 export type TInitialsFieldMeta = z.infer<typeof ZInitialsFieldMeta>;
 
+/**
+ * Which part of the recipient's name a NAME field stamps.
+ *
+ * Documents often have separate boxes for the first, middle and last name. Rather than adding a
+ * field type per part, a NAME field is bound to one part here — rendering, signing and sealing are
+ * identical, only the value that gets prefilled differs.
+ */
+export const ZFieldNamePartSchema = z.enum(['full', 'first', 'middle', 'last']);
+
+export type TFieldNamePartSchema = z.infer<typeof ZFieldNamePartSchema>;
+
 export const ZNameFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('name'),
   textAlign: ZFieldTextAlignSchema.optional(),
+  namePart: ZFieldNamePartSchema.optional(),
   ...ZConditionalMetaExtensions,
 }).strict();
 
@@ -220,6 +233,34 @@ export const getCombFieldCells = (
   }
 
   return null;
+};
+
+/**
+ * Which part of the recipient's name a NAME field is bound to.
+ *
+ * Defaults to the whole name, so NAME fields created before this existed — and those created
+ * through the API — keep behaving exactly as they did.
+ */
+export const getFieldNamePart = (
+  meta: TFieldMetaSchema | TFieldMetaNotOptionalSchema | null | undefined,
+): TFieldNamePartSchema => {
+  if (meta && meta.type === 'name' && meta.namePart) {
+    return meta.namePart;
+  }
+
+  return FIELD_DEFAULT_NAME_PART;
+};
+
+/**
+ * Whether a NAME field holds the recipient's whole name.
+ *
+ * Only these fields may be used to infer the recipient's full name — a field bound to a single part
+ * would otherwise overwrite it with just that part.
+ */
+export const isFullNameField = (
+  meta: TFieldMetaSchema | TFieldMetaNotOptionalSchema | null | undefined,
+): boolean => {
+  return getFieldNamePart(meta) === 'full';
 };
 
 export const ZFieldOptionValue = z.object({
@@ -448,6 +489,7 @@ export const FIELD_NAME_META_DEFAULT_VALUES: TNameFieldMeta = {
   type: 'name',
   fontSize: DEFAULT_FIELD_FONT_SIZE,
   textAlign: 'left',
+  namePart: FIELD_DEFAULT_NAME_PART,
 };
 
 export const FIELD_EMAIL_META_DEFAULT_VALUES: TEmailFieldMeta = {
