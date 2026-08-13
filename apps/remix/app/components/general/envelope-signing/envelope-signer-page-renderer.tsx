@@ -27,6 +27,7 @@ import { ZFullFieldSchema } from '@documenso/lib/types/field';
 import { isFullNameField } from '@documenso/lib/types/field-meta';
 import { createSpinner } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
+import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
 import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
@@ -49,6 +50,7 @@ import { useRequiredDocumentSigningAuthContext } from '../document-signing/docum
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
 
 type GenericLocalField = TEnvelope['fields'][number] & {
+  signature?: Pick<Signature, 'signatureImageAsBase64' | 'typedSignature'> | null;
   recipient: Pick<Recipient, 'id' | 'name' | 'email' | 'signingStatus'>;
 };
 
@@ -110,34 +112,53 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
   ]);
 
   /**
-   * Returns fields that have been fully signed by other recipients for this specific
-   * page.
+   * Returns the fields of every *other* recipient for this specific page, so the
+   * signer can see the full shape of the document rather than only their own blanks.
+   *
+   * These are rendered greyed out and non-interactive. Values are only carried
+   * through for recipients who have fully signed — a pending recipient's in-progress
+   * input is blanked in `renderFields` so it is never shown to another signer.
    */
   const localPageOtherRecipientFields = useMemo((): GenericLocalField[] => {
-    const signedRecipients = envelope.recipients.filter(
-      (recipient) => recipient.signingStatus === SigningStatus.SIGNED,
-    );
+    const currentFieldIds = new Set(localPageFields.map((field) => field.id));
 
-    return signedRecipients.flatMap((recipient) => {
-      return recipient.fields
-        .filter(
-          (field) =>
-            field.page === pageNumber &&
-            field.envelopeItemId === currentEnvelopeItem?.id &&
-            (field.inserted || field.fieldMeta?.readOnly),
-        )
-        .map((field) => ({
-          ...field,
-          recipient: {
-            id: recipient.id,
-            name: recipient.name,
-            email: recipient.email,
-            signingStatus: recipient.signingStatus,
-            role: recipient.role,
-          },
-        }));
-    });
-  }, [envelope.recipients, pageNumber, currentEnvelopeItem?.id]);
+    return envelope.recipients
+      .filter((otherRecipient) => otherRecipient.id !== recipient.id)
+      .flatMap((otherRecipient) => {
+        // Conditional visibility is evaluated over the owning recipient's own field
+        // set, mirroring how `visibleRecipientFields` is derived for the signer.
+        const visibility = evaluateAllVisibility(
+          otherRecipient.fields.map((field) => ({
+            id: field.id,
+            type: field.type,
+            customText: field.customText,
+            inserted: field.inserted,
+            fieldMeta: field.fieldMeta,
+          })),
+        );
+
+        return otherRecipient.fields
+          .filter(
+            (field) =>
+              field.page === pageNumber &&
+              field.envelopeItemId === currentEnvelopeItem?.id &&
+              // Assistants render another recipient's fields as their own interactive
+              // set, so skip anything already drawn for the current recipient.
+              !currentFieldIds.has(field.id) &&
+              visibility.get(field.id) !== false,
+          )
+          .map((field) => ({
+            ...field,
+            recipient: {
+              id: otherRecipient.id,
+              name: otherRecipient.name,
+              email: otherRecipient.email,
+              signingStatus: otherRecipient.signingStatus,
+              role: otherRecipient.role,
+            },
+          }));
+      });
+  }, [envelope.recipients, recipient.id, localPageFields, pageNumber, currentEnvelopeItem?.id]);
 
   const unsafeRenderFieldOnLayer = (unparsedField: Field & { signature?: Signature | null }) => {
     if (!pageLayer.current) {
@@ -458,15 +479,17 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       return;
     }
 
-    // Render current recipient fields.
-    for (const field of localPageFields) {
-      renderFieldOnLayer(field);
-    }
-
-    // Render other recipient signed and inserted fields.
+    // Render other recipient fields first so the current recipient's fields end up
+    // above them in the layer's z-order.
     for (const field of localPageOtherRecipientFields) {
       try {
-        renderField({
+        // Only recipients who have fully signed have their values shown. Everyone
+        // else renders as an empty placeholder so their in-progress input is never
+        // exposed to another signer. Read-only prefilled values are author-provided
+        // rather than signer-entered, so they still render either way.
+        const isSigned = field.recipient.signingStatus === SigningStatus.SIGNED;
+
+        const { fieldGroup } = renderField({
           scale,
           pageLayer: pageLayer.current,
           field: {
@@ -477,6 +500,9 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
             positionX: Number(field.positionX),
             positionY: Number(field.positionY),
             fieldMeta: field.fieldMeta,
+            inserted: isSigned && field.inserted,
+            customText: isSigned ? field.customText : '',
+            signature: isSigned ? field.signature : null,
           },
           translations: getClientSideFieldTranslations(i18n),
           pageWidth: unscaledViewport.width,
@@ -487,10 +513,20 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           signatureFontFamily: envelope.documentMeta.signatureFontFamily,
           signatureFontSize: envelope.documentMeta.signatureFontSize,
         });
+
+        // Konva dispatches a click to the topmost hit shape only, so without this a
+        // greyed field overlapping one of the current recipient's fields would
+        // swallow the pointerdown and make it impossible to sign.
+        fieldGroup.listening(false);
       } catch (err) {
         console.error('Unable to render one or more fields belonging to other recipients.');
         console.error(err);
       }
+    }
+
+    // Render current recipient fields.
+    for (const field of localPageFields) {
+      renderFieldOnLayer(field);
     }
   };
 
@@ -563,7 +599,14 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     renderFields();
 
     pageLayer.current.batchDraw();
-  }, [localPageFields, showPendingFieldTooltip, fullName, signature, email]);
+  }, [
+    localPageFields,
+    localPageOtherRecipientFields,
+    showPendingFieldTooltip,
+    fullName,
+    signature,
+    email,
+  ]);
 
   /**
    * Rerender the whole page if the selected assistant recipient changes.
