@@ -45,16 +45,16 @@ msgid "\"{documentTitle}\" has been successfully deleted"
 msgstr "\"{documentTitle}\" has been successfully deleted"
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "\"{placeholderEmail}\" on behalf of \"Team Name\" has invited you to sign \"example document\"."
-msgstr "\"{placeholderEmail}\" on behalf of \"Team Name\" has invited you to sign \"example document\"."
+msgid "\"{placeholderEmail}\" on behalf of \"{previewSenderName}\" has invited you to sign \"example document\"."
+msgstr "\"{placeholderEmail}\" on behalf of \"{previewSenderName}\" has invited you to sign \"example document\"."
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "\"{previewSenderName}\" has invited you to sign \"example document\"."
+msgstr "\"{previewSenderName}\" has invited you to sign \"example document\"."
 
 #: apps/remix/app/components/dialogs/envelope-delete-dialog.tsx
 msgid "\"{title}\" has been successfully deleted"
 msgstr "\"{title}\" has been successfully deleted"
-
-#: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "\"Team Name\" has invited you to sign \"example document\"."
-msgstr "\"Team Name\" has invited you to sign \"example document\"."
 
 #: apps/remix/app/components/embed/embed-document-signing-page-v1.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-form.tsx
@@ -3084,10 +3084,6 @@ msgstr "Controls the default language of an uploaded document. This will be used
 msgid "Controls the default visibility of an uploaded document."
 msgstr "Controls the default visibility of an uploaded document."
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "Controls the formatting of the message that will be sent when inviting a recipient to sign a document. If a custom message has been provided while configuring the document, it will be used instead."
-msgstr "Controls the formatting of the message that will be sent when inviting a recipient to sign a document. If a custom message has been provided while configuring the document, it will be used instead."
-
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 #: packages/ui/primitives/document-flow/add-settings.tsx
 msgid "Controls the language for the document, including the language to be used for email notifications, and the final certificate that is generated and attached to the document."
@@ -3096,6 +3092,10 @@ msgstr "Controls the language for the document, including the language to be use
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Controls whether the audit logs will be included in the document when it is downloaded. The audit logs can still be downloaded from the logs page separately."
 msgstr "Controls whether the audit logs will be included in the document when it is downloaded. The audit logs can still be downloaded from the logs page separately."
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Controls whether the individual sender's name appears alongside the email sender name when inviting a recipient to sign a document."
+msgstr "Controls whether the individual sender's name appears alongside the email sender name when inviting a recipient to sign a document."
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Controls whether the signing certificate will be included in the document when it is downloaded. The signing certificate can still be downloaded from the logs page separately."
@@ -3478,7 +3478,7 @@ msgstr "Currently branding can only be configured for Teams and above plans."
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "Currently email domains can only be configured for Platform and above plans."
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Custom"
 msgstr "Custom"
 
@@ -3495,7 +3495,7 @@ msgstr "Custom duration"
 msgid "Custom Organisation Groups"
 msgstr "Custom Organisation Groups"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Custom Sender Name"
 msgstr "Custom Sender Name"
 
@@ -4868,7 +4868,7 @@ msgstr "Email resent"
 msgid "Email Sender"
 msgstr "Email Sender"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Email Sender Name"
 msgstr "Email Sender Name"
 
@@ -6144,7 +6144,7 @@ msgstr "Inherit authentication method"
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
@@ -6515,7 +6515,7 @@ msgstr "Learn more"
 msgid "Leave"
 msgstr "Leave"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Leave blank to fall back to the team name. Available variables:"
 msgstr "Leave blank to fall back to the team name. Available variables:"
 
@@ -7672,7 +7672,7 @@ msgstr "Organisation Member"
 msgid "Organisation Members"
 msgstr "Organisation Members"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Organisation name"
 msgstr "Organisation name"
 
@@ -10410,11 +10410,12 @@ msgstr "Team members have been added."
 msgid "Team Memberships"
 msgstr "Team Memberships"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Team name"
 msgstr "Team name"
 
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
 msgid "Team Name"
@@ -10839,9 +10840,9 @@ msgstr "The following team has been deleted. You will no longer be able to acces
 msgid "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
 msgstr "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
-msgid "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
-msgstr "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The name recipients see in emails about your documents. Applies whether or not branding is enabled."
+msgstr "The name recipients see in emails about your documents. Applies whether or not branding is enabled."
 
 #. placeholder {0}: form.watch('name')
 #. placeholder {1}: form.watch('email')

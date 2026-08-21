@@ -50,16 +50,16 @@ msgid "\"{documentTitle}\" has been successfully deleted"
 msgstr "\"{documentTitle}\" 已成功删除"
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "\"{placeholderEmail}\" on behalf of \"Team Name\" has invited you to sign \"example document\"."
-msgstr "“{placeholderEmail}”代表“Team Name”邀请您签署“example document”。"
+msgid "\"{placeholderEmail}\" on behalf of \"{previewSenderName}\" has invited you to sign \"example document\"."
+msgstr "“{placeholderEmail}”代表“{previewSenderName}”邀请您签署“example document”。"
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "\"{previewSenderName}\" has invited you to sign \"example document\"."
+msgstr "“{previewSenderName}”已邀请您签署“example document”。"
 
 #: apps/remix/app/components/dialogs/envelope-delete-dialog.tsx
 msgid "\"{title}\" has been successfully deleted"
 msgstr "“{title}”已成功删除"
-
-#: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "\"Team Name\" has invited you to sign \"example document\"."
-msgstr "“Team Name”已邀请您签署“example document”。"
 
 #: apps/remix/app/components/embed/embed-document-signing-page-v1.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-form.tsx
@@ -3089,10 +3089,6 @@ msgstr "控制上传文档的默认语言。该语言将用于与收件人的邮
 msgid "Controls the default visibility of an uploaded document."
 msgstr "控制上传文档的默认可见性。"
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
-msgid "Controls the formatting of the message that will be sent when inviting a recipient to sign a document. If a custom message has been provided while configuring the document, it will be used instead."
-msgstr "控制邀请收件人签署文档时发送的消息格式。如果在配置文档时提供了自定义消息，将优先生效。"
-
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 #: packages/ui/primitives/document-flow/add-settings.tsx
 msgid "Controls the language for the document, including the language to be used for email notifications, and the final certificate that is generated and attached to the document."
@@ -3101,6 +3097,10 @@ msgstr "控制文档所使用的语言，包括电子邮件通知的语言，以
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Controls whether the audit logs will be included in the document when it is downloaded. The audit logs can still be downloaded from the logs page separately."
 msgstr "控制在下载文档时，是否在文档中包含审计日志。审计日志仍可在日志页面单独下载。"
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Controls whether the individual sender's name appears alongside the email sender name when inviting a recipient to sign a document."
+msgstr ""
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Controls whether the signing certificate will be included in the document when it is downloaded. The signing certificate can still be downloaded from the logs page separately."
@@ -3483,7 +3483,7 @@ msgstr "目前仅 Teams 及以上套餐可以配置品牌。"
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "目前仅 Platform 及以上套餐可以配置邮箱域名。"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Custom"
 msgstr ""
 
@@ -3500,7 +3500,7 @@ msgstr "自定义时长"
 msgid "Custom Organisation Groups"
 msgstr "自定义组织组"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Custom Sender Name"
 msgstr ""
 
@@ -4873,7 +4873,7 @@ msgstr "电子邮件已重新发送"
 msgid "Email Sender"
 msgstr "邮件发件人"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Email Sender Name"
 msgstr ""
 
@@ -6149,7 +6149,7 @@ msgstr "继承认证方式"
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
@@ -6520,7 +6520,7 @@ msgstr "了解详情"
 msgid "Leave"
 msgstr "离开"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Leave blank to fall back to the team name. Available variables:"
 msgstr ""
 
@@ -7677,7 +7677,7 @@ msgstr "组织成员"
 msgid "Organisation Members"
 msgstr "组织成员"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Organisation name"
 msgstr ""
 
@@ -10415,11 +10415,12 @@ msgstr "团队成员已添加。"
 msgid "Team Memberships"
 msgstr "团队成员资格"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Team name"
 msgstr ""
 
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
 msgid "Team Name"
@@ -10844,8 +10845,8 @@ msgstr "以下团队已被删除。您将无法再访问该团队及其文档"
 msgid "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
 msgstr ""
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
-msgid "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The name recipients see in emails about your documents. Applies whether or not branding is enabled."
 msgstr ""
 
 #. placeholder {0}: form.watch('name')

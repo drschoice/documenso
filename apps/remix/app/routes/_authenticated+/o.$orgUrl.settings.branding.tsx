@@ -54,8 +54,6 @@ export default function OrganisationSettingsBrandingPage() {
         brandingCompanyDetails,
         signatureFontFamily,
         signatureFontSize,
-        emailSenderNameMode,
-        emailSenderNameCustom,
       } = data;
 
       let uploadedBrandingLogo: string | undefined = '';
@@ -75,9 +73,6 @@ export default function OrganisationSettingsBrandingPage() {
           signatureFontFamily: (signatureFontFamily as SignatureFontFamily | null) ?? undefined,
           // Null (blank) leaves the organisation size unchanged; the org has no value to inherit.
           signatureFontSize: signatureFontSize ?? undefined,
-          // The organisation has nothing to inherit from, so "no choice" means leave it alone.
-          emailSenderNameMode: emailSenderNameMode ?? undefined,
-          emailSenderNameCustom,
         },
       });
 

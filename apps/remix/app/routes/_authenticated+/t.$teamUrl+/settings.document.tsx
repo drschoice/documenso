@@ -3,8 +3,10 @@ import { useLingui } from '@lingui/react/macro';
 import { Loader } from 'lucide-react';
 import { useLoaderData } from 'react-router';
 
+import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { IS_AI_FEATURES_CONFIGURED } from '@documenso/lib/constants/app';
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
+import { resolveEmailSenderName } from '@documenso/lib/utils/email-sender-name';
 import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { useToast } from '@documenso/ui/primitives/use-toast';
@@ -31,6 +33,7 @@ export default function TeamsSettingsPage() {
   const { isAiFeaturesConfigured } = useLoaderData<typeof loader>();
 
   const team = useCurrentTeam();
+  const organisation = useCurrentOrganisation();
 
   const { t } = useLingui();
   const { toast } = useToast();
@@ -49,6 +52,8 @@ export default function TeamsSettingsPage() {
         documentTimezone,
         documentDateFormat,
         includeSenderDetails,
+        emailSenderNameMode,
+        emailSenderNameCustom,
         includeSigningCertificate,
         includeAuditLog,
         signatureTypes,
@@ -66,6 +71,9 @@ export default function TeamsSettingsPage() {
           documentTimezone,
           documentDateFormat,
           includeSenderDetails,
+          // Null = inherit from organisation.
+          emailSenderNameMode,
+          emailSenderNameCustom: emailSenderNameCustom || null,
           includeSigningCertificate,
           includeAuditLog,
           defaultRecipients,
@@ -122,6 +130,12 @@ export default function TeamsSettingsPage() {
           allowedSignatureTypes={extractTeamSignatureSettings(
             teamWithSettings.organisationSettings,
           )}
+          // So the "inherit" preview shows the organisation's real resolved name.
+          inheritedSenderName={resolveEmailSenderName({
+            settings: teamWithSettings.organisationSettings,
+            organisationName: organisation.name,
+            teamName: team.name,
+          })}
           onFormSubmit={onDocumentPreferencesSubmit}
         />
       </section>
