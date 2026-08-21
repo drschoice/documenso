@@ -55,6 +55,8 @@ export const updateTeamSettingsRoute = authenticatedProcedure
       emailReplyTo,
       // emailReplyToName,
       emailDocumentSettings,
+      emailSenderNameMode,
+      emailSenderNameCustom,
 
       // Default recipients settings.
       defaultRecipients,
@@ -203,6 +205,8 @@ export const updateTeamSettingsRoute = authenticatedProcedure
             emailDocumentSettings:
               emailDocumentSettings === null ? Prisma.DbNull : emailDocumentSettings,
             defaultRecipients: defaultRecipients === null ? Prisma.DbNull : defaultRecipients,
+            emailSenderNameMode,
+            emailSenderNameCustom,
 
             // AI features settings.
             aiFeaturesEnabled,

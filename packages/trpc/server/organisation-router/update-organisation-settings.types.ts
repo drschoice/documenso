@@ -1,3 +1,4 @@
+import { EmailSenderNameMode } from '@prisma/client';
 import { z } from 'zod';
 
 import { ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
@@ -40,6 +41,9 @@ export const ZUpdateOrganisationSettingsRequestSchema = z.object({
     brandingLogo: z.string().optional(),
     brandingUrl: z.string().optional(),
     brandingCompanyDetails: z.string().optional(),
+
+    emailSenderNameMode: z.nativeEnum(EmailSenderNameMode).optional(),
+    emailSenderNameCustom: z.string().max(200).optional(),
 
     // Email related settings.
     emailId: z.string().nullish(),

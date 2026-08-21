@@ -17,6 +17,7 @@ import {
 
 import { DOCUMENSO_INTERNAL_EMAIL } from '../../constants/email';
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { resolveEmailSenderName } from '../../utils/email-sender-name';
 import {
   organisationGlobalSettingsToBranding,
   teamGlobalSettingsToBranding,
@@ -72,6 +73,12 @@ type EmailContextResponse = {
   settings: Omit<OrganisationGlobalSettings, 'id'>;
   claims: OrganisationClaim;
   organisationType: OrganisationType;
+
+  /**
+   * The name envelope emails should speak as, resolved from the organisation/team sender name
+   * setting. Senders use this wherever they previously hardcoded the team name.
+   */
+  senderDisplayName: string;
   senderEmail: {
     name: string;
     address: string;
@@ -172,6 +179,13 @@ const handleOrganisationEmailContext = async (organisationId: string) => {
     settings: organisation.organisationGlobalSettings,
     claims,
     organisationType: organisation.type,
+    senderDisplayName: resolveEmailSenderName({
+      settings: organisation.organisationGlobalSettings,
+      organisationName: organisation.name,
+      // No team in scope for organisation-sourced emails, so `TEAM` mode and the blank-custom
+      // fallback both resolve to the organisation name.
+      teamName: organisation.name,
+    }),
   };
 };
 
@@ -223,6 +237,11 @@ const handleTeamEmailContext = async (teamId: number) => {
     settings: teamSettings,
     claims,
     organisationType: organisation.type,
+    senderDisplayName: resolveEmailSenderName({
+      settings: teamSettings,
+      organisationName: organisation.name,
+      teamName: team.name,
+    }),
   };
 };
 

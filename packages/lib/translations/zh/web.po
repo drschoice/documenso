@@ -264,17 +264,6 @@ msgstr "{0} 个直接签署模板"
 msgid "{0} field"
 msgstr "{0} 字段"
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{0} 已邀请您 {recipientActionVerb} 文档“{1}”。"
-
-#. placeholder {0}: team.name
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} invited you to {recipientActionVerb} a document"
-msgstr "{0} 邀请您 {recipientActionVerb} 一个文档"
-
 #. placeholder {0}: remaining.documents
 #. placeholder {1}: quota.documents
 #: apps/remix/app/components/general/document/document-upload-button-legacy.tsx
@@ -282,13 +271,6 @@ msgstr "{0} 邀请您 {recipientActionVerb} 一个文档"
 #: apps/remix/app/components/general/envelope/envelope-upload-button.tsx
 msgid "{0} of {1} documents remaining this month."
 msgstr "本月还剩 {0}/{1} 份文档可用。"
-
-#. placeholder {0}: user.name || user.email
-#. placeholder {1}: envelope.team.name
-#. placeholder {2}: envelope.title
-#: packages/lib/server-only/document/resend-document.ts
-msgid "{0} on behalf of \"{1}\" has invited you to {recipientActionVerb} the document \"{2}\"."
-msgstr "{0} 代表“{1}”邀请您 {recipientActionVerb} 文档“{2}”。"
 
 #. placeholder {0}: organisation.name
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl._index.tsx
@@ -352,10 +334,6 @@ msgstr "{inviterName} 已邀请您 {0}<0/>“{documentName}”"
 msgid "{inviterName} has invited you to {action} {documentName}"
 msgstr "{inviterName} 已邀请您 {action} {documentName}"
 
-#: packages/email/templates/document-invite.tsx
-msgid "{inviterName} has invited you to {action} the document \"{documentName}\"."
-msgstr "{inviterName} 已邀请您 {action} 文档“{documentName}”。"
-
 #: packages/email/templates/recipient-removed-from-document.tsx
 msgid "{inviterName} has removed you from the document {documentName}."
 msgstr "{inviterName} 已将您从文档 {documentName} 中移除。"
@@ -364,20 +342,14 @@ msgstr "{inviterName} 已将您从文档 {documentName} 中移除。"
 msgid "{inviterName} has removed you from the document<0/>\"{documentName}\""
 msgstr "{inviterName} 已将您从文档<0/>“{documentName}”中移除"
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{inviterName} on behalf of \"{0}\" has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{inviterName} 代表“{0}”邀请您 {recipientActionVerb} 文档“{1}”。"
-
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {0}<0/>\"{documentName}\""
-msgstr "{inviterName} 代表“{teamName}”已邀请您 {0}<0/>“{documentName}”"
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {0}<0/>\"{documentName}\""
+msgstr "{inviterName} 代表“{senderName}”已邀请您 {0}<0/>“{documentName}”"
 
 #: packages/email/templates/document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {action} {documentName}"
-msgstr "{inviterName} 代表“{teamName}”已邀请您 {action} {documentName}"
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {action} {documentName}"
+msgstr "{inviterName} 代表“{senderName}”已邀请您 {action} {documentName}"
 
 #: apps/remix/app/components/dialogs/passkey-create-dialog.tsx
 msgid "{MAXIMUM_PASSKEYS, plural, one {You cannot have more than # passkey.} other {You cannot have more than # passkeys.}}"
@@ -437,18 +409,23 @@ msgstr "{remaningLength, plural, other {# 个字符剩余}}"
 msgid "{selectedCount} selected"
 msgstr "已选择 {selectedCount} 个"
 
-#: packages/email/template-components/template-document-rejected.tsx
-msgid "{signerName} has rejected the document \"{documentName}\"."
-msgstr "{signerName} 已拒签文档“{documentName}”。"
+#. placeholder {0}: envelope.title
+#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
+msgid "{senderDisplayName} invited you to {recipientActionVerb} \"{0}\""
+msgstr ""
 
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{teamName} has invited you to {0}<0/>\"{documentName}\""
-msgstr "{teamName} 已邀请您 {0}<0/>“{documentName}”"
+msgid "{senderName} has invited you to {0}<0/>\"{documentName}\""
+msgstr "{senderName} 已邀请您 {0}<0/>“{documentName}”"
 
 #: packages/email/templates/document-invite.tsx
-msgid "{teamName} has invited you to {action} {documentName}"
-msgstr "{teamName} 已邀请您 {action} {documentName}"
+msgid "{senderName} has invited you to {action} {documentName}"
+msgstr "{senderName} 已邀请您 {action} {documentName}"
+
+#: packages/email/template-components/template-document-rejected.tsx
+msgid "{signerName} has rejected the document \"{documentName}\"."
+msgstr "{signerName} 已拒签文档“{documentName}”。"
 
 #: packages/lib/utils/document-audit-logs.ts
 msgid "{user} added a field"
@@ -3133,6 +3110,10 @@ msgstr "控制在下载文档时，是否在文档中包含签署证书。签署
 msgid "Controls which signatures are allowed to be used when signing a document."
 msgstr "控制签署文档时允许使用哪些类型的签名。"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Controls which signatures are allowed to be used when signing a document. Your organisation has disabled the remaining types."
+msgstr ""
+
 #: apps/remix/app/components/general/document/document-recipient-link-copy-dialog.tsx
 #: packages/ui/primitives/document-flow/add-subject.tsx
 msgid "Copied"
@@ -3502,6 +3483,10 @@ msgstr "目前仅 Teams 及以上套餐可以配置品牌。"
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "目前仅 Platform 及以上套餐可以配置邮箱域名。"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom"
+msgstr ""
+
 #. placeholder {0}: (field.value.size / (1024 * 1024)).toFixed(2)
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Custom {0} MB file"
@@ -3514,6 +3499,10 @@ msgstr "自定义时长"
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.groups._index.tsx
 msgid "Custom Organisation Groups"
 msgstr "自定义组织组"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom Sender Name"
+msgstr ""
 
 #: apps/remix/app/components/general/app-command-menu.tsx
 msgid "Dark Mode"
@@ -4884,6 +4873,10 @@ msgstr "电子邮件已重新发送"
 msgid "Email Sender"
 msgstr "邮件发件人"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Email Sender Name"
+msgstr ""
+
 #: packages/lib/utils/document-audit-logs.ts
 msgctxt "Audit log format"
 msgid "Email sent"
@@ -6146,10 +6139,15 @@ msgstr "包含："
 msgid "Information"
 msgstr "信息"
 
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "Inherit ({inheritedDateFormatLabel})"
+msgstr ""
+
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
 msgid "Inherit authentication method"
 msgstr "继承认证方式"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
@@ -6521,6 +6519,10 @@ msgstr "了解详情"
 #: apps/remix/app/components/tables/user-organisations-table.tsx
 msgid "Leave"
 msgstr "离开"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Leave blank to fall back to the team name. Available variables:"
+msgstr ""
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
@@ -7675,6 +7677,10 @@ msgstr "组织成员"
 msgid "Organisation Members"
 msgstr "组织成员"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Organisation name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-create-dialog.tsx
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/forms/organisation-update-form.tsx
@@ -8731,10 +8737,9 @@ msgstr "想起密码了？<0>登录</0>"
 msgid "Reminder: {0}"
 msgstr "提醒：{0}"
 
-#. placeholder {0}: envelope.team.name
 #: packages/lib/server-only/document/resend-document.ts
-msgid "Reminder: {0} invited you to {recipientActionVerb} a document"
-msgstr "提醒：{0} 邀请您 {recipientActionVerb} 一个文档"
+msgid "Reminder: {senderDisplayName} invited you to {recipientActionVerb} a document"
+msgstr "提醒：{senderDisplayName} 邀请您 {recipientActionVerb} 一个文档"
 
 #: packages/lib/server-only/document/resend-document.ts
 msgid "Reminder: Please {recipientActionVerb} this document"
@@ -10410,6 +10415,10 @@ msgstr "团队成员已添加。"
 msgid "Team Memberships"
 msgstr "团队成员资格"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Team name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
@@ -10833,6 +10842,10 @@ msgstr "以下团队已被删除。您将无法再访问该团队及其文档"
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
+msgstr ""
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
 msgstr ""
 
 #. placeholder {0}: form.watch('name')

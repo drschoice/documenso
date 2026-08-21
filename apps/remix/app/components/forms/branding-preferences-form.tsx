@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans, useLingui } from '@lingui/react/macro';
-import type { TeamGlobalSettings } from '@prisma/client';
+import type { EmailSenderNameMode, TeamGlobalSettings } from '@prisma/client';
 import { Loader } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
 import {
@@ -43,6 +44,15 @@ import { useOptionalCurrentTeam } from '~/providers/team';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+// Spelled out rather than derived from the Prisma enum object: this is a client component, and a
+// value import of `@prisma/client` does not survive into the browser bundle. `satisfies` keeps the
+// literals checked against the real enum, so adding or renaming a mode fails to compile here.
+const EMAIL_SENDER_NAME_MODES = [
+  'ORGANISATION',
+  'TEAM',
+  'CUSTOM',
+] as const satisfies readonly EmailSenderNameMode[];
+
 const ZBrandingPreferencesFormSchema = z.object({
   brandingEnabled: z.boolean().nullable(),
   brandingLogo: z
@@ -55,6 +65,10 @@ const ZBrandingPreferencesFormSchema = z.object({
     .nullish(),
   brandingUrl: z.string().url().optional().or(z.literal('')),
   brandingCompanyDetails: z.string().max(500).optional(),
+  // Null = inherit from organisation (team only). Independent of `brandingEnabled` — the name emails
+  // speak as applies whether or not branding is switched on.
+  emailSenderNameMode: z.enum(EMAIL_SENDER_NAME_MODES).nullable(),
+  emailSenderNameCustom: z.string().max(200).optional(),
   // Null = inherit from organisation (team only). The allowed values are validated server-side by
   // the tRPC input (`ZSignatureFontFamilySchema`); kept as a plain string here since the `Select`
   // only offers curated families.
@@ -76,6 +90,8 @@ type SettingsSubset = Pick<
   | 'brandingLogo'
   | 'brandingUrl'
   | 'brandingCompanyDetails'
+  | 'emailSenderNameMode'
+  | 'emailSenderNameCustom'
   | 'signatureFontFamily'
   | 'signatureFontSize'
 >;
@@ -124,6 +140,8 @@ export function BrandingPreferencesForm({
       brandingUrl: settings.brandingUrl ?? '',
       brandingLogo: undefined,
       brandingCompanyDetails: settings.brandingCompanyDetails ?? '',
+      emailSenderNameMode: settings.emailSenderNameMode ?? null,
+      emailSenderNameCustom: settings.emailSenderNameCustom ?? '',
       signatureFontFamily: settings.signatureFontFamily ?? null,
       signatureFontSize: settings.signatureFontSize ?? null,
     },
@@ -131,6 +149,7 @@ export function BrandingPreferencesForm({
   });
 
   const isBrandingEnabled = form.watch('brandingEnabled');
+  const watchedSenderNameMode = form.watch('emailSenderNameMode');
   const watchedSignatureFontFamily = form.watch('signatureFontFamily');
   const watchedSignatureFontSize = form.watch('signatureFontSize');
 
@@ -385,6 +404,94 @@ export function BrandingPreferencesForm({
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="emailSenderNameMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  <Trans>Email Sender Name</Trans>
+                </FormLabel>
+
+                <FormControl>
+                  <Select
+                    value={field.value === null ? '-1' : field.value}
+                    // Matching against the real enum values avoids a type assertion, and the
+                    // "inherit" sentinel simply matches nothing and falls through to null.
+                    onValueChange={(value) =>
+                      field.onChange(EMAIL_SENDER_NAME_MODES.find((mode) => mode === value) ?? null)
+                    }
+                  >
+                    <SelectTrigger
+                      className="bg-background"
+                      data-testid="email-sender-name-mode-trigger"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent className="z-[9999]">
+                      <SelectItem value={'ORGANISATION'}>
+                        <Trans>Organisation name</Trans>
+                      </SelectItem>
+
+                      <SelectItem value={'TEAM'}>
+                        <Trans>Team name</Trans>
+                      </SelectItem>
+
+                      <SelectItem value={'CUSTOM'}>
+                        <Trans>Custom</Trans>
+                      </SelectItem>
+
+                      {canInherit && (
+                        <SelectItem value={'-1'}>
+                          <Trans>Inherit from organisation</Trans>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+
+                <FormDescription>
+                  <Trans>
+                    The name recipients see in envelope emails, as in "Acme invited you to sign".
+                  </Trans>
+                </FormDescription>
+
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {watchedSenderNameMode === 'CUSTOM' && (
+            <FormField
+              control={form.control}
+              name="emailSenderNameCustom"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>
+                    <Trans>Custom Sender Name</Trans>
+                  </FormLabel>
+
+                  <FormControl>
+                    <Input className="bg-background" {...field} />
+                  </FormControl>
+
+                  <FormDescription>
+                    <Trans>Leave blank to fall back to the team name. Available variables:</Trans>{' '}
+                    <code className="rounded bg-muted-foreground/20 p-1 text-xs">
+                      {'{organisation.name}'}
+                    </code>{' '}
+                    <code className="rounded bg-muted-foreground/20 p-1 text-xs">
+                      {'{team.name}'}
+                    </code>
+                  </FormDescription>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}

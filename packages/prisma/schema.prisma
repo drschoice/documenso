@@ -880,6 +880,12 @@ model OrganisationGlobalSettings {
   // emailReplyToName      String? // Placeholder for future feature.
   emailDocumentSettings Json /// [DocumentEmailSettings] @zod.custom.use(ZDocumentEmailSettingsSchema)
 
+  // The name envelope emails speak as. Deliberately separate from the branding group below, which
+  // inherits all-or-nothing off `brandingEnabled` — the sender name has to work whether or not
+  // branding is switched on.
+  emailSenderNameMode   EmailSenderNameMode @default(ORGANISATION)
+  emailSenderNameCustom String              @default("")
+
   brandingEnabled        Boolean @default(false)
   brandingLogo           String  @default("")
   brandingUrl            String  @default("")
@@ -924,6 +930,10 @@ model TeamGlobalSettings {
   emailReplyTo          String?
   // emailReplyToName      String? // Placeholder for future feature.
   emailDocumentSettings Json? /// [DocumentEmailSettingsNullable] @zod.custom.use(ZDocumentEmailSettingsSchema)
+
+  // Null = inherit from organisation.
+  emailSenderNameMode   EmailSenderNameMode?
+  emailSenderNameCustom String?
 
   brandingEnabled        Boolean?
   brandingLogo           String?
@@ -1074,6 +1084,13 @@ model AvatarImage {
 enum EmailDomainStatus {
   PENDING
   ACTIVE
+}
+
+/// Which name envelope emails speak as ("<name> invited you to sign ...").
+enum EmailSenderNameMode {
+  ORGANISATION
+  TEAM
+  CUSTOM
 }
 
 model EmailDomain {

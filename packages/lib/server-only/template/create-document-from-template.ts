@@ -133,6 +133,8 @@ export type CreateDocumentFromTemplateOptions = {
     nextFieldNavigationTypes?: FieldType[];
     nextFieldNavigationLabels?: string[];
     emailSettings?: TDocumentEmailSettings;
+    emailId?: string | null;
+    emailReplyTo?: string | null;
     typedSignatureEnabled?: boolean;
     uploadSignatureEnabled?: boolean;
     drawSignatureEnabled?: boolean;
@@ -552,6 +554,11 @@ export const createDocumentFromTemplate = async ({
       redirectUrl: override?.redirectUrl || template.documentMeta?.redirectUrl,
       distributionMethod: override?.distributionMethod || template.documentMeta?.distributionMethod,
       emailSettings: override?.emailSettings || template.documentMeta?.emailSettings,
+      // `emailId` and `emailReplyTo` were previously omitted here, so a template configured with a
+      // custom sender or reply-to silently lost both on every non-direct-link creation path, bulk
+      // send included.
+      emailId: override?.emailId ?? template.documentMeta?.emailId,
+      emailReplyTo: override?.emailReplyTo ?? template.documentMeta?.emailReplyTo,
       signingOrder: override?.signingOrder || template.documentMeta?.signingOrder,
       language: override?.language || template.documentMeta?.language || settings.documentLanguage,
       typedSignatureEnabled:
