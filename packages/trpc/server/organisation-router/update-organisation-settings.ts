@@ -53,6 +53,8 @@ export const updateOrganisationSettingsRoute = authenticatedProcedure
       emailReplyTo,
       // emailReplyToName,
       emailDocumentSettings,
+      emailSenderNameMode,
+      emailSenderNameCustom,
 
       // AI features settings.
       aiFeaturesEnabled,
@@ -167,6 +169,8 @@ export const updateOrganisationSettingsRoute = authenticatedProcedure
             emailReplyTo,
             // emailReplyToName,
             emailDocumentSettings,
+            emailSenderNameMode,
+            emailSenderNameCustom,
 
             // AI features settings.
             aiFeaturesEnabled,

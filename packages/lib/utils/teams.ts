@@ -207,6 +207,9 @@ export const generateDefaultTeamSettings = (): Omit<TeamGlobalSettings, 'id' | '
     emailReplyTo: null,
     // emailReplyToName: null,
 
+    emailSenderNameMode: null,
+    emailSenderNameCustom: null,
+
     defaultRecipients: null,
 
     envelopeExpirationPeriod: null,

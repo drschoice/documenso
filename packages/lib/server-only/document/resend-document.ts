@@ -134,15 +134,21 @@ export const resendDocument = async ({
     return envelope;
   }
 
-  const { branding, emailLanguage, organisationType, senderEmail, replyToEmail } =
-    await getEmailContext({
-      emailType: 'RECIPIENT',
-      source: {
-        type: 'team',
-        teamId: envelope.teamId,
-      },
-      meta: envelope.documentMeta,
-    });
+  const {
+    branding,
+    emailLanguage,
+    organisationType,
+    senderEmail,
+    replyToEmail,
+    senderDisplayName,
+  } = await getEmailContext({
+    emailType: 'RECIPIENT',
+    source: {
+      type: 'team',
+      teamId: envelope.teamId,
+    },
+    meta: envelope.documentMeta,
+  });
 
   await Promise.all(
     recipientsToRemind.map(async (recipient) => {
@@ -173,13 +179,11 @@ export const resendDocument = async ({
 
       if (organisationType === OrganisationType.ORGANISATION) {
         emailSubject = i18n._(
-          msg`Reminder: ${envelope.team.name} invited you to ${recipientActionVerb} a document`,
+          msg`Reminder: ${senderDisplayName} invited you to ${recipientActionVerb} a document`,
         );
-        emailMessage =
-          envelope.documentMeta.message ||
-          i18n._(
-            msg`${user.name || user.email} on behalf of "${envelope.team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
-          );
+
+        // Only a message someone actually wrote — see the note in `send-signing-email.handler.ts`.
+        emailMessage = envelope.documentMeta.message || '';
       }
 
       const customEmailTemplate = {
@@ -204,7 +208,7 @@ export const resendDocument = async ({
         role: recipient.role,
         selfSigner,
         organisationType,
-        teamName: envelope.team?.name,
+        senderName: senderDisplayName,
       });
 
       const [html, text] = await Promise.all([

@@ -17,7 +17,7 @@ export type DocumentInviteEmailTemplateProps = Partial<TemplateDocumentInvitePro
   customBody?: string;
   role: RecipientRole;
   selfSigner?: boolean;
-  teamName?: string;
+  senderName?: string;
   teamEmail?: string;
   includeSenderDetails?: boolean;
   organisationType?: OrganisationType;
@@ -32,7 +32,7 @@ export const DocumentInviteEmailTemplate = ({
   customBody,
   role,
   selfSigner = false,
-  teamName = '',
+  senderName = '',
   includeSenderDetails,
   organisationType,
 }: DocumentInviteEmailTemplateProps) => {
@@ -45,8 +45,8 @@ export const DocumentInviteEmailTemplate = ({
 
   if (organisationType === OrganisationType.ORGANISATION) {
     previewText = includeSenderDetails
-      ? msg`${inviterName} on behalf of "${teamName}" has invited you to ${action} ${documentName}`
-      : msg`${teamName} has invited you to ${action} ${documentName}`;
+      ? msg`${inviterName} on behalf of "${senderName}" has invited you to ${action} ${documentName}`
+      : msg`${senderName} has invited you to ${action} ${documentName}`;
   }
 
   if (selfSigner) {
@@ -84,7 +84,7 @@ export const DocumentInviteEmailTemplate = ({
                 role={role}
                 selfSigner={selfSigner}
                 organisationType={organisationType}
-                teamName={teamName}
+                senderName={senderName}
                 includeSenderDetails={includeSenderDetails}
               />
             </Section>
@@ -96,22 +96,14 @@ export const DocumentInviteEmailTemplate = ({
                 <Text className="my-4 text-base font-semibold">
                   <Trans>
                     {inviterName}{' '}
-                    <Link className="font-normal text-slate-400" href="mailto:{inviterEmail}">
+                    <Link className="font-normal text-slate-400" href={`mailto:${inviterEmail}`}>
                       ({inviterEmail})
                     </Link>
                   </Trans>
                 </Text>
               )}
 
-              <Text className="mt-2 text-base text-slate-400">
-                {customBody ? (
-                  <TemplateCustomMessageBody text={customBody} />
-                ) : (
-                  <Trans>
-                    {inviterName} has invited you to {action} the document "{documentName}".
-                  </Trans>
-                )}
-              </Text>
+              <TemplateCustomMessageBody text={customBody} />
             </Section>
           </Container>
 

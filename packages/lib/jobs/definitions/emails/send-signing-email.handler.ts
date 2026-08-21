@@ -93,15 +93,22 @@ export const run = async ({
     return;
   }
 
-  const { branding, emailLanguage, settings, organisationType, senderEmail, replyToEmail } =
-    await getEmailContext({
-      emailType: 'RECIPIENT',
-      source: {
-        type: 'team',
-        teamId: envelope.teamId,
-      },
-      meta: envelope.documentMeta,
-    });
+  const {
+    branding,
+    emailLanguage,
+    settings,
+    organisationType,
+    senderEmail,
+    replyToEmail,
+    senderDisplayName,
+  } = await getEmailContext({
+    emailType: 'RECIPIENT',
+    source: {
+      type: 'team',
+      teamId: envelope.teamId,
+    },
+    meta: envelope.documentMeta,
+  });
 
   const customEmail = envelope?.documentMeta;
   const isDirectTemplate = envelope.source === DocumentSource.TEMPLATE_DIRECT_LINK;
@@ -137,18 +144,13 @@ export const run = async ({
   }
 
   if (organisationType === OrganisationType.ORGANISATION) {
-    emailSubject = i18n._(msg`${team.name} invited you to ${recipientActionVerb} a document`);
+    emailSubject = i18n._(
+      msg`${senderDisplayName} invited you to ${recipientActionVerb} "${envelope.title}"`,
+    );
+
+    // Only a message someone actually wrote. The default used to be a verbatim restatement of the
+    // bold headline already shown above the button, which rendered the same sentence twice.
     emailMessage = customEmail?.message ?? '';
-
-    if (!emailMessage) {
-      const inviterName = user.name || '';
-
-      emailMessage = i18n._(
-        settings.includeSenderDetails
-          ? msg`${inviterName} on behalf of "${team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`
-          : msg`${team.name} has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
-      );
-    }
   }
 
   const customEmailTemplate = {
@@ -173,7 +175,7 @@ export const run = async ({
     role: recipient.role,
     selfSigner,
     organisationType,
-    teamName: team?.name,
+    senderName: senderDisplayName,
     teamEmail: team?.teamEmail?.email,
     includeSenderDetails: settings.includeSenderDetails,
   });

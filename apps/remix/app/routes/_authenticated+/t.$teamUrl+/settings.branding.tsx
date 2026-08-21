@@ -40,6 +40,8 @@ export default function TeamsSettingsPage() {
         brandingCompanyDetails,
         signatureFontFamily,
         signatureFontSize,
+        emailSenderNameMode,
+        emailSenderNameCustom,
       } = data;
 
       let uploadedBrandingLogo = teamWithSettings?.teamSettings?.brandingLogo;
@@ -63,6 +65,9 @@ export default function TeamsSettingsPage() {
           signatureFontFamily: signatureFontFamily as SignatureFontFamily | null,
           // Null = inherit from organisation; validated against the allowed bounds server-side.
           signatureFontSize,
+          // Null = inherit from organisation.
+          emailSenderNameMode,
+          emailSenderNameCustom: emailSenderNameCustom || null,
         },
       });
 

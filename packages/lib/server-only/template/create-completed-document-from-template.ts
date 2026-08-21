@@ -403,6 +403,17 @@ export const createCompletedDocumentFromTemplate = async ({
     typedSignatureEnabled:
       override?.typedSignatureEnabled ?? template.documentMeta?.typedSignatureEnabled,
     // Signature font re-resolves from current org/team settings (not the template snapshot).
+
+    // Email settings still have to carry over: this path completes the document immediately, so the
+    // completed email fires against this meta and would otherwise ignore the template's copy,
+    // language and sender.
+    language: template.documentMeta?.language,
+    subject: template.documentMeta?.subject,
+    message: template.documentMeta?.message,
+    distributionMethod: template.documentMeta?.distributionMethod,
+    emailSettings: template.documentMeta?.emailSettings,
+    emailId: template.documentMeta?.emailId,
+    emailReplyTo: template.documentMeta?.emailReplyTo,
   });
 
   const hasSignatureFields = templateFields.some(

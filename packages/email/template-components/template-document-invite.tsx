@@ -16,7 +16,11 @@ export interface TemplateDocumentInviteProps {
   assetBaseUrl: string;
   role: RecipientRole;
   selfSigner: boolean;
-  teamName?: string;
+  /**
+   * The name the email speaks as — resolved from the organisation/team sender name setting, so it is
+   * not necessarily the team name.
+   */
+  senderName?: string;
   includeSenderDetails?: boolean;
   organisationType?: OrganisationType;
 }
@@ -28,7 +32,7 @@ export const TemplateDocumentInvite = ({
   assetBaseUrl,
   role,
   selfSigner,
-  teamName,
+  senderName,
   includeSenderDetails,
   organisationType,
 }: TemplateDocumentInviteProps) => {
@@ -41,8 +45,8 @@ export const TemplateDocumentInvite = ({
       <TemplateDocumentImage className="mt-6" assetBaseUrl={assetBaseUrl} />
 
       <Section>
-        <Text className="text-primary mx-auto mb-0 max-w-[80%] text-center text-lg font-semibold">
-          {match({ selfSigner, organisationType, includeSenderDetails, teamName })
+        <Text className="mx-auto mb-0 max-w-[80%] text-center text-lg font-semibold text-primary">
+          {match({ selfSigner, organisationType, includeSenderDetails, senderName })
             .with({ selfSigner: true }, () => (
               <Trans>
                 Please {_(actionVerb).toLowerCase()} your document
@@ -53,19 +57,19 @@ export const TemplateDocumentInvite = ({
               {
                 organisationType: OrganisationType.ORGANISATION,
                 includeSenderDetails: true,
-                teamName: P.string,
+                senderName: P.string,
               },
               () => (
                 <Trans>
-                  {inviterName} on behalf of "{teamName}" has invited you to{' '}
+                  {inviterName} on behalf of "{senderName}" has invited you to{' '}
                   {_(actionVerb).toLowerCase()}
                   <br />"{documentName}"
                 </Trans>
               ),
             )
-            .with({ organisationType: OrganisationType.ORGANISATION, teamName: P.string }, () => (
+            .with({ organisationType: OrganisationType.ORGANISATION, senderName: P.string }, () => (
               <Trans>
-                {teamName} has invited you to {_(actionVerb).toLowerCase()}
+                {senderName} has invited you to {_(actionVerb).toLowerCase()}
                 <br />"{documentName}"
               </Trans>
             ))
@@ -91,7 +95,7 @@ export const TemplateDocumentInvite = ({
 
         <Section className="mb-6 mt-8 text-center">
           <Button
-            className="bg-documenso-500 text-sbase inline-flex items-center justify-center rounded-lg px-6 py-3 text-center font-medium text-black no-underline"
+            className="text-sbase inline-flex items-center justify-center rounded-lg bg-documenso-500 px-6 py-3 text-center font-medium text-black no-underline"
             href={signDocumentLink}
           >
             {match(role)

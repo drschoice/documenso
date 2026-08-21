@@ -264,17 +264,6 @@ msgstr "{0} modèles de signature directe"
 msgid "{0} field"
 msgstr "champ {0}"
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{0} vous a invité à {recipientActionVerb} le document \"{1}\"."
-
-#. placeholder {0}: team.name
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} invited you to {recipientActionVerb} a document"
-msgstr "{0} vous a invité à {recipientActionVerb} un document"
-
 #. placeholder {0}: remaining.documents
 #. placeholder {1}: quota.documents
 #: apps/remix/app/components/general/document/document-upload-button-legacy.tsx
@@ -282,13 +271,6 @@ msgstr "{0} vous a invité à {recipientActionVerb} un document"
 #: apps/remix/app/components/general/envelope/envelope-upload-button.tsx
 msgid "{0} of {1} documents remaining this month."
 msgstr "{0} des {1} documents restants ce mois-ci."
-
-#. placeholder {0}: user.name || user.email
-#. placeholder {1}: envelope.team.name
-#. placeholder {2}: envelope.title
-#: packages/lib/server-only/document/resend-document.ts
-msgid "{0} on behalf of \"{1}\" has invited you to {recipientActionVerb} the document \"{2}\"."
-msgstr "{0} représentant \"{1}\" vous a invité à {recipientActionVerb} le document \"{2}\"."
 
 #. placeholder {0}: organisation.name
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl._index.tsx
@@ -352,10 +334,6 @@ msgstr "{inviterName} vous a invité à {0}<0/>\"{documentName}\""
 msgid "{inviterName} has invited you to {action} {documentName}"
 msgstr "{inviterName} vous a invité à {action} {documentName}"
 
-#: packages/email/templates/document-invite.tsx
-msgid "{inviterName} has invited you to {action} the document \"{documentName}\"."
-msgstr "{inviterName} vous a invité à {action} le document \"{documentName}\"."
-
 #: packages/email/templates/recipient-removed-from-document.tsx
 msgid "{inviterName} has removed you from the document {documentName}."
 msgstr "{inviterName} vous a retiré du document {documentName}."
@@ -364,20 +342,14 @@ msgstr "{inviterName} vous a retiré du document {documentName}."
 msgid "{inviterName} has removed you from the document<0/>\"{documentName}\""
 msgstr "{inviterName} vous a retiré du document<0/>\"{documentName}\""
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{inviterName} on behalf of \"{0}\" has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{inviterName} représentant \"{0}\" vous a invité à {recipientActionVerb} le document \"{1}\"."
-
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {0}<0/>\"{documentName}\""
-msgstr "{inviterName} représentant \"{teamName}\" vous a invité à {0}<0/>\"{documentName}\""
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {0}<0/>\"{documentName}\""
+msgstr "{inviterName} représentant \"{senderName}\" vous a invité à {0}<0/>\"{documentName}\""
 
 #: packages/email/templates/document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {action} {documentName}"
-msgstr "{inviterName} représentant \"{teamName}\" vous a invité à {action} {documentName}"
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {action} {documentName}"
+msgstr "{inviterName} représentant \"{senderName}\" vous a invité à {action} {documentName}"
 
 #: apps/remix/app/components/dialogs/passkey-create-dialog.tsx
 msgid "{MAXIMUM_PASSKEYS, plural, one {You cannot have more than # passkey.} other {You cannot have more than # passkeys.}}"
@@ -437,18 +409,23 @@ msgstr "{remaningLength, plural, one {# caractère restant} other {# caractères
 msgid "{selectedCount} selected"
 msgstr "{selectedCount} sélectionné(s)"
 
-#: packages/email/template-components/template-document-rejected.tsx
-msgid "{signerName} has rejected the document \"{documentName}\"."
-msgstr "{signerName} a rejeté le document \"{documentName}\"."
+#. placeholder {0}: envelope.title
+#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
+msgid "{senderDisplayName} invited you to {recipientActionVerb} \"{0}\""
+msgstr ""
 
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{teamName} has invited you to {0}<0/>\"{documentName}\""
-msgstr "{teamName} vous a invité à {0}<0/>\"{documentName}\""
+msgid "{senderName} has invited you to {0}<0/>\"{documentName}\""
+msgstr "{senderName} vous a invité à {0}<0/>\"{documentName}\""
 
 #: packages/email/templates/document-invite.tsx
-msgid "{teamName} has invited you to {action} {documentName}"
-msgstr "{teamName} vous a invité à {action} {documentName}"
+msgid "{senderName} has invited you to {action} {documentName}"
+msgstr "{senderName} vous a invité à {action} {documentName}"
+
+#: packages/email/template-components/template-document-rejected.tsx
+msgid "{signerName} has rejected the document \"{documentName}\"."
+msgstr "{signerName} a rejeté le document \"{documentName}\"."
 
 #: packages/lib/utils/document-audit-logs.ts
 msgid "{user} added a field"
@@ -3133,6 +3110,10 @@ msgstr "Contrôle si le certificat de signature sera inclus dans le document lor
 msgid "Controls which signatures are allowed to be used when signing a document."
 msgstr "Contrôle quelles signatures sont autorisées lors de la signature d'un document."
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Controls which signatures are allowed to be used when signing a document. Your organisation has disabled the remaining types."
+msgstr ""
+
 #: apps/remix/app/components/general/document/document-recipient-link-copy-dialog.tsx
 #: packages/ui/primitives/document-flow/add-subject.tsx
 msgid "Copied"
@@ -3502,6 +3483,10 @@ msgstr "Actuellement, la personnalisation de la marque ne peut être configurée
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "Actuellement, les domaines de messagerie ne peuvent être configurés que pour les abonnements Platform et supérieurs."
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom"
+msgstr ""
+
 #. placeholder {0}: (field.value.size / (1024 * 1024)).toFixed(2)
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Custom {0} MB file"
@@ -3514,6 +3499,10 @@ msgstr "Durée personnalisée"
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.groups._index.tsx
 msgid "Custom Organisation Groups"
 msgstr "Groupes d'organisation personnalisés"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom Sender Name"
+msgstr ""
 
 #: apps/remix/app/components/general/app-command-menu.tsx
 msgid "Dark Mode"
@@ -4884,6 +4873,10 @@ msgstr "E-mail renvoyé"
 msgid "Email Sender"
 msgstr "Expéditeur de l'e-mail"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Email Sender Name"
+msgstr ""
+
 #: packages/lib/utils/document-audit-logs.ts
 msgctxt "Audit log format"
 msgid "Email sent"
@@ -6146,10 +6139,15 @@ msgstr "Comprend a0:"
 msgid "Information"
 msgstr "Information"
 
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "Inherit ({inheritedDateFormatLabel})"
+msgstr ""
+
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
 msgid "Inherit authentication method"
 msgstr "Hériter de la méthode d'authentification"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
@@ -6521,6 +6519,10 @@ msgstr "En savoir plus"
 #: apps/remix/app/components/tables/user-organisations-table.tsx
 msgid "Leave"
 msgstr "Quitter"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Leave blank to fall back to the team name. Available variables:"
+msgstr ""
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
@@ -7675,6 +7677,10 @@ msgstr "Membre de l'organisation"
 msgid "Organisation Members"
 msgstr "Membres de l'organisation"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Organisation name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-create-dialog.tsx
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/forms/organisation-update-form.tsx
@@ -8731,10 +8737,9 @@ msgstr "Vous vous souvenez de votre mot de passe ? <0>Connectez-vous</0>"
 msgid "Reminder: {0}"
 msgstr "Rappel : {0}"
 
-#. placeholder {0}: envelope.team.name
 #: packages/lib/server-only/document/resend-document.ts
-msgid "Reminder: {0} invited you to {recipientActionVerb} a document"
-msgstr "Rappel : {0} vous a invité à {recipientActionVerb} un document"
+msgid "Reminder: {senderDisplayName} invited you to {recipientActionVerb} a document"
+msgstr "Rappel : {senderDisplayName} vous a invité à {recipientActionVerb} un document"
 
 #: packages/lib/server-only/document/resend-document.ts
 msgid "Reminder: Please {recipientActionVerb} this document"
@@ -10410,6 +10415,10 @@ msgstr "Les membres de l'équipe ont été ajoutés."
 msgid "Team Memberships"
 msgstr "Adhésions à l’équipe"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Team name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
@@ -10833,6 +10842,10 @@ msgstr "L'équipe suivante a été supprimée. Vous ne pourrez plus accéder à 
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
+msgstr ""
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
 msgstr ""
 
 #. placeholder {0}: form.watch('name')

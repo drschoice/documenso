@@ -264,17 +264,6 @@ msgstr "{0} のダイレクト署名テンプレート"
 msgid "{0} field"
 msgstr "{0} フィールド"
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{0} からドキュメント「{1}」への{recipientActionVerb}依頼が届いています。"
-
-#. placeholder {0}: team.name
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{0} invited you to {recipientActionVerb} a document"
-msgstr "{0} からドキュメントへの{recipientActionVerb}依頼が届いています"
-
 #. placeholder {0}: remaining.documents
 #. placeholder {1}: quota.documents
 #: apps/remix/app/components/general/document/document-upload-button-legacy.tsx
@@ -282,13 +271,6 @@ msgstr "{0} からドキュメントへの{recipientActionVerb}依頼が届い�
 #: apps/remix/app/components/general/envelope/envelope-upload-button.tsx
 msgid "{0} of {1} documents remaining this month."
 msgstr "今月は {1} 件中 {0} 件の文書を残しています。"
-
-#. placeholder {0}: user.name || user.email
-#. placeholder {1}: envelope.team.name
-#. placeholder {2}: envelope.title
-#: packages/lib/server-only/document/resend-document.ts
-msgid "{0} on behalf of \"{1}\" has invited you to {recipientActionVerb} the document \"{2}\"."
-msgstr "{0} が「{1}」を代表してドキュメント「{2}」の{recipientActionVerb}を依頼しています。"
 
 #. placeholder {0}: organisation.name
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl._index.tsx
@@ -352,10 +334,6 @@ msgstr "{inviterName} から {0}<0/>「{documentName}」の依頼が届いてい
 msgid "{inviterName} has invited you to {action} {documentName}"
 msgstr "{inviterName} から {action} {documentName} の依頼が届いています"
 
-#: packages/email/templates/document-invite.tsx
-msgid "{inviterName} has invited you to {action} the document \"{documentName}\"."
-msgstr "{inviterName} からドキュメント「{documentName}」の {action} を依頼されています。"
-
 #: packages/email/templates/recipient-removed-from-document.tsx
 msgid "{inviterName} has removed you from the document {documentName}."
 msgstr "{inviterName} は、あなたをドキュメント {documentName} から削除しました。"
@@ -364,20 +342,14 @@ msgstr "{inviterName} は、あなたをドキュメント {documentName} から
 msgid "{inviterName} has removed you from the document<0/>\"{documentName}\""
 msgstr "{inviterName} は、あなたをドキュメント<0/>「{documentName}」から削除しました"
 
-#. placeholder {0}: team.name
-#. placeholder {1}: envelope.title
-#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
-msgid "{inviterName} on behalf of \"{0}\" has invited you to {recipientActionVerb} the document \"{1}\"."
-msgstr "{inviterName} が「{0}」を代表して、ドキュメント「{1}」の{recipientActionVerb}を依頼しています。"
-
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {0}<0/>\"{documentName}\""
-msgstr "{inviterName} が「{teamName}」を代表して {0}<0/>「{documentName}」を依頼しています"
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {0}<0/>\"{documentName}\""
+msgstr "{inviterName} が「{senderName}」を代表して {0}<0/>「{documentName}」を依頼しています"
 
 #: packages/email/templates/document-invite.tsx
-msgid "{inviterName} on behalf of \"{teamName}\" has invited you to {action} {documentName}"
-msgstr "{inviterName} が「{teamName}」を代表して {action} {documentName} を依頼しています"
+msgid "{inviterName} on behalf of \"{senderName}\" has invited you to {action} {documentName}"
+msgstr "{inviterName} が「{senderName}」を代表して {action} {documentName} を依頼しています"
 
 #: apps/remix/app/components/dialogs/passkey-create-dialog.tsx
 msgid "{MAXIMUM_PASSKEYS, plural, one {You cannot have more than # passkey.} other {You cannot have more than # passkeys.}}"
@@ -437,18 +409,23 @@ msgstr "{remaningLength, plural, other {# 文字残り}}"
 msgid "{selectedCount} selected"
 msgstr "{selectedCount} 件選択済み"
 
-#: packages/email/template-components/template-document-rejected.tsx
-msgid "{signerName} has rejected the document \"{documentName}\"."
-msgstr "{signerName} がドキュメント「{documentName}」を却下しました。"
+#. placeholder {0}: envelope.title
+#: packages/lib/jobs/definitions/emails/send-signing-email.handler.ts
+msgid "{senderDisplayName} invited you to {recipientActionVerb} \"{0}\""
+msgstr ""
 
 #. placeholder {0}: _(actionVerb).toLowerCase()
 #: packages/email/template-components/template-document-invite.tsx
-msgid "{teamName} has invited you to {0}<0/>\"{documentName}\""
-msgstr "{teamName} から {0}<0/>「{documentName}」の依頼が届いています"
+msgid "{senderName} has invited you to {0}<0/>\"{documentName}\""
+msgstr "{senderName} から {0}<0/>「{documentName}」の依頼が届いています"
 
 #: packages/email/templates/document-invite.tsx
-msgid "{teamName} has invited you to {action} {documentName}"
-msgstr "{teamName} から {action} {documentName} の依頼が届いています"
+msgid "{senderName} has invited you to {action} {documentName}"
+msgstr "{senderName} から {action} {documentName} の依頼が届いています"
+
+#: packages/email/template-components/template-document-rejected.tsx
+msgid "{signerName} has rejected the document \"{documentName}\"."
+msgstr "{signerName} がドキュメント「{documentName}」を却下しました。"
 
 #: packages/lib/utils/document-audit-logs.ts
 msgid "{user} added a field"
@@ -3133,6 +3110,10 @@ msgstr "ダウンロード時に署名証明書をドキュメントに含める
 msgid "Controls which signatures are allowed to be used when signing a document."
 msgstr "ドキュメントに署名するときに使用できる署名タイプを制御します。"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Controls which signatures are allowed to be used when signing a document. Your organisation has disabled the remaining types."
+msgstr ""
+
 #: apps/remix/app/components/general/document/document-recipient-link-copy-dialog.tsx
 #: packages/ui/primitives/document-flow/add-subject.tsx
 msgid "Copied"
@@ -3502,6 +3483,10 @@ msgstr "現在、ブランディングは Teams プラン以上のみ設定で�
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "現在、メールドメインは Platform プラン以上のみ設定できます。"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom"
+msgstr ""
+
 #. placeholder {0}: (field.value.size / (1024 * 1024)).toFixed(2)
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Custom {0} MB file"
@@ -3514,6 +3499,10 @@ msgstr "カスタム期間"
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.groups._index.tsx
 msgid "Custom Organisation Groups"
 msgstr "カスタム組織グループ"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Custom Sender Name"
+msgstr ""
 
 #: apps/remix/app/components/general/app-command-menu.tsx
 msgid "Dark Mode"
@@ -4884,6 +4873,10 @@ msgstr "メールを再送しました"
 msgid "Email Sender"
 msgstr "メール送信者"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Email Sender Name"
+msgstr ""
+
 #: packages/lib/utils/document-audit-logs.ts
 msgctxt "Audit log format"
 msgid "Email sent"
@@ -6146,10 +6139,15 @@ msgstr "含まれる内容："
 msgid "Information"
 msgstr "情報"
 
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "Inherit ({inheritedDateFormatLabel})"
+msgstr ""
+
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
 msgid "Inherit authentication method"
 msgstr "認証方法を継承"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
@@ -6521,6 +6519,10 @@ msgstr "詳細はこちら"
 #: apps/remix/app/components/tables/user-organisations-table.tsx
 msgid "Leave"
 msgstr "退出する"
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Leave blank to fall back to the team name. Available variables:"
+msgstr ""
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
@@ -7675,6 +7677,10 @@ msgstr "組織メンバー"
 msgid "Organisation Members"
 msgstr "組織メンバー"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Organisation name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-create-dialog.tsx
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/forms/organisation-update-form.tsx
@@ -8731,10 +8737,9 @@ msgstr "パスワードを思い出しましたか？<0>サインイン</0>"
 msgid "Reminder: {0}"
 msgstr "リマインダー: {0}"
 
-#. placeholder {0}: envelope.team.name
 #: packages/lib/server-only/document/resend-document.ts
-msgid "Reminder: {0} invited you to {recipientActionVerb} a document"
-msgstr "リマインダー: {0} からドキュメントの{recipientActionVerb}依頼が届いています"
+msgid "Reminder: {senderDisplayName} invited you to {recipientActionVerb} a document"
+msgstr "リマインダー: {senderDisplayName} からドキュメントの{recipientActionVerb}依頼が届いています"
 
 #: packages/lib/server-only/document/resend-document.ts
 msgid "Reminder: Please {recipientActionVerb} this document"
@@ -10410,6 +10415,10 @@ msgstr "チームメンバーを追加しました。"
 msgid "Team Memberships"
 msgstr "チームメンバーシップ"
 
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "Team name"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
@@ -10833,6 +10842,10 @@ msgstr "次のチームは削除されました。このチームおよびその
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "The font used for typed signatures. Applies to documents created after this change — already-created documents keep their original font."
+msgstr ""
+
+#: apps/remix/app/components/forms/branding-preferences-form.tsx
+msgid "The name recipients see in envelope emails, as in \"Acme invited you to sign\"."
 msgstr ""
 
 #. placeholder {0}: form.watch('name')

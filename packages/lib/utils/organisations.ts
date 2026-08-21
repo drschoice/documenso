@@ -1,6 +1,7 @@
 import type { Organisation, OrganisationGlobalSettings, Prisma } from '@prisma/client';
 import {
   DocumentVisibility,
+  EmailSenderNameMode,
   type OrganisationGroup,
   type OrganisationMemberRole,
 } from '@prisma/client';
@@ -141,6 +142,9 @@ export const generateDefaultOrganisationSettings = (): Omit<
     emailReplyTo: null,
     // emailReplyToName: null,
     emailDocumentSettings: DEFAULT_DOCUMENT_EMAIL_SETTINGS,
+
+    emailSenderNameMode: EmailSenderNameMode.ORGANISATION,
+    emailSenderNameCustom: '',
 
     defaultRecipients: null,
 
