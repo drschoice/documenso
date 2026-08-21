@@ -55,6 +55,8 @@ export default function OrganisationSettingsDocumentPage() {
         documentTimezone,
         documentDateFormat,
         includeSenderDetails,
+        emailSenderNameMode,
+        emailSenderNameCustom,
         includeSigningCertificate,
         includeAuditLog,
         signatureTypes,
@@ -84,6 +86,9 @@ export default function OrganisationSettingsDocumentPage() {
           documentTimezone,
           documentDateFormat,
           includeSenderDetails,
+          // The organisation has nothing to inherit from, so "no choice" means leave it alone.
+          emailSenderNameMode: emailSenderNameMode ?? undefined,
+          emailSenderNameCustom,
           includeSigningCertificate,
           includeAuditLog,
           defaultRecipients,

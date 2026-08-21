@@ -1,4 +1,4 @@
-import { EmailSenderNameMode } from '@prisma/client';
+import type { EmailSenderNameMode } from '@prisma/client';
 
 import { renderCustomEmailTemplate } from './render-custom-email-template';
 
@@ -28,14 +28,17 @@ export const resolveEmailSenderName = ({
   organisationName,
   teamName,
 }: ResolveEmailSenderNameOptions): string => {
+  // Compared against string literals rather than the Prisma enum object so this stays importable
+  // from client components — a value import of `@prisma/client` does not survive into the browser
+  // bundle. The `EmailSenderNameMode` type still keeps the cases exhaustive.
   switch (settings.emailSenderNameMode) {
-    case EmailSenderNameMode.ORGANISATION:
+    case 'ORGANISATION':
       return organisationName || teamName;
 
-    case EmailSenderNameMode.TEAM:
+    case 'TEAM':
       return teamName;
 
-    case EmailSenderNameMode.CUSTOM: {
+    case 'CUSTOM': {
       const custom = settings.emailSenderNameCustom?.trim();
 
       if (!custom) {

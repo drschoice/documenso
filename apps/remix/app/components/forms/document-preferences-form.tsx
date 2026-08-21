@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import type { TeamGlobalSettings } from '@prisma/client';
+import type { EmailSenderNameMode, TeamGlobalSettings } from '@prisma/client';
 import { DocumentVisibility, OrganisationType, type RecipientRole } from '@prisma/client';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import {
   type TDocumentMetaDateFormat,
   ZDocumentMetaDateFormatSchema,
 } from '@documenso/lib/types/document-meta';
+import { resolveEmailSenderName } from '@documenso/lib/utils/email-sender-name';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
 import { recipientAbbreviation } from '@documenso/lib/utils/recipient-formatter';
 import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
@@ -46,6 +47,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@documenso/ui/primitives/form/form';
+import { Input } from '@documenso/ui/primitives/input';
 import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
 import {
   Select,
@@ -60,6 +62,17 @@ import { useOptionalCurrentTeam } from '~/providers/team';
 import { DefaultRecipientsMultiSelectCombobox } from '../general/default-recipients-multiselect-combobox';
 
 /**
+ * Spelled out rather than derived from the Prisma enum object: this is a client component, and a
+ * value import of `@prisma/client` does not survive into the browser bundle. `satisfies` keeps the
+ * literals checked against the real enum, so adding or renaming a mode fails to compile here.
+ */
+const EMAIL_SENDER_NAME_MODES = [
+  'ORGANISATION',
+  'TEAM',
+  'CUSTOM',
+] as const satisfies readonly EmailSenderNameMode[];
+
+/**
  * Can't infer this from the schema since we need to keep the schema inside the component to allow
  * it to be dynamic.
  */
@@ -69,6 +82,8 @@ export type TDocumentPreferencesFormSchema = {
   documentTimezone: string | null;
   documentDateFormat: TDocumentMetaDateFormat | null;
   includeSenderDetails: boolean | null;
+  emailSenderNameMode: EmailSenderNameMode | null;
+  emailSenderNameCustom: string;
   includeSigningCertificate: boolean | null;
   includeAuditLog: boolean | null;
   signatureTypes: DocumentSignatureType[];
@@ -85,6 +100,8 @@ type SettingsSubset = Pick<
   | 'documentTimezone'
   | 'documentDateFormat'
   | 'includeSenderDetails'
+  | 'emailSenderNameMode'
+  | 'emailSenderNameCustom'
   | 'includeSigningCertificate'
   | 'includeAuditLog'
   | 'typedSignatureEnabled'
@@ -107,6 +124,13 @@ export type DocumentPreferencesFormProps = {
    * there is nothing above to cap against.
    */
   allowedSignatureTypes?: DocumentSignatureType[];
+
+  /**
+   * The sender name this context would fall back to when `emailSenderNameMode` is null (i.e. the
+   * organisation's resolved name for a team). Used so the preview shows the real inherited name
+   * rather than guessing. Omit at organisation level, which has nothing to inherit.
+   */
+  inheritedSenderName?: string;
   onFormSubmit: (data: TDocumentPreferencesFormSchema) => Promise<void>;
 };
 
@@ -116,6 +140,7 @@ export const DocumentPreferencesForm = ({
   canInherit,
   isAiFeaturesConfigured = false,
   allowedSignatureTypes,
+  inheritedSenderName,
 }: DocumentPreferencesFormProps) => {
   const { _ } = useLingui();
   const { user, organisations } = useSession();
@@ -140,6 +165,8 @@ export const DocumentPreferencesForm = ({
     documentTimezone: z.string().nullable(),
     documentDateFormat: ZDocumentMetaDateFormatSchema.nullable(),
     includeSenderDetails: z.boolean().nullable(),
+    emailSenderNameMode: z.enum(EMAIL_SENDER_NAME_MODES).nullable(),
+    emailSenderNameCustom: z.string().max(200),
     includeSigningCertificate: z.boolean().nullable(),
     includeAuditLog: z.boolean().nullable(),
     signatureTypes: z.array(z.nativeEnum(DocumentSignatureType)).min(canInherit ? 0 : 1, {
@@ -161,6 +188,8 @@ export const DocumentPreferencesForm = ({
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       documentDateFormat: settings.documentDateFormat as TDocumentMetaDateFormat | null,
       includeSenderDetails: settings.includeSenderDetails,
+      emailSenderNameMode: settings.emailSenderNameMode ?? null,
+      emailSenderNameCustom: settings.emailSenderNameCustom ?? '',
       includeSigningCertificate: settings.includeSigningCertificate,
       includeAuditLog: settings.includeAuditLog,
       // Filtered so a selection stored before the organisation revoked a type is not resubmitted.
@@ -176,6 +205,27 @@ export const DocumentPreferencesForm = ({
     },
     resolver: zodResolver(ZDocumentPreferencesFormSchema),
   });
+
+  const watchedSenderNameMode = form.watch('emailSenderNameMode');
+  const watchedSenderNameCustom = form.watch('emailSenderNameCustom');
+
+  // At organisation level there is no single team to name — each team resolves its own — so the
+  // preview keeps an illustrative placeholder rather than implying the organisation name is used.
+  const previewTeamName = optionalTeam?.name ?? t`Team Name`;
+
+  // Resolved with the same helper the senders use, so the preview cannot drift from the real email.
+  // A null mode means "inherit", which is what the organisation would resolve to.
+  const previewSenderName =
+    watchedSenderNameMode === null
+      ? (inheritedSenderName ?? currentOrganisation.name)
+      : resolveEmailSenderName({
+          settings: {
+            emailSenderNameMode: watchedSenderNameMode,
+            emailSenderNameCustom: watchedSenderNameCustom,
+          },
+          organisationName: currentOrganisation.name,
+          teamName: previewTeamName,
+        });
 
   return (
     <Form {...form}>
@@ -194,38 +244,38 @@ export const DocumentPreferencesForm = ({
                     <Trans>Default Document Visibility</Trans>
                   </FormLabel>
 
-                  <FormControl>
-                    <Select
-                      {...field}
-                      value={field.value === null ? '-1' : field.value}
-                      onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                    >
+                  <Select
+                    name={field.name}
+                    value={field.value === null ? '-1' : field.value}
+                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                  >
+                    <FormControl>
                       <SelectTrigger
                         className="bg-background text-muted-foreground"
                         data-testid="document-visibility-trigger"
                       >
                         <SelectValue />
                       </SelectTrigger>
+                    </FormControl>
 
-                      <SelectContent>
-                        <SelectItem value={DocumentVisibility.EVERYONE}>
-                          <Trans>Everyone can access and view the document</Trans>
-                        </SelectItem>
-                        <SelectItem value={DocumentVisibility.MANAGER_AND_ABOVE}>
-                          <Trans>Only managers and above can access and view the document</Trans>
-                        </SelectItem>
-                        <SelectItem value={DocumentVisibility.ADMIN}>
-                          <Trans>Only admins can access and view the document</Trans>
-                        </SelectItem>
+                    <SelectContent>
+                      <SelectItem value={DocumentVisibility.EVERYONE}>
+                        <Trans>Everyone can access and view the document</Trans>
+                      </SelectItem>
+                      <SelectItem value={DocumentVisibility.MANAGER_AND_ABOVE}>
+                        <Trans>Only managers and above can access and view the document</Trans>
+                      </SelectItem>
+                      <SelectItem value={DocumentVisibility.ADMIN}>
+                        <Trans>Only admins can access and view the document</Trans>
+                      </SelectItem>
 
-                        {canInherit && (
-                          <SelectItem value={'-1'}>
-                            <Trans>Inherit from organisation</Trans>
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
+                      {canInherit && (
+                        <SelectItem value={'-1'}>
+                          <Trans>Inherit from organisation</Trans>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
 
                   <FormDescription>
                     <Trans>Controls the default visibility of an uploaded document.</Trans>
@@ -244,32 +294,32 @@ export const DocumentPreferencesForm = ({
                   <Trans>Default Document Language</Trans>
                 </FormLabel>
 
-                <FormControl>
-                  <Select
-                    {...field}
-                    value={field.value === null ? '-1' : field.value}
-                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                  >
+                <Select
+                  name={field.name}
+                  value={field.value === null ? '-1' : field.value}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
                     <SelectTrigger
                       className="bg-background text-muted-foreground"
                       data-testid="document-language-trigger"
                     >
                       <SelectValue />
                     </SelectTrigger>
+                  </FormControl>
 
-                    <SelectContent>
-                      {Object.entries(SUPPORTED_LANGUAGES).map(([code, language]) => (
-                        <SelectItem key={code} value={code}>
-                          {_(language.full)}
-                        </SelectItem>
-                      ))}
-
-                      <SelectItem value={'-1'}>
-                        <Trans>Inherit from organisation</Trans>
+                  <SelectContent>
+                    {Object.entries(SUPPORTED_LANGUAGES).map(([code, language]) => (
+                      <SelectItem key={code} value={code}>
+                        {_(language.full)}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                    ))}
+
+                    <SelectItem value={'-1'}>
+                      <Trans>Inherit from organisation</Trans>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <FormDescription>
                   <Trans>
@@ -290,30 +340,30 @@ export const DocumentPreferencesForm = ({
                   <Trans>Default Date Format</Trans>
                 </FormLabel>
 
-                <FormControl>
-                  <Select
-                    value={field.value === null ? '-1' : field.value}
-                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                  >
+                <Select
+                  value={field.value === null ? '-1' : field.value}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
                     <SelectTrigger data-testid="document-date-format-trigger">
                       <SelectValue />
                     </SelectTrigger>
+                  </FormControl>
 
-                    <SelectContent>
-                      {DATE_FORMATS.map((format) => (
-                        <SelectItem key={format.key} value={format.value}>
-                          {format.label}
-                        </SelectItem>
-                      ))}
+                  <SelectContent>
+                    {DATE_FORMATS.map((format) => (
+                      <SelectItem key={format.key} value={format.value}>
+                        {format.label}
+                      </SelectItem>
+                    ))}
 
-                      {canInherit && (
-                        <SelectItem value={'-1'}>
-                          <Trans>Inherit from organisation</Trans>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                    {canInherit && (
+                      <SelectItem value={'-1'}>
+                        <Trans>Inherit from organisation</Trans>
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
 
                 <FormMessage />
               </FormItem>
@@ -329,18 +379,14 @@ export const DocumentPreferencesForm = ({
                   <Trans>Default Time Zone</Trans>
                 </FormLabel>
 
-                <FormControl>
-                  <Combobox
-                    triggerPlaceholder={
-                      canInherit ? t`Inherit from organisation` : t`Local timezone`
-                    }
-                    placeholder={t`Select a time zone`}
-                    options={TIME_ZONES}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value)}
-                    testId="document-timezone-trigger"
-                  />
-                </FormControl>
+                <Combobox
+                  triggerPlaceholder={canInherit ? t`Inherit from organisation` : t`Local timezone`}
+                  placeholder={t`Select a time zone`}
+                  options={TIME_ZONES}
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                  testId="document-timezone-trigger"
+                />
 
                 <FormMessage />
               </FormItem>
@@ -357,22 +403,20 @@ export const DocumentPreferencesForm = ({
                   <DocumentSignatureSettingsTooltip />
                 </FormLabel>
 
-                <FormControl>
-                  <MultiSelectCombobox
-                    options={signatureTypeOptions.map((option) => ({
-                      label: _(option.label),
-                      value: option.value,
-                    }))}
-                    selectedValues={field.value}
-                    onChange={field.onChange}
-                    className="w-full bg-background"
-                    enableSearch={false}
-                    emptySelectionPlaceholder={
-                      canInherit ? t`Inherit from organisation` : t`Select signature types`
-                    }
-                    testId="signature-types-trigger"
-                  />
-                </FormControl>
+                <MultiSelectCombobox
+                  options={signatureTypeOptions.map((option) => ({
+                    label: _(option.label),
+                    value: option.value,
+                  }))}
+                  selectedValues={field.value}
+                  onChange={field.onChange}
+                  className="w-full bg-background"
+                  enableSearch={false}
+                  emptySelectionPlaceholder={
+                    canInherit ? t`Inherit from organisation` : t`Select signature types`
+                  }
+                  testId="signature-types-trigger"
+                />
 
                 {form.formState.errors.signatureTypes ? (
                   <FormMessage />
@@ -397,68 +441,55 @@ export const DocumentPreferencesForm = ({
           {!isPersonalLayoutMode && !isPersonalOrganisation && (
             <FormField
               control={form.control}
-              name="includeSenderDetails"
+              name="emailSenderNameMode"
               render={({ field }) => (
                 <FormItem className="flex-1">
                   <FormLabel>
-                    <Trans>Send on Behalf of Team</Trans>
+                    <Trans>Email Sender Name</Trans>
                   </FormLabel>
 
-                  <FormControl>
-                    <Select
-                      {...field}
-                      value={field.value === null ? '-1' : field.value.toString()}
-                      onValueChange={(value) =>
-                        field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                      }
-                    >
+                  <Select
+                    value={field.value === null ? '-1' : field.value}
+                    // Matching against the real modes avoids a type assertion, and the "inherit"
+                    // sentinel simply matches nothing and falls through to null.
+                    onValueChange={(value) =>
+                      field.onChange(EMAIL_SENDER_NAME_MODES.find((mode) => mode === value) ?? null)
+                    }
+                  >
+                    <FormControl>
                       <SelectTrigger
                         className="bg-background text-muted-foreground"
-                        data-testid="include-sender-details-trigger"
+                        data-testid="email-sender-name-mode-trigger"
                       >
                         <SelectValue />
                       </SelectTrigger>
+                    </FormControl>
 
-                      <SelectContent>
-                        <SelectItem value="true">
-                          <Trans>Yes</Trans>
+                    <SelectContent>
+                      <SelectItem value={'ORGANISATION'}>
+                        <Trans>Organisation name</Trans>
+                      </SelectItem>
+
+                      <SelectItem value={'TEAM'}>
+                        <Trans>Team name</Trans>
+                      </SelectItem>
+
+                      <SelectItem value={'CUSTOM'}>
+                        <Trans>Custom</Trans>
+                      </SelectItem>
+
+                      {canInherit && (
+                        <SelectItem value={'-1'}>
+                          <Trans>Inherit from organisation</Trans>
                         </SelectItem>
-
-                        <SelectItem value="false">
-                          <Trans>No</Trans>
-                        </SelectItem>
-
-                        {canInherit && (
-                          <SelectItem value={'-1'}>
-                            <Trans>Inherit from organisation</Trans>
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-
-                  <div className="pt-2">
-                    <div className="text-xs font-medium text-muted-foreground">
-                      <Trans>Preview</Trans>
-                    </div>
-
-                    <Alert variant="neutral" className="mt-1 px-2.5 py-1.5 text-sm">
-                      {field.value ? (
-                        <Trans>
-                          "{placeholderEmail}" on behalf of "Team Name" has invited you to sign
-                          "example document".
-                        </Trans>
-                      ) : (
-                        <Trans>"Team Name" has invited you to sign "example document".</Trans>
                       )}
-                    </Alert>
-                  </div>
+                    </SelectContent>
+                  </Select>
 
                   <FormDescription>
                     <Trans>
-                      Controls the formatting of the message that will be sent when inviting a
-                      recipient to sign a document. If a custom message has been provided while
-                      configuring the document, it will be used instead.
+                      The name recipients see in emails about your documents. Applies whether or not
+                      branding is enabled.
                     </Trans>
                   </FormDescription>
                 </FormItem>
@@ -466,29 +497,63 @@ export const DocumentPreferencesForm = ({
             />
           )}
 
-          <FormField
-            control={form.control}
-            name="includeSigningCertificate"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Include the Signing Certificate in the Document</Trans>
-                </FormLabel>
+          {!isPersonalLayoutMode &&
+            !isPersonalOrganisation &&
+            watchedSenderNameMode === 'CUSTOM' && (
+              <FormField
+                control={form.control}
+                name="emailSenderNameCustom"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel required>
+                      <Trans>Custom Sender Name</Trans>
+                    </FormLabel>
 
-                <FormControl>
+                    <FormControl>
+                      <Input className="bg-background" {...field} />
+                    </FormControl>
+
+                    <FormDescription>
+                      <Trans>Leave blank to fall back to the team name. Available variables:</Trans>{' '}
+                      <code className="rounded bg-muted-foreground/20 p-1 text-xs">
+                        {'{organisation.name}'}
+                      </code>{' '}
+                      <code className="rounded bg-muted-foreground/20 p-1 text-xs">
+                        {'{team.name}'}
+                      </code>
+                    </FormDescription>
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+          {!isPersonalLayoutMode && !isPersonalOrganisation && (
+            <FormField
+              control={form.control}
+              name="includeSenderDetails"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>
+                    <Trans>Send on Behalf of Team</Trans>
+                  </FormLabel>
+
                   <Select
-                    {...field}
+                    name={field.name}
                     value={field.value === null ? '-1' : field.value.toString()}
                     onValueChange={(value) =>
                       field.onChange(value === 'true' ? true : value === 'false' ? false : null)
                     }
                   >
-                    <SelectTrigger
-                      className="bg-background text-muted-foreground"
-                      data-testid="include-signing-certificate-trigger"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
+                    <FormControl>
+                      <SelectTrigger
+                        className="bg-background text-muted-foreground"
+                        data-testid="include-sender-details-trigger"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
 
                     <SelectContent>
                       <SelectItem value="true">
@@ -506,7 +571,78 @@ export const DocumentPreferencesForm = ({
                       )}
                     </SelectContent>
                   </Select>
-                </FormControl>
+
+                  <div className="pt-2">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      <Trans>Preview</Trans>
+                    </div>
+
+                    <Alert variant="neutral" className="mt-1 px-2.5 py-1.5 text-sm">
+                      {field.value ? (
+                        <Trans>
+                          "{placeholderEmail}" on behalf of "{previewSenderName}" has invited you to
+                          sign "example document".
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          "{previewSenderName}" has invited you to sign "example document".
+                        </Trans>
+                      )}
+                    </Alert>
+                  </div>
+
+                  <FormDescription>
+                    <Trans>
+                      Controls whether the individual sender's name appears alongside the email
+                      sender name when inviting a recipient to sign a document.
+                    </Trans>
+                  </FormDescription>
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name="includeSigningCertificate"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel>
+                  <Trans>Include the Signing Certificate in the Document</Trans>
+                </FormLabel>
+
+                <Select
+                  name={field.name}
+                  value={field.value === null ? '-1' : field.value.toString()}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
+                  }
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      className="bg-background text-muted-foreground"
+                      data-testid="include-signing-certificate-trigger"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+
+                  <SelectContent>
+                    <SelectItem value="true">
+                      <Trans>Yes</Trans>
+                    </SelectItem>
+
+                    <SelectItem value="false">
+                      <Trans>No</Trans>
+                    </SelectItem>
+
+                    {canInherit && (
+                      <SelectItem value={'-1'}>
+                        <Trans>Inherit from organisation</Trans>
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
 
                 <FormDescription>
                   <Trans>
@@ -528,35 +664,35 @@ export const DocumentPreferencesForm = ({
                   <Trans>Include the Audit Logs in the Document</Trans>
                 </FormLabel>
 
-                <FormControl>
-                  <Select
-                    {...field}
-                    value={field.value === null ? '-1' : field.value.toString()}
-                    onValueChange={(value) =>
-                      field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                    }
-                  >
+                <Select
+                  name={field.name}
+                  value={field.value === null ? '-1' : field.value.toString()}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
+                  }
+                >
+                  <FormControl>
                     <SelectTrigger className="bg-background text-muted-foreground">
                       <SelectValue />
                     </SelectTrigger>
+                  </FormControl>
 
-                    <SelectContent>
-                      <SelectItem value="true">
-                        <Trans>Yes</Trans>
+                  <SelectContent>
+                    <SelectItem value="true">
+                      <Trans>Yes</Trans>
+                    </SelectItem>
+
+                    <SelectItem value="false">
+                      <Trans>No</Trans>
+                    </SelectItem>
+
+                    {canInherit && (
+                      <SelectItem value={'-1'}>
+                        <Trans>Inherit from organisation</Trans>
                       </SelectItem>
-
-                      <SelectItem value="false">
-                        <Trans>No</Trans>
-                      </SelectItem>
-
-                      {canInherit && (
-                        <SelectItem value={'-1'}>
-                          <Trans>Inherit from organisation</Trans>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                    )}
+                  </SelectContent>
+                </Select>
 
                 <FormDescription>
                   <Trans>
@@ -667,15 +803,17 @@ export const DocumentPreferencesForm = ({
                 </FormLabel>
 
                 <Select
-                  {...field}
+                  name={field.name}
                   value={field.value === null ? '-1' : field.value.toString()}
                   onValueChange={(value) =>
                     field.onChange(value === 'true' ? true : value === 'false' ? false : null)
                   }
                 >
-                  <SelectTrigger className="bg-background text-muted-foreground">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <FormControl>
+                    <SelectTrigger className="bg-background text-muted-foreground">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
 
                   <SelectContent>
                     <SelectItem value="true">
@@ -712,13 +850,11 @@ export const DocumentPreferencesForm = ({
                   <Trans>Default Envelope Expiration</Trans>
                 </FormLabel>
 
-                <FormControl>
-                  <ExpirationPeriodPicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    inheritLabel={canInherit ? t`Inherit from organisation` : undefined}
-                  />
-                </FormControl>
+                <ExpirationPeriodPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  inheritLabel={canInherit ? t`Inherit from organisation` : undefined}
+                />
 
                 <FormDescription>
                   <Trans>
@@ -742,35 +878,35 @@ export const DocumentPreferencesForm = ({
                     <Trans>AI Features</Trans>
                   </FormLabel>
 
-                  <FormControl>
-                    <Select
-                      {...field}
-                      value={field.value === null ? '-1' : field.value.toString()}
-                      onValueChange={(value) =>
-                        field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                      }
-                    >
+                  <Select
+                    name={field.name}
+                    value={field.value === null ? '-1' : field.value.toString()}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'true' ? true : value === 'false' ? false : null)
+                    }
+                  >
+                    <FormControl>
                       <SelectTrigger className="bg-background text-muted-foreground">
                         <SelectValue />
                       </SelectTrigger>
+                    </FormControl>
 
-                      <SelectContent>
-                        <SelectItem value="true">
-                          <Trans>Enabled</Trans>
+                    <SelectContent>
+                      <SelectItem value="true">
+                        <Trans>Enabled</Trans>
+                      </SelectItem>
+
+                      <SelectItem value="false">
+                        <Trans>Disabled</Trans>
+                      </SelectItem>
+
+                      {canInherit && (
+                        <SelectItem value={'-1'}>
+                          <Trans>Inherit from organisation</Trans>
                         </SelectItem>
-
-                        <SelectItem value="false">
-                          <Trans>Disabled</Trans>
-                        </SelectItem>
-
-                        {canInherit && (
-                          <SelectItem value={'-1'}>
-                            <Trans>Inherit from organisation</Trans>
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
+                      )}
+                    </SelectContent>
+                  </Select>
 
                   <FormDescription>
                     <Trans>
