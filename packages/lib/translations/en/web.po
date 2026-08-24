@@ -8311,6 +8311,10 @@ msgid "Preview and configure template."
 msgstr "Preview and configure template."
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
+msgid "Preview how this document will look to recipients. Fields show their default value where you set one."
+msgstr "Preview how this document will look to recipients. Fields show their default value where you set one."
+
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview Mode"
 msgstr "Preview Mode"
@@ -8318,10 +8322,6 @@ msgstr "Preview Mode"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor.tsx
 msgid "Preview the document before sending"
 msgstr "Preview the document before sending"
-
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
-msgid "Preview the document with each field's default value"
-msgstr "Preview the document with each field's default value"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview what the signed document will look like with placeholder data"
