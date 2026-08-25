@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Trans } from '@lingui/react/macro';
-import { FieldType, SigningStatus } from '@prisma/client';
+import { FieldType } from '@prisma/client';
 import { FileTextIcon } from 'lucide-react';
 import { match } from 'ts-pattern';
 
@@ -11,18 +11,10 @@ import {
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
-import {
-  ZDateFieldMeta,
-  ZFieldAndMetaSchema,
-  getFieldNamePart,
-} from '@documenso/lib/types/field-meta';
+import { ZDateFieldMeta, ZFieldAndMetaSchema } from '@documenso/lib/types/field-meta';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
-import {
-  extractInitials,
-  resolveRecipientNamePart,
-} from '@documenso/lib/utils/recipient-formatter';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { RecipientSelector } from '@documenso/ui/primitives/recipient-selector';
@@ -48,25 +40,17 @@ export const EnvelopeEditorPreviewPage = () => {
   );
 
   /**
-   * Build the fields shown in the preview using only their real *default* values —
-   * default text/number, default-checked checkbox/radio, default dropdown value, the
-   * date default, and the recipient's real name/email/initials/signature.
+   * Build the fields shown in the preview using only the author's *default* values —
+   * default text/number, default-checked checkbox/radio, default dropdown value and the
+   * date default.
    *
-   * Fields with no default are left empty and flagged `inserted: false`, so the
-   * export-mode renderer draws them blank (no random placeholder data).
+   * Identity fields (name/email/initials) and signatures are deliberately left empty:
+   * nothing has been signed yet, so they render as an empty placeholder box labelled
+   * with their field type, exactly like the sent document view.
    */
   const fieldsWithPlaceholders = useMemo(() => {
     return fields.map((field) => {
       const fieldMeta = ZFieldAndMetaSchema.parse(field);
-
-      const recipient = envelope.recipients.find((recipient) => recipient.id === field.recipientId);
-
-      if (!recipient) {
-        throw new Error('Recipient not found');
-      }
-
-      const recipientName = recipient.name ?? '';
-      const recipientEmail = recipient.email ?? '';
 
       const overrides = match(fieldMeta)
         .with({ type: FieldType.TEXT }, ({ fieldMeta }) => {
@@ -106,21 +90,16 @@ export const EnvelopeEditorPreviewPage = () => {
 
           return { customText: date.customText, inserted: date.customText !== '' };
         })
-        .with({ type: FieldType.EMAIL }, () => {
-          return { customText: recipientEmail, inserted: recipientEmail !== '' };
-        })
-        .with({ type: FieldType.NAME }, ({ fieldMeta }) => {
-          const namePartValue = resolveRecipientNamePart(getFieldNamePart(fieldMeta), {
-            recipient,
-          });
-
-          return { customText: namePartValue, inserted: namePartValue !== '' };
-        })
-        .with({ type: FieldType.INITIALS }, () => {
-          const initials = recipientName ? extractInitials(recipientName) : '';
-
-          return { customText: initials, inserted: initials !== '' };
-        })
+        // Identity fields are filled in by the recipient at signing time, so the preview
+        // shows their placeholder rather than pretending they're already answered.
+        .with(
+          { type: FieldType.EMAIL },
+          { type: FieldType.NAME },
+          { type: FieldType.INITIALS },
+          () => {
+            return { customText: '', inserted: false };
+          },
+        )
         .with({ type: FieldType.RADIO }, ({ fieldMeta }) => {
           const values = fieldMeta?.values ?? [];
           const preselectedValue = values.findIndex((value) => value.checked);
@@ -154,14 +133,7 @@ export const EnvelopeEditorPreviewPage = () => {
           return { customText, inserted: customText !== '' };
         })
         .with({ type: FieldType.SIGNATURE }, () => {
-          return {
-            customText: '',
-            inserted: recipientName !== '',
-            signature: {
-              signatureImageAsBase64: '',
-              typedSignature: recipientName,
-            },
-          };
+          return { customText: '', inserted: false };
         })
         .with({ type: FieldType.FREE_SIGNATURE }, () => {
           return { customText: '', inserted: false };
@@ -173,13 +145,7 @@ export const EnvelopeEditorPreviewPage = () => {
         ...overrides,
       };
     });
-  }, [
-    fields,
-    envelope,
-    envelope.recipients,
-    envelope.documentMeta,
-    team.preferences.documentDateFormat,
-  ]);
+  }, [fields, envelope.documentMeta, team.preferences.documentDateFormat]);
 
   /**
    * Apply conditional-visibility to the placeholder data so the preview reflects
@@ -201,18 +167,12 @@ export const EnvelopeEditorPreviewPage = () => {
       })),
     );
 
-    return (
-      fieldsWithPlaceholders
-        .filter((field) => visibility.get(field.id) !== false)
-        // Checkbox/radio always render in the preview (even when nothing is checked) so
-        // recipients see the empty options. The generic renderer drops non-inserted fields
-        // for signed recipients, so flag these inserted here. This is applied AFTER visibility
-        // evaluation so conditional-visibility (which reads the real `inserted`) stays correct.
-        .map((field) =>
-          field.type === FieldType.RADIO || field.type === FieldType.CHECKBOX
-            ? { ...field, inserted: true }
-            : field,
-        )
+    return fieldsWithPlaceholders.filter(
+      (field) =>
+        visibility.get(field.id) !== false &&
+        // `renderField` throws on free signatures; they can't be authored in the editor but
+        // may exist on legacy direct templates, so keep them off the preview canvas.
+        field.type !== FieldType.FREE_SIGNATURE,
     );
   }, [fieldsWithPlaceholders]);
 
@@ -231,13 +191,12 @@ export const EnvelopeEditorPreviewPage = () => {
       envelopeItems={envelope.envelopeItems}
       token={undefined}
       fields={visibleFields}
-      recipients={envelope.recipients.map((recipient) => ({
-        ...recipient,
-        signingStatus: SigningStatus.SIGNED,
-      }))}
+      recipients={envelope.recipients}
       presignToken={editorConfig?.embedded?.presignToken}
       overrideSettings={{
-        mode: 'export',
+        // No `mode` override, so fields render exactly as they do on the sent document view:
+        // an outlined box labelled with its field type until it's actually filled in.
+        useProvidedFieldValues: true,
         signatureFontFamily: envelope.documentMeta?.signatureFontFamily,
         signatureFontSize: envelope.documentMeta?.signatureFontSize,
       }}
@@ -255,7 +214,10 @@ export const EnvelopeEditorPreviewPage = () => {
               <Trans>Preview Mode</Trans>
             </AlertTitle>
             <AlertDescription>
-              <Trans>Preview the document with each field's default value</Trans>
+              <Trans>
+                Preview how this document will look to recipients. Fields show their default value
+                where you set one.
+              </Trans>
             </AlertDescription>
           </Alert>
 

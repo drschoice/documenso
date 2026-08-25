@@ -69,6 +69,21 @@ export const resolveDateFormat = (
 ): string => meta?.dateFormat ?? settings.documentDateFormat;
 
 /**
+ * Resolve whether the signing certificate should be appended to the sealed PDF, where null means
+ * "inherit from the organisation/team".
+ *
+ * This is the third and lowest-priority level of the organisation -> team -> envelope chain; the
+ * first two are already merged into `settings` by `extractDerivedTeamSettings`.
+ *
+ * @param settings - The merged organisation/team settings.
+ * @param meta - The stored document meta.
+ */
+export const resolveIncludeSigningCertificate = (
+  settings: Pick<OrganisationGlobalSettings, 'includeSigningCertificate'>,
+  meta: Pick<DocumentMeta, 'includeSigningCertificate'> | undefined | null,
+): boolean => meta?.includeSigningCertificate ?? settings.includeSigningCertificate;
+
+/**
  * Re-cap a stored document meta's signature types against the organisation/team settings as they are
  * *now*, so revoking a signature type also applies to envelopes which already exist.
  *
@@ -149,6 +164,8 @@ export const extractDerivedDocumentMeta = (
     timezone: meta.timezone || settings.documentTimezone || DEFAULT_DOCUMENT_TIME_ZONE,
     // Only pinned when explicitly chosen — null keeps inheriting the org/team format on read.
     dateFormat: meta.dateFormat || null,
+    // Same "null = inherit" contract. `??` rather than `||` because `false` is a real choice here.
+    includeSigningCertificate: meta.includeSigningCertificate ?? null,
     message: meta.message || null,
     subject: meta.subject || null,
     redirectUrl: meta.redirectUrl || null,

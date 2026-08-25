@@ -25,6 +25,7 @@ export const ZDocumentMetaSchema = DocumentMetaSchema.pick({
   timezone: true,
   dateFormat: true,
   redirectUrl: true,
+  includeSigningCertificate: true,
   typedSignatureEnabled: true,
   uploadSignatureEnabled: true,
   drawSignatureEnabled: true,
@@ -113,6 +114,12 @@ export const ZDocumentMetaUploadSignatureEnabledSchema = z
   .boolean()
   .describe('Whether to allow recipients to sign using an uploaded signature.');
 
+export const ZDocumentMetaIncludeSigningCertificateSchema = z
+  .boolean()
+  .describe(
+    'Whether to append the signing certificate to the document once it is completed. Null inherits the organisation/team setting.',
+  );
+
 /**
  * Note: Any updates to this will cause public API changes. You will need to update
  * all corresponding areas where this is used (some places that use this needs to pass
@@ -130,6 +137,11 @@ export const ZDocumentMetaCreateSchema = z.object({
   nextFieldNavigationLabels: z.array(z.string()).optional(),
   redirectUrl: ZDocumentMetaRedirectUrlSchema.optional(),
   language: ZDocumentMetaLanguageSchema.optional(),
+  /**
+   * Null keeps the envelope inheriting the organisation/team setting, which is then resolved when
+   * the document is sealed. Undefined leaves whatever the envelope already has.
+   */
+  includeSigningCertificate: ZDocumentMetaIncludeSigningCertificateSchema.nullish(),
   typedSignatureEnabled: ZDocumentMetaTypedSignatureEnabledSchema.optional(),
   uploadSignatureEnabled: ZDocumentMetaUploadSignatureEnabledSchema.optional(),
   drawSignatureEnabled: ZDocumentMetaDrawSignatureEnabledSchema.optional(),

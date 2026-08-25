@@ -1,7 +1,12 @@
 import { DocumentStatus } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
-import { capSignatureSettings, resolveDateFormat, resolveLiveDocumentMeta } from './document';
+import {
+  capSignatureSettings,
+  resolveDateFormat,
+  resolveIncludeSigningCertificate,
+  resolveLiveDocumentMeta,
+} from './document';
 
 const settings = {
   typedSignatureEnabled: true,
@@ -63,6 +68,43 @@ describe('resolveDateFormat', () => {
 
   it('keeps a format the document pinned', () => {
     expect(resolveDateFormat(settings, { dateFormat: 'yyyy-MM-dd' })).toBe('yyyy-MM-dd');
+  });
+});
+
+describe('resolveIncludeSigningCertificate', () => {
+  const certSettings = { includeSigningCertificate: true };
+
+  it('falls back to the organisation/team setting when the envelope inherits', () => {
+    expect(resolveIncludeSigningCertificate(certSettings, { includeSigningCertificate: null })).toBe(
+      true,
+    );
+
+    expect(
+      resolveIncludeSigningCertificate(
+        { includeSigningCertificate: false },
+        { includeSigningCertificate: null },
+      ),
+    ).toBe(false);
+  });
+
+  it('lets the envelope turn the certificate off against an enabled team', () => {
+    expect(
+      resolveIncludeSigningCertificate(certSettings, { includeSigningCertificate: false }),
+    ).toBe(false);
+  });
+
+  it('lets the envelope turn the certificate on against a disabled team', () => {
+    expect(
+      resolveIncludeSigningCertificate(
+        { includeSigningCertificate: false },
+        { includeSigningCertificate: true },
+      ),
+    ).toBe(true);
+  });
+
+  it('treats a missing meta as inherit', () => {
+    expect(resolveIncludeSigningCertificate(certSettings, null)).toBe(true);
+    expect(resolveIncludeSigningCertificate(certSettings, undefined)).toBe(true);
   });
 });
 

@@ -89,6 +89,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -139,6 +140,8 @@ export const ZAddSettingsFormSchema = z.object({
     timezone: ZDocumentMetaTimezoneSchema.default(DEFAULT_DOCUMENT_TIME_ZONE),
     // Null keeps inheriting the organisation/team date format instead of pinning one.
     dateFormat: ZDocumentMetaDateFormatSchema.nullable().default(null),
+    // Null keeps inheriting the organisation/team signing certificate setting instead of pinning one.
+    includeSigningCertificate: z.boolean().nullable().default(null),
     distributionMethod: z
       .nativeEnum(DocumentDistributionMethod)
       .optional()
@@ -232,6 +235,8 @@ export const EnvelopeEditorSettingsDialog = ({
         // coalesced to a concrete value here, which would silently pin it on the next save.
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         dateFormat: (envelope.documentMeta.dateFormat as TDocumentMetaDateFormat | null) ?? null,
+        // Same "null = inherit" contract as the date format above.
+        includeSigningCertificate: envelope.documentMeta.includeSigningCertificate ?? null,
         distributionMethod:
           envelope.documentMeta.distributionMethod || DocumentDistributionMethod.EMAIL,
         redirectUrl: envelope.documentMeta.redirectUrl ?? '',
@@ -289,10 +294,16 @@ export const EnvelopeEditorSettingsDialog = ({
     DATE_FORMATS.find((format) => format.value === team.preferences.documentDateFormat)?.label ??
     team.preferences.documentDateFormat;
 
+  // What "inherit" actually resolves to right now, after the organisation -> team merge.
+  const inheritedSigningCertificateLabel = team.preferences.includeSigningCertificate
+    ? t`Yes`
+    : t`No`;
+
   const onFormSubmit = async (data: TAddSettingsFormSchema) => {
     const {
       timezone,
       dateFormat,
+      includeSigningCertificate,
       redirectUrl,
       language,
       signatureTypes,
@@ -323,6 +334,7 @@ export const EnvelopeEditorSettingsDialog = ({
         meta: {
           timezone,
           dateFormat,
+          includeSigningCertificate,
           redirectUrl,
           emailId,
           message,
@@ -567,6 +579,63 @@ export const EnvelopeEditorSettingsDialog = ({
                                   </SelectContent>
                                 </Select>
                               </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {settings.allowConfigureSigningCertificate && (
+                        <FormField
+                          control={form.control}
+                          name="meta.includeSigningCertificate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                <Trans>Include the Signing Certificate in the Document</Trans>
+                              </FormLabel>
+
+                              <FormControl>
+                                <Select
+                                  value={field.value === null ? '-1' : field.value.toString()}
+                                  onValueChange={(value) =>
+                                    field.onChange(value === '-1' ? null : value === 'true')
+                                  }
+                                  disabled={envelopeHasBeenSent}
+                                >
+                                  <SelectTrigger
+                                    className="bg-background"
+                                    data-testid="envelope-include-signing-certificate-trigger"
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+
+                                  <SelectContent>
+                                    {/* Keeps the envelope following the organisation/team setting
+                                        rather than pinning today's value. */}
+                                    <SelectItem value={'-1'}>
+                                      <Trans>Inherit ({inheritedSigningCertificateLabel})</Trans>
+                                    </SelectItem>
+
+                                    <SelectItem value="true">
+                                      <Trans>Yes</Trans>
+                                    </SelectItem>
+
+                                    <SelectItem value="false">
+                                      <Trans>No</Trans>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+
+                              <FormDescription>
+                                <Trans>
+                                  Controls whether the signing certificate will be included in this
+                                  document when it is downloaded. The signing certificate can still
+                                  be downloaded from the logs page separately.
+                                </Trans>
+                              </FormDescription>
 
                               <FormMessage />
                             </FormItem>

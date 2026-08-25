@@ -96,6 +96,10 @@ export const getOrganisationSession = async ({
             uploadSignatureEnabled: derivedSettings.uploadSignatureEnabled,
             drawSignatureEnabled: derivedSettings.drawSignatureEnabled,
             documentDateFormat: derivedSettings.documentDateFormat,
+
+            // The value an envelope falls back to when its own override is null, so authoring UIs can
+            // label the "inherit" choice with what it actually resolves to.
+            includeSigningCertificate: derivedSettings.includeSigningCertificate,
           },
         };
       }),

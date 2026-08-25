@@ -8316,6 +8316,10 @@ msgid "Preview and configure template."
 msgstr "템플릿 미리보기 및 구성."
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
+msgid "Preview how this document will look to recipients. Fields show their default value where you set one."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview Mode"
 msgstr "미리보기 모드"
@@ -8323,10 +8327,6 @@ msgstr "미리보기 모드"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor.tsx
 msgid "Preview the document before sending"
 msgstr "보내기 전에 문서를 미리 확인하세요"
-
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
-msgid "Preview the document with each field's default value"
-msgstr ""
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview what the signed document will look like with placeholder data"

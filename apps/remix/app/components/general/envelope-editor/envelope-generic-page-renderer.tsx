@@ -16,7 +16,6 @@ import { EnvelopeRecipientFieldTooltip } from '@documenso/ui/components/document
 
 type GenericLocalField = TEnvelope['fields'][number] & {
   recipient: Pick<Recipient, 'id' | 'name' | 'email' | 'signingStatus'>;
-  signature?: { signatureImageAsBase64: string; typedSignature: string } | null;
 };
 
 export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
@@ -57,10 +56,12 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
           throw new Error(`Recipient not found for field ${field.id}`);
         }
 
-        const isInserted = recipient.signingStatus === SigningStatus.SIGNED && field.inserted;
+        // The preview renders an unsigned envelope but still wants author-set default
+        // values drawn, so it opts out of deriving `inserted` from the signing status.
+        const isInserted = overrideSettings?.useProvidedFieldValues
+          ? field.inserted
+          : recipient.signingStatus === SigningStatus.SIGNED && field.inserted;
 
-        // The preview page may inject a `signature` (e.g. the recipient's typed name) on
-        // signature fields; it rides along via the spread and is read in `renderField`.
         return {
           ...field,
           inserted: isInserted,
@@ -73,7 +74,14 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
           (recipient.signingStatus === SigningStatus.SIGNED ? inserted : true) ||
           fieldMeta?.readOnly,
       );
-  }, [fields, pageNumber, currentEnvelopeItem?.id, recipients, envelopeStatus]);
+  }, [
+    fields,
+    pageNumber,
+    currentEnvelopeItem?.id,
+    recipients,
+    envelopeStatus,
+    overrideSettings?.useProvidedFieldValues,
+  ]);
 
   const unsafeRenderFieldOnLayer = (field: GenericLocalField) => {
     if (!pageLayer.current) {
@@ -94,7 +102,7 @@ export const EnvelopeGenericPageRenderer = ({ pageData }: { pageData: PageRender
         positionX: Number(field.positionX),
         positionY: Number(field.positionY),
         fieldMeta: field.fieldMeta,
-        signature: field.signature ?? {
+        signature: {
           signatureImageAsBase64: '',
           typedSignature: fieldTranslations.SIGNATURE,
         },

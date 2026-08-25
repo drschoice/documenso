@@ -61,6 +61,7 @@ export default function EmbedPlaygroundPage() {
     allowConfigureRedirectUrl: true,
     allowConfigureDistribution: true,
     allowConfigureExpirationPeriod: true,
+    allowConfigureSigningCertificate: true,
     allowConfigureEmailSender: true,
     allowConfigureEmailReplyTo: true,
   });

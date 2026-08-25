@@ -24,6 +24,16 @@ export type ImageLoadingState = 'loading' | 'loaded' | 'error';
 
 type EnvelopeRenderOverrideSettings = {
   mode?: FieldRenderMode;
+
+  /**
+   * Render fields using the `inserted` / `customText` values passed into the provider
+   * instead of deriving them from the recipient's signing status.
+   *
+   * Used by the editor preview, where nothing has been signed yet but author-set
+   * default values should still be rendered.
+   */
+  useProvidedFieldValues?: boolean;
+
   showRecipientTooltip?: boolean;
   showRecipientSigningStatus?: boolean;
   signatureFontFamily?: string | null;
