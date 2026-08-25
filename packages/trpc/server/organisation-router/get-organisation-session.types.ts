@@ -22,6 +22,7 @@ export const ZGetOrganisationSessionResponseSchema = ZOrganisationSchema.extend(
         uploadSignatureEnabled: z.boolean(),
         drawSignatureEnabled: z.boolean(),
         documentDateFormat: z.string(),
+        includeSigningCertificate: z.boolean(),
       }),
     }),
   ),

@@ -129,6 +129,7 @@ export type CreateDocumentFromTemplateOptions = {
     signingOrder?: DocumentSigningOrder;
     language?: SupportedLanguageCodes;
     distributionMethod?: DocumentDistributionMethod;
+    includeSigningCertificate?: boolean | null;
     allowDictateNextSigner?: boolean;
     nextFieldNavigationTypes?: FieldType[];
     nextFieldNavigationLabels?: string[];
@@ -553,6 +554,10 @@ export const createDocumentFromTemplate = async ({
       dateFormat: override?.dateFormat || template.documentMeta?.dateFormat,
       redirectUrl: override?.redirectUrl || template.documentMeta?.redirectUrl,
       distributionMethod: override?.distributionMethod || template.documentMeta?.distributionMethod,
+      // `??` not `||` — `false` ("never attach the certificate") is a real choice, and null on both
+      // sides correctly falls through to inheriting the org/team setting.
+      includeSigningCertificate:
+        override?.includeSigningCertificate ?? template.documentMeta?.includeSigningCertificate,
       emailSettings: override?.emailSettings || template.documentMeta?.emailSettings,
       // `emailId` and `emailReplyTo` were previously omitted here, so a template configured with a
       // custom sender or reply-to silently lost both on every non-direct-link creation path, bulk

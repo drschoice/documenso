@@ -1,4 +1,5 @@
 import { PDF } from '@libpdf/core';
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 
@@ -312,6 +313,185 @@ test.describe('Signing Certificate Tests', () => {
     const completedPdf = await PDF.load(new Uint8Array(completedDocumentData));
 
     expect(completedPdf.getPageCount()).toBe(originalPdf.getPageCount());
+  });
+
+  /**
+   * Sign every field on the recipient's document, wait for the seal job to finish, and report how
+   * many pages the sealed PDF gained over the original. +1 means the certificate was appended.
+   */
+  const signAndCountExtraPages = async (
+    page: Page,
+    envelopeId: string,
+    recipient: { token: string; fields: { id: number }[] },
+  ) => {
+    const originalPdf = await prisma.envelopeItem
+      .findFirstOrThrow({ where: { envelopeId } })
+      .then(async (envelopeItem) =>
+        fetch(
+          getEnvelopeItemPdfUrl({
+            type: 'download',
+            envelopeItem,
+            token: recipient.token,
+            version: 'signed',
+          }),
+        ).then(async (res) => await res.arrayBuffer()),
+      )
+      .then(async (data) => await PDF.load(new Uint8Array(data)));
+
+    await page.goto(`/sign/${recipient.token}`);
+
+    await signSignaturePad(page);
+
+    for (const field of recipient.fields) {
+      await page.locator(`#field-${field.id}`).getByRole('button').click();
+
+      await expect(page.locator(`#field-${field.id}`)).toHaveAttribute('data-inserted', 'true');
+    }
+
+    await page.getByRole('button', { name: 'Complete' }).click();
+    await page.getByRole('button', { name: 'Sign' }).click();
+    await page.waitForURL(`/sign/${recipient.token}/complete`);
+
+    await expect(async () => {
+      const { status } = await getDocumentByToken({ token: recipient.token });
+
+      expect(status).toBe(DocumentStatus.COMPLETED);
+    }).toPass();
+
+    await page.waitForTimeout(2500);
+
+    const completedDocument = await prisma.envelope.findFirstOrThrow({
+      where: { id: envelopeId },
+      include: { envelopeItems: { include: { documentData: true } } },
+    });
+
+    const completedData = await fetch(
+      getEnvelopeItemPdfUrl({
+        type: 'download',
+        envelopeItem: completedDocument.envelopeItems[0],
+        token: recipient.token,
+        version: 'signed',
+      }),
+    ).then(async (res) => await res.arrayBuffer());
+
+    const completedPdf = await PDF.load(new Uint8Array(completedData));
+
+    return completedPdf.getPageCount() - originalPdf.getPageCount();
+  };
+
+  const setTeamSigningCertificate = async (teamId: number, value: boolean | null) => {
+    const teamSettings = await prisma.teamGlobalSettings.findFirstOrThrow({
+      where: { team: { id: teamId } },
+    });
+
+    await prisma.teamGlobalSettings.update({
+      where: { id: teamSettings.id },
+      data: { includeSigningCertificate: value },
+    });
+  };
+
+  const setEnvelopeSigningCertificate = async (envelopeId: string, value: boolean | null) => {
+    const envelope = await prisma.envelope.findFirstOrThrow({ where: { id: envelopeId } });
+
+    await prisma.documentMeta.update({
+      where: { id: envelope.documentMetaId },
+      data: { includeSigningCertificate: value },
+    });
+  };
+
+  test('envelope override of false wins over a team setting of true', async ({ page }) => {
+    const { owner, team } = await seedTeam();
+
+    const { document, recipients } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await setTeamSigningCertificate(team.id, true);
+    await setEnvelopeSigningCertificate(document.id, false);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
+  });
+
+  test('envelope override of true wins over a team setting of false', async ({ page }) => {
+    const { owner, team } = await seedTeam();
+
+    const { document, recipients } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await setTeamSigningCertificate(team.id, false);
+    await setEnvelopeSigningCertificate(document.id, true);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(1);
+  });
+
+  test('a null envelope override keeps following the team setting', async ({ page }) => {
+    const { owner, team } = await seedTeam();
+
+    const { document, recipients } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await setTeamSigningCertificate(team.id, false);
+    await setEnvelopeSigningCertificate(document.id, null);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
+  });
+
+  test('envelope editor can toggle the signing certificate', async ({ page }) => {
+    const { owner, team } = await seedTeam();
+
+    const { document } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await apiSignin({
+      page,
+      email: owner.email,
+      redirectPath: `/t/${team.url}/documents/${document.id}/edit`,
+    });
+
+    const readOverride = async () => {
+      const envelope = await prisma.envelope.findFirstOrThrow({
+        where: { id: document.id },
+        include: { documentMeta: true },
+      });
+
+      return envelope.documentMeta.includeSigningCertificate;
+    };
+
+    // Defaults to inheriting the organisation/team setting.
+    expect(await readOverride()).toBeNull();
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+
+    const trigger = page.getByTestId('envelope-include-signing-certificate-trigger');
+
+    await expect(trigger).toBeVisible();
+
+    await trigger.click();
+    await page.getByRole('option', { name: 'No', exact: true }).click();
+
+    await page
+      .getByRole('button', { name: /Update|Save/ })
+      .last()
+      .click();
+
+    await expect(async () => {
+      expect(await readOverride()).toBe(false);
+    }).toPass();
   });
 
   test('team can toggle signing certificate setting', async ({ page }) => {

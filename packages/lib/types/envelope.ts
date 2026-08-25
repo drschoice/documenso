@@ -47,6 +47,7 @@ export const ZEnvelopeSchema = EnvelopeSchema.pick({
     timezone: true,
     dateFormat: true,
     redirectUrl: true,
+    includeSigningCertificate: true,
     typedSignatureEnabled: true,
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,

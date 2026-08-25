@@ -519,6 +519,12 @@ model DocumentMeta {
   dateFormat             String?              @db.Text
   redirectUrl            String?
   signingOrder           DocumentSigningOrder @default(PARALLEL)
+
+  // Null = inherit the organisation/team `includeSigningCertificate`, resolved live at seal time
+  // rather than snapshotted at creation. Deliberately has no `@default` so that "inherit" survives a
+  // bare insert. Only read by the seal job, which appends the certificate page to the sealed PDF.
+  includeSigningCertificate Boolean?
+
   allowDictateNextSigner      Boolean     @default(false)
   nextFieldNavigationTypes    FieldType[] @default([])
   nextFieldNavigationLabels   String[]    @default([])

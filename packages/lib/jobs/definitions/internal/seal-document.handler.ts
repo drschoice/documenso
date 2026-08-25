@@ -41,7 +41,7 @@ import { prefixedId } from '../../../universal/id';
 import { getFileServerSide } from '../../../universal/upload/get-file.server';
 import { putPdfFileServerSide } from '../../../universal/upload/put-file.server';
 import { fieldsContainUnsignedRequiredVisibleField } from '../../../utils/advanced-fields-helpers';
-import { isDocumentCompleted } from '../../../utils/document';
+import { isDocumentCompleted, resolveIncludeSigningCertificate } from '../../../utils/document';
 import { createDocumentAuditLogData } from '../../../utils/document-audit-logs';
 import { mapDocumentIdToSecondaryId } from '../../../utils/envelope';
 import type { JobRunIO } from '../../client/_internal/job';
@@ -219,7 +219,8 @@ export const run = async ({
 
     const usePlaywrightPdf = NEXT_PRIVATE_USE_PLAYWRIGHT_PDF();
 
-    const needsCertificate = settings.includeSigningCertificate;
+    // The envelope may override the resolved organisation/team setting; null keeps inheriting it.
+    const needsCertificate = resolveIncludeSigningCertificate(settings, envelope.documentMeta);
     const needsAuditLog = settings.includeAuditLog;
 
     const newDocumentData: Array<{ oldDocumentDataId: string; newDocumentDataId: string }> = [];

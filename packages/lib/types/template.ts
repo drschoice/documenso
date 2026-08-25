@@ -55,6 +55,7 @@ export const ZTemplateSchema = TemplateSchema.pick({
     timezone: true,
     dateFormat: true,
     signingOrder: true,
+    includeSigningCertificate: true,
     typedSignatureEnabled: true,
     uploadSignatureEnabled: true,
     drawSignatureEnabled: true,

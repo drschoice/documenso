@@ -25,6 +25,7 @@ export const ZDistributeEnvelopeRequestSchema = z.object({
     dateFormat: true,
     distributionMethod: true,
     redirectUrl: true,
+    includeSigningCertificate: true,
     language: true,
     emailId: true,
     emailReplyTo: true,

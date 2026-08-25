@@ -60,6 +60,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
       uploadSignatureEnabled: teamSettings.uploadSignatureEnabled,
       drawSignatureEnabled: teamSettings.drawSignatureEnabled,
       documentDateFormat: teamSettings.documentDateFormat,
+      includeSigningCertificate: teamSettings.includeSigningCertificate,
     },
   };
 };

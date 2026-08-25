@@ -67,6 +67,9 @@ export const buildEmbeddedFeatures = (
             allowConfigureExpirationPeriod:
               features.settings?.allowConfigureExpirationPeriod ??
               DEFAULT_EMBEDDED_EDITOR_CONFIG.settings.allowConfigureExpirationPeriod,
+            allowConfigureSigningCertificate:
+              features.settings?.allowConfigureSigningCertificate ??
+              DEFAULT_EMBEDDED_EDITOR_CONFIG.settings.allowConfigureSigningCertificate,
             allowConfigureEmailSender:
               features.settings?.allowConfigureEmailSender ??
               DEFAULT_EMBEDDED_EDITOR_CONFIG.settings.allowConfigureEmailSender,
