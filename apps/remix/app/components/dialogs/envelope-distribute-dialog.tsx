@@ -18,12 +18,17 @@ import * as z from 'zod';
 
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
+import {
+  ZEnvelopeExpirationPeriod,
+  isEnvelopeExpirationInPast,
+} from '@documenso/lib/constants/envelope-expiration';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
 import { getRecipientsWithMissingFields } from '@documenso/lib/utils/recipients';
 import { zEmail } from '@documenso/lib/utils/zod';
 import { trpc, trpc as trpcReact } from '@documenso/trpc/react';
 import { DocumentSendEmailMessageHelper } from '@documenso/ui/components/document/document-send-email-message-helper';
+import { ExpirationPeriodPicker } from '@documenso/ui/components/document/expiration-period-picker';
 import { cn } from '@documenso/ui/lib/utils';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
@@ -92,6 +97,7 @@ export const ZEnvelopeDistributeFormSchema = z.object({
       .default(DocumentDistributionMethod.EMAIL),
     nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).default([]),
     nextFieldNavigationLabels: z.array(z.string()).default([]),
+    envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
   }),
 });
 
@@ -126,6 +132,7 @@ export const EnvelopeDistributeDialog = ({
           envelope.documentMeta?.distributionMethod || DocumentDistributionMethod.EMAIL,
         nextFieldNavigationTypes: envelope.documentMeta?.nextFieldNavigationTypes ?? [],
         nextFieldNavigationLabels: envelope.documentMeta?.nextFieldNavigationLabels ?? [],
+        envelopeExpirationPeriod: envelope.documentMeta?.envelopeExpirationPeriod ?? null,
       },
     },
     resolver: zodResolver(ZEnvelopeDistributeFormSchema),
@@ -152,6 +159,14 @@ export const EnvelopeDistributeDialog = ({
   const emails = emailData?.data || [];
 
   const distributionMethod = watch('meta.distributionMethod');
+  const envelopeExpirationPeriod = watch('meta.envelopeExpirationPeriod');
+
+  // Kept out of `invalidEnvelopeCode` on purpose: that swaps the whole form out for an alert, which
+  // would hide the very picker needed to fix the date.
+  const isExpirationInPast = useMemo(
+    () => isEnvelopeExpirationInPast(envelopeExpirationPeriod, envelope.documentMeta?.timezone),
+    [envelopeExpirationPeriod, envelope.documentMeta?.timezone],
+  );
 
   const recipientsWithIndex = useMemo(
     () =>
@@ -465,6 +480,49 @@ export const EnvelopeDistributeDialog = ({
 
                 <FormField
                   control={form.control}
+                  name="meta.envelopeExpirationPeriod"
+                  render={({ field }) => (
+                    <FormItem className="mt-2">
+                      <FormLabel className="flex flex-row items-center">
+                        <Trans>Expiration</Trans>
+                        <Tooltip>
+                          <TooltipTrigger type="button">
+                            <InfoIcon className="mx-2 h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-muted-foreground">
+                            <Trans>
+                              When recipients lose the ability to complete this document. Either a
+                              duration counted from now, or a fixed date and time.
+                            </Trans>
+                          </TooltipContent>
+                        </Tooltip>
+                      </FormLabel>
+                      <FormControl>
+                        <ExpirationPeriodPicker
+                          value={field.value}
+                          onChange={field.onChange}
+                          allowSpecificDate
+                          timezone={envelope.documentMeta?.timezone}
+                        />
+                      </FormControl>
+
+                      {isExpirationInPast && (
+                        <Alert variant="warning" className="mt-2">
+                          <AlertDescription>
+                            <Trans>
+                              This expiration date has already passed. Pick a later one to send.
+                            </Trans>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="meta.nextFieldNavigationTypes"
                   render={({ field }) => (
                     <FormItem className="mt-2">
@@ -547,7 +605,11 @@ export const EnvelopeDistributeDialog = ({
                     </Button>
                   </DialogClose>
 
-                  <Button loading={isSubmitting} disabled={isSyncing} type="submit">
+                  <Button
+                    loading={isSubmitting}
+                    disabled={isSyncing || isExpirationInPast}
+                    type="submit"
+                  >
                     {distributionMethod === DocumentDistributionMethod.EMAIL ? (
                       <Trans>Send</Trans>
                     ) : (

@@ -3,6 +3,7 @@ import {
   type DocumentSigningOrder,
   EnvelopeType,
   type FieldType,
+  Prisma,
 } from '@prisma/client';
 
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -13,6 +14,7 @@ import {
 } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 
+import type { TEnvelopeExpirationPeriod } from '../../constants/envelope-expiration';
 import type { SupportedLanguageCodes } from '../../constants/i18n';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { TDocumentEmailSettings } from '../../types/document-email';
@@ -45,6 +47,10 @@ export type CreateDocumentMetaOptions = {
   uploadSignatureEnabled?: boolean;
   drawSignatureEnabled?: boolean;
   language?: SupportedLanguageCodes;
+  /**
+   * Null resets the document back to inheriting the organisation/team expiration period.
+   */
+  envelopeExpirationPeriod?: TEnvelopeExpirationPeriod | null;
   requestMetadata: ApiRequestMetadata;
 };
 
@@ -69,6 +75,7 @@ export const updateDocumentMeta = async ({
   uploadSignatureEnabled,
   drawSignatureEnabled,
   language,
+  envelopeExpirationPeriod,
   requestMetadata,
 }: CreateDocumentMetaOptions) => {
   const { envelopeWhereInput, team } = await getEnvelopeWhereInput({
@@ -145,6 +152,10 @@ export const updateDocumentMeta = async ({
         distributionMethod,
         ...cappedSignatureSettings,
         language,
+        ...(envelopeExpirationPeriod !== undefined && {
+          envelopeExpirationPeriod:
+            envelopeExpirationPeriod === null ? Prisma.DbNull : envelopeExpirationPeriod,
+        }),
       },
     });
 

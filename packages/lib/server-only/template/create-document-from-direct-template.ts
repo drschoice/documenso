@@ -340,7 +340,11 @@ export const createDocumentFromDirectTemplate = async ({
   );
 
   const documentMeta = await prisma.documentMeta.create({
-    data: derivedDocumentMeta,
+    data: {
+      ...derivedDocumentMeta,
+      // A nullable Json column rejects a bare null.
+      envelopeExpirationPeriod: derivedDocumentMeta.envelopeExpirationPeriod ?? Prisma.DbNull,
+    },
   });
 
   const incrementedDocumentId = await incrementDocumentId();

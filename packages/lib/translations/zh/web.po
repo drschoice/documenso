@@ -3106,6 +3106,10 @@ msgstr ""
 msgid "Controls whether the signing certificate will be included in the document when it is downloaded. The signing certificate can still be downloaded from the logs page separately."
 msgstr "控制在下载文档时，是否在文档中包含签署证书。签署证书仍然可以在日志页面单独下载。"
 
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "Controls whether the signing certificate will be included in this document when it is downloaded. The signing certificate can still be downloaded from the logs page separately."
+msgstr ""
+
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Controls which signatures are allowed to be used when signing a document."
 msgstr "控制签署文档时允许使用哪些类型的签名。"
@@ -5330,6 +5334,8 @@ msgstr "超时"
 msgid "Expand sidebar"
 msgstr "展开侧边栏"
 
+#: apps/remix/app/components/dialogs/envelope-distribute-dialog.tsx
+#: apps/remix/app/components/dialogs/template-use-dialog.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 msgid "Expiration"
 msgstr "过期设置"
@@ -5352,6 +5358,12 @@ msgstr "到期时间"
 #: apps/remix/app/components/general/document/document-page-view-recipients.tsx
 msgid "Expires {0}"
 msgstr "于 {0} 到期"
+
+#. placeholder {0}: deadline.toLocaleString(DateTime.DATETIME_MED)
+#. placeholder {1}: timezone || 'Etc/UTC'
+#: packages/ui/components/document/expiration-period-picker.tsx
+msgid "Expires {0} ({1})"
+msgstr ""
 
 #. placeholder {0}: DateTime.fromMillis(Math.max(millisecondsRemaining, 0)).toFormat( 'mm:ss', )
 #: apps/remix/app/components/general/document-signing/access-auth-2fa-form.tsx
@@ -5998,10 +6010,6 @@ msgstr "首页（无文件夹）"
 msgid "Horizontal"
 msgstr "水平"
 
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
-msgid "How long recipients have to complete this document after it is sent. Uses the team default when set to inherit."
-msgstr "设置此文档在发送后，收件人可完成签署的时间长度。当设置为继承时，将使用团队默认值。"
-
 #: apps/remix/app/routes/_unauthenticated+/organisation.sso.confirmation.$token.tsx
 msgid "I agree to link my account with this organization"
 msgstr "我同意将我的账户与此组织关联"
@@ -6127,6 +6135,7 @@ msgid "Include the Audit Logs in the Document"
 msgstr "在文档中包含审计日志"
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 msgid "Include the Signing Certificate in the Document"
 msgstr "在文档中包含签署证书"
 
@@ -6141,6 +6150,10 @@ msgstr "信息"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 msgid "Inherit ({inheritedDateFormatLabel})"
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "Inherit ({inheritedSigningCertificateLabel})"
 msgstr ""
 
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
@@ -7212,6 +7225,8 @@ msgstr "下一位收件人姓名"
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 msgid "No"
 msgstr "否"
 
@@ -10069,6 +10084,10 @@ msgstr "以空格分隔的域名列表。留空则允许所有域名。"
 msgid "Spanish"
 msgstr "西班牙语"
 
+#: packages/ui/components/document/expiration-period-picker.tsx
+msgid "Specific date and time"
+msgstr ""
+
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings._layout.tsx
 msgid "SSO"
 msgstr "SSO"
@@ -11246,6 +11265,18 @@ msgstr "当前无法分发此信封。请重试。"
 #: apps/remix/app/components/dialogs/envelope-redistribute-dialog.tsx
 msgid "This envelope could not be resent at this time. Please try again."
 msgstr "当前无法重新发送此信封。请重试。"
+
+#: apps/remix/app/components/dialogs/template-use-dialog.tsx
+msgid "This expiration date has already passed. Pick a later one to create and send."
+msgstr ""
+
+#: apps/remix/app/components/dialogs/envelope-distribute-dialog.tsx
+msgid "This expiration date has already passed. Pick a later one to send."
+msgstr ""
+
+#: apps/remix/app/components/dialogs/template-use-dialog.tsx
+msgid "This expiration date has already passed. The draft can be created, but you will need to update the date before sending."
+msgstr ""
 
 #: packages/ui/primitives/template-flow/add-template-placeholder-recipients.tsx
 msgid "This field cannot be modified or deleted. When you share this template's direct link or add it to your public profile, anyone who accesses it can input their name and email, and fill in the fields assigned to them."
@@ -12965,6 +12996,18 @@ msgstr ""
 msgid "When enabled, signers can choose who should sign next in the sequence instead of following the predefined order."
 msgstr "启用后，签署人可以选择下一位签署人，而不是遵循预定义顺序。"
 
+#: apps/remix/app/components/dialogs/template-use-dialog.tsx
+msgid "When recipients lose the ability to complete this document. Defaults to whatever the template is configured with."
+msgstr ""
+
+#: apps/remix/app/components/dialogs/envelope-distribute-dialog.tsx
+msgid "When recipients lose the ability to complete this document. Either a duration counted from now, or a fixed date and time."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+msgid "When recipients lose the ability to complete this document. Either a duration counted from the moment it is sent, or a fixed date and time read in the timezone above."
+msgstr ""
+
 #: apps/remix/app/components/dialogs/passkey-create-dialog.tsx
 msgid "When you click continue, you will be prompted to add the first available authenticator on your system."
 msgstr "点击继续后，系统会提示你添加设备上第一个可用的验证器。"
@@ -13016,6 +13059,8 @@ msgstr "按年"
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 msgid "Yes"
 msgstr "是"
 

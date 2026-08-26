@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-namespace */
+import type { TEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
 import type { TDefaultRecipient } from '@documenso/lib/types/default-recipients';
 import type {
   TDocumentAuthOptions,
@@ -27,6 +28,8 @@ declare global {
     type FieldMeta = TFieldMetaNotOptionalSchema;
 
     type EnvelopeAttachmentType = TEnvelopeAttachmentType;
+
+    type EnvelopeExpirationPeriod = TEnvelopeExpirationPeriod;
 
     type DefaultRecipient = TDefaultRecipient;
   }

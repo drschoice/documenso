@@ -12,6 +12,11 @@ import { useNavigate } from 'react-router';
 import * as z from 'zod';
 
 import { APP_DOCUMENT_UPLOAD_SIZE_LIMIT } from '@documenso/lib/constants/app';
+import type { TEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
+import {
+  ZEnvelopeExpirationPeriod,
+  isEnvelopeExpirationInPast,
+} from '@documenso/lib/constants/envelope-expiration';
 import {
   TEMPLATE_RECIPIENT_EMAIL_PLACEHOLDER_REGEX,
   TEMPLATE_RECIPIENT_NAME_PLACEHOLDER_REGEX,
@@ -29,7 +34,9 @@ import {
   splitFullName,
 } from '@documenso/lib/utils/recipient-formatter';
 import { trpc } from '@documenso/trpc/react';
+import { ExpirationPeriodPicker } from '@documenso/ui/components/document/expiration-period-picker';
 import { cn } from '@documenso/ui/lib/utils';
+import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
 import { Checkbox } from '@documenso/ui/primitives/checkbox';
 import {
@@ -86,6 +93,7 @@ const ZAddRecipientsForNewDocumentSchema = z.object({
     .optional(),
   nextFieldNavigationTypes: z.array(z.nativeEnum(FieldType)).default([]),
   nextFieldNavigationLabels: z.array(z.string()).default([]),
+  envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
   recipients: z.array(
     z.object({
       id: z.number(),
@@ -110,6 +118,8 @@ export type TemplateUseDialogProps = {
   templateSigningOrder?: DocumentSigningOrder | null;
   templateNextFieldNavigationTypes?: FieldType[];
   templateNextFieldNavigationLabels?: string[];
+  templateEnvelopeExpirationPeriod?: TEnvelopeExpirationPeriod | null;
+  templateTimezone?: string | null;
   templateFields?: Array<{ fieldMeta: unknown }>;
   recipients: Recipient[];
   documentDistributionMethod?: DocumentDistributionMethod;
@@ -126,6 +136,8 @@ export function TemplateUseDialog({
   templateSigningOrder,
   templateNextFieldNavigationTypes = [],
   templateNextFieldNavigationLabels = [],
+  templateEnvelopeExpirationPeriod,
+  templateTimezone,
   templateFields = [],
   trigger,
 }: TemplateUseDialogProps) {
@@ -182,6 +194,7 @@ export function TemplateUseDialog({
         }),
       nextFieldNavigationTypes: templateNextFieldNavigationTypes,
       nextFieldNavigationLabels: templateNextFieldNavigationLabels,
+      envelopeExpirationPeriod: templateEnvelopeExpirationPeriod ?? null,
     };
   };
 
@@ -194,6 +207,13 @@ export function TemplateUseDialog({
     control: form.control,
     name: 'customDocumentData',
   });
+
+  const envelopeExpirationPeriod = form.watch('envelopeExpirationPeriod');
+  const willDistribute = form.watch('distributeDocument');
+
+  // A template can carry a fixed deadline that has since lapsed. Creating a draft with it is
+  // recoverable in the editor, but distributing immediately would be refused server-side.
+  const isExpirationInPast = isEnvelopeExpirationInPast(envelopeExpirationPeriod, templateTimezone);
 
   const { mutateAsync: createDocumentFromTemplate } =
     trpc.template.createDocumentFromTemplate.useMutation();
@@ -226,6 +246,7 @@ export function TemplateUseDialog({
             data.nextFieldNavigationTypes.length > 0 ? data.nextFieldNavigationTypes : undefined,
           nextFieldNavigationLabels:
             data.nextFieldNavigationLabels.length > 0 ? data.nextFieldNavigationLabels : undefined,
+          envelopeExpirationPeriod: data.envelopeExpirationPeriod,
         },
       });
 
@@ -744,6 +765,60 @@ export function TemplateUseDialog({
 
               <FormField
                 control={form.control}
+                name="envelopeExpirationPeriod"
+                render={({ field }) => (
+                  <FormItem className="mt-4">
+                    <FormLabel className="flex items-center gap-x-2">
+                      <Trans>Expiration</Trans>
+
+                      <Tooltip>
+                        <TooltipTrigger type="button">
+                          <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+
+                        <TooltipContent className="max-w-xs">
+                          <Trans>
+                            When recipients lose the ability to complete this document. Defaults to
+                            whatever the template is configured with.
+                          </Trans>
+                        </TooltipContent>
+                      </Tooltip>
+                    </FormLabel>
+
+                    <FormControl>
+                      <ExpirationPeriodPicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        allowSpecificDate
+                        timezone={templateTimezone}
+                      />
+                    </FormControl>
+
+                    {isExpirationInPast && (
+                      <Alert variant="warning" className="mt-2">
+                        <AlertDescription>
+                          {willDistribute ? (
+                            <Trans>
+                              This expiration date has already passed. Pick a later one to create
+                              and send.
+                            </Trans>
+                          ) : (
+                            <Trans>
+                              This expiration date has already passed. The draft can be created, but
+                              you will need to update the date before sending.
+                            </Trans>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="nextFieldNavigationTypes"
                 render={({ field }) => (
                   <FormItem className="mt-4">
@@ -834,7 +909,11 @@ export function TemplateUseDialog({
                   </Button>
                 </DialogClose>
 
-                <Button type="submit" loading={form.formState.isSubmitting}>
+                <Button
+                  type="submit"
+                  loading={form.formState.isSubmitting}
+                  disabled={isExpirationInPast && willDistribute}
+                >
                   {!form.getValues('distributeDocument') ? (
                     <Trans>Create as draft</Trans>
                   ) : documentDistributionMethod === DocumentDistributionMethod.EMAIL ? (

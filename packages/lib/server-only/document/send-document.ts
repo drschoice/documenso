@@ -10,7 +10,10 @@ import {
   WebhookTriggerEvents,
 } from '@prisma/client';
 
-import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
+import {
+  isEnvelopeExpirationDatePeriod,
+  resolveExpiresAt,
+} from '@documenso/lib/constants/envelope-expiration';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
@@ -168,6 +171,24 @@ export const sendDocument = async ({
     });
   }
 
+  const expiresAt = resolveExpiresAt(
+    envelope.documentMeta?.envelopeExpirationPeriod ?? null,
+    envelope.documentMeta?.timezone,
+  );
+
+  // A duration is counted from now so it can never be stale, but a fixed deadline can have lapsed
+  // while the document sat in draft. Sending anyway would expire every recipient immediately.
+  if (
+    isEnvelopeExpirationDatePeriod(envelope.documentMeta?.envelopeExpirationPeriod) &&
+    expiresAt &&
+    expiresAt <= new Date()
+  ) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message:
+        'The expiration date for this document has already passed. Update it before sending.',
+    });
+  }
+
   const allRecipientsHaveNoActionToTake = envelope.recipients.every(
     (recipient) =>
       recipient.role === RecipientRole.CC || recipient.signingStatus === SigningStatus.SIGNED,
@@ -259,8 +280,6 @@ export const sendDocument = async ({
         }),
       });
     }
-
-    const expiresAt = resolveExpiresAt(envelope.documentMeta?.envelopeExpirationPeriod ?? null);
 
     // Set expiresAt on each recipient that hasn't already signed/rejected.
     // Exclude CC recipients since they don't sign and shouldn't be subject to expiry.

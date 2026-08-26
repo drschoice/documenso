@@ -4,6 +4,7 @@ import {
   EnvelopeType,
   type Field,
   FolderType,
+  Prisma,
   type Recipient,
   RecipientRole,
   SendStatus,
@@ -546,46 +547,52 @@ export const createDocumentFromTemplate = async ({
 
   const incrementedDocumentId = await incrementDocumentId();
 
+  const derivedDocumentMeta = extractDerivedDocumentMeta(settings, {
+    subject: override?.subject || template.documentMeta?.subject,
+    message: override?.message || template.documentMeta?.message,
+    timezone: override?.timezone || template.documentMeta?.timezone,
+    dateFormat: override?.dateFormat || template.documentMeta?.dateFormat,
+    redirectUrl: override?.redirectUrl || template.documentMeta?.redirectUrl,
+    distributionMethod: override?.distributionMethod || template.documentMeta?.distributionMethod,
+    // `??` not `||` — `false` ("never attach the certificate") is a real choice, and null on both
+    // sides correctly falls through to inheriting the org/team setting.
+    includeSigningCertificate:
+      override?.includeSigningCertificate ?? template.documentMeta?.includeSigningCertificate,
+    emailSettings: override?.emailSettings || template.documentMeta?.emailSettings,
+    // `emailId` and `emailReplyTo` were previously omitted here, so a template configured with a
+    // custom sender or reply-to silently lost both on every non-direct-link creation path, bulk
+    // send included.
+    emailId: override?.emailId ?? template.documentMeta?.emailId,
+    emailReplyTo: override?.emailReplyTo ?? template.documentMeta?.emailReplyTo,
+    signingOrder: override?.signingOrder || template.documentMeta?.signingOrder,
+    language: override?.language || template.documentMeta?.language || settings.documentLanguage,
+    typedSignatureEnabled:
+      override?.typedSignatureEnabled ?? template.documentMeta?.typedSignatureEnabled,
+    uploadSignatureEnabled:
+      override?.uploadSignatureEnabled ?? template.documentMeta?.uploadSignatureEnabled,
+    drawSignatureEnabled:
+      override?.drawSignatureEnabled ?? template.documentMeta?.drawSignatureEnabled,
+    // Deliberately not inherited from the template: the signature font family and size are
+    // brand-level decisions, so a document generated from a template re-resolves them from the
+    // current org/team settings. Both are omitted from this override object, so
+    // `extractDerivedDocumentMeta` falls back to `settings.signatureFontFamily` /
+    // `settings.signatureFontSize`.
+    allowDictateNextSigner:
+      override?.allowDictateNextSigner ?? template.documentMeta?.allowDictateNextSigner,
+    nextFieldNavigationTypes:
+      override?.nextFieldNavigationTypes ?? template.documentMeta?.nextFieldNavigationTypes,
+    nextFieldNavigationLabels:
+      override?.nextFieldNavigationLabels ?? template.documentMeta?.nextFieldNavigationLabels,
+    envelopeExpirationPeriod:
+      override?.envelopeExpirationPeriod ?? template.documentMeta?.envelopeExpirationPeriod,
+  });
+
   const documentMeta = await prisma.documentMeta.create({
-    data: extractDerivedDocumentMeta(settings, {
-      subject: override?.subject || template.documentMeta?.subject,
-      message: override?.message || template.documentMeta?.message,
-      timezone: override?.timezone || template.documentMeta?.timezone,
-      dateFormat: override?.dateFormat || template.documentMeta?.dateFormat,
-      redirectUrl: override?.redirectUrl || template.documentMeta?.redirectUrl,
-      distributionMethod: override?.distributionMethod || template.documentMeta?.distributionMethod,
-      // `??` not `||` — `false` ("never attach the certificate") is a real choice, and null on both
-      // sides correctly falls through to inheriting the org/team setting.
-      includeSigningCertificate:
-        override?.includeSigningCertificate ?? template.documentMeta?.includeSigningCertificate,
-      emailSettings: override?.emailSettings || template.documentMeta?.emailSettings,
-      // `emailId` and `emailReplyTo` were previously omitted here, so a template configured with a
-      // custom sender or reply-to silently lost both on every non-direct-link creation path, bulk
-      // send included.
-      emailId: override?.emailId ?? template.documentMeta?.emailId,
-      emailReplyTo: override?.emailReplyTo ?? template.documentMeta?.emailReplyTo,
-      signingOrder: override?.signingOrder || template.documentMeta?.signingOrder,
-      language: override?.language || template.documentMeta?.language || settings.documentLanguage,
-      typedSignatureEnabled:
-        override?.typedSignatureEnabled ?? template.documentMeta?.typedSignatureEnabled,
-      uploadSignatureEnabled:
-        override?.uploadSignatureEnabled ?? template.documentMeta?.uploadSignatureEnabled,
-      drawSignatureEnabled:
-        override?.drawSignatureEnabled ?? template.documentMeta?.drawSignatureEnabled,
-      // Deliberately not inherited from the template: the signature font family and size are
-      // brand-level decisions, so a document generated from a template re-resolves them from the
-      // current org/team settings. Both are omitted from this override object, so
-      // `extractDerivedDocumentMeta` falls back to `settings.signatureFontFamily` /
-      // `settings.signatureFontSize`.
-      allowDictateNextSigner:
-        override?.allowDictateNextSigner ?? template.documentMeta?.allowDictateNextSigner,
-      nextFieldNavigationTypes:
-        override?.nextFieldNavigationTypes ?? template.documentMeta?.nextFieldNavigationTypes,
-      nextFieldNavigationLabels:
-        override?.nextFieldNavigationLabels ?? template.documentMeta?.nextFieldNavigationLabels,
-      envelopeExpirationPeriod:
-        override?.envelopeExpirationPeriod ?? template.documentMeta?.envelopeExpirationPeriod,
-    }),
+    data: {
+      ...derivedDocumentMeta,
+      // A nullable Json column rejects a bare null.
+      envelopeExpirationPeriod: derivedDocumentMeta.envelopeExpirationPeriod ?? Prisma.DbNull,
+    },
   });
 
   const { envelope, createdEnvelope, fieldsWithTemplateFieldId } = await prisma.$transaction(

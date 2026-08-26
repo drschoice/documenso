@@ -1,9 +1,12 @@
 import { type Page, expect, test } from '@playwright/test';
 import { DocumentDistributionMethod, DocumentVisibility } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 import { nanoid } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
+import { seedUser } from '@documenso/prisma/seed/users';
 
+import { apiSignin } from '../fixtures/authentication';
 import {
   type TEnvelopeEditorSurface,
   getEnvelopeEditorSettingsTrigger,
@@ -410,5 +413,91 @@ test.describe('embedded edit', () => {
       hasActionAuthSelect,
       shouldAssertVisibility: false,
     });
+  });
+});
+
+test.describe('fixed expiration date', () => {
+  test('set, persist and round-trip a specific date and time', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+    const { root } = surface;
+    const externalId = `e2e-expiry-date-${nanoid()}`;
+
+    await openSettingsDialog(root);
+    await root.locator('input[name="externalId"]').fill(externalId);
+
+    // The deadline is read in the envelope timezone, so pin it rather than relying on the default.
+    await getComboboxByLabel(root, 'Time Zone').click();
+    await root.locator('[cmdk-input]').last().fill('Etc/UTC');
+    await root.getByRole('option', { name: 'Etc/UTC' }).click();
+    await clickSettingsDialogHeader(root);
+
+    await getComboboxByLabel(root, 'Expiration').click();
+    await root.getByRole('option', { name: 'Specific date and time' }).click();
+
+    // Seeded as tomorrow at 8pm; the time is editable, the date comes from the calendar.
+    const timeInput = root.locator('input[type="time"]');
+    await expect(timeInput).toHaveValue('20:00');
+    await timeInput.fill('09:30');
+
+    // Pick the day through the calendar rather than trusting the seed — the popover has to render
+    // above the dialog to be clickable at all.
+    const target = DateTime.now().plus({ days: 3 });
+
+    await root.locator('button:has(svg.lucide-calendar)').first().click();
+    await root.locator('[role="grid"]').first().waitFor();
+    await root
+      .locator('button[name="day"]:not([disabled])')
+      .filter({ hasText: new RegExp(`^${target.day}$`) })
+      .first()
+      .click();
+
+    const expectedDate = target.toFormat('yyyy-MM-dd');
+
+    await root.getByRole('button', { name: 'Update' }).click();
+    await expectToastTextToBeVisible(root, 'Envelope updated');
+
+    // Reopening shows the fixed date back, not a duration.
+    await openSettingsDialog(root);
+    await expect(getComboboxByLabel(root, 'Expiration')).toContainText('Specific date and time');
+    await expect(root.locator('input[type="time"]')).toHaveValue('09:30');
+
+    const envelope = await prisma.envelope.findFirstOrThrow({
+      where: {
+        externalId,
+        userId: surface.userId,
+        teamId: surface.teamId,
+        type: surface.envelopeType,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { documentMeta: true },
+    });
+
+    expect(envelope.documentMeta.timezone).toBe('Etc/UTC');
+    expect(envelope.documentMeta.envelopeExpirationPeriod).toEqual({
+      expiresAt: `${expectedDate}T09:30`,
+    });
+  });
+
+  test('is not offered as an organisation-wide default', async ({ page }) => {
+    const { user, organisation } = await seedUser({ isPersonalOrganisation: false });
+
+    await apiSignin({
+      page,
+      email: user.email,
+      redirectPath: `/o/${organisation.url}/settings/document`,
+    });
+
+    await expect(page.getByRole('button', { name: 'Update' }).first()).toBeVisible();
+
+    const modeTrigger = page
+      .locator('button[role="combobox"]')
+      .filter({ hasText: 'Custom duration' });
+
+    await modeTrigger.click();
+
+    // A fixed calendar date as a standing default for every future document would go stale, so the
+    // organisation and team pickers stay duration-or-never.
+    await expect(page.getByRole('option', { name: 'Never expires' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Specific date and time' })).toHaveCount(0);
   });
 });

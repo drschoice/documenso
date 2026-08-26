@@ -233,6 +233,10 @@ export const TemplatesTable = ({
                 templateNextFieldNavigationLabels={
                   row.original.templateMeta?.nextFieldNavigationLabels
                 }
+                templateEnvelopeExpirationPeriod={
+                  row.original.templateMeta?.envelopeExpirationPeriod
+                }
+                templateTimezone={row.original.templateMeta?.timezone}
                 templateFields={row.original.fields}
                 documentDistributionMethod={row.original.templateMeta?.distributionMethod}
                 recipients={row.original.recipients}
