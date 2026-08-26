@@ -1,5 +1,11 @@
-import type { DocumentMeta, DocumentVisibility, Prisma, TemplateType } from '@prisma/client';
-import { DocumentStatus, EnvelopeType, FolderType, WebhookTriggerEvents } from '@prisma/client';
+import type { DocumentMeta, DocumentVisibility, TemplateType } from '@prisma/client';
+import {
+  DocumentStatus,
+  EnvelopeType,
+  FolderType,
+  Prisma,
+  WebhookTriggerEvents,
+} from '@prisma/client';
 import { isDeepEqual } from 'remeda';
 
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -335,6 +341,8 @@ export const updateEnvelope = async ({
         })
       : undefined;
 
+  const { envelopeExpirationPeriod, ...restMeta } = meta ?? {};
+
   const updatedEnvelope = await prisma.$transaction(async (tx) => {
     const result = await tx.envelope.update({
       where: {
@@ -352,9 +360,15 @@ export const updateEnvelope = async ({
         folder: folderUpdateQuery,
         documentMeta: {
           update: {
-            ...meta,
+            ...restMeta,
             ...cappedSignatureSettings,
             emailSettings: meta?.emailSettings || undefined,
+            // A nullable Json column rejects a bare null, so resetting the expiration back to the
+            // organisation/team default has to go through DbNull. Pulled out of the spread above so
+            // the null never reaches Prisma's update input type.
+            ...(meta && 'envelopeExpirationPeriod' in meta
+              ? { envelopeExpirationPeriod: envelopeExpirationPeriod ?? Prisma.DbNull }
+              : {}),
           },
         },
       },

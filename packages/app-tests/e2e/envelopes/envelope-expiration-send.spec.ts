@@ -1,11 +1,13 @@
+import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import fs from 'node:fs';
 import path from 'node:path';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
 import { prisma } from '@documenso/prisma';
-import { EnvelopeType, RecipientRole } from '@documenso/prisma/client';
+import { DocumentStatus, EnvelopeType, RecipientRole } from '@documenso/prisma/client';
 import { seedPendingDocument } from '@documenso/prisma/seed/documents';
 import { seedUser } from '@documenso/prisma/seed/users';
 import type {
@@ -87,15 +89,15 @@ test('[ENVELOPE_EXPIRATION]: sending document sets expiresAt on recipients', asy
   expect(recipients.length).toBe(1);
   expect(recipients[0].expiresAt).not.toBeNull();
 
-  // The default expiration period is 3 months. Verify it's roughly correct.
+  // The default expiration period is 60 days. Verify it's roughly correct.
   const expiresAt = recipients[0].expiresAt!;
   const now = new Date();
   const diffMs = expiresAt.getTime() - now.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
-  // 3 months is roughly 89-92 days. Allow a generous range.
-  expect(diffDays).toBeGreaterThan(80);
-  expect(diffDays).toBeLessThan(100);
+  // Allow a generous range for the round trip through the API.
+  expect(diffDays).toBeGreaterThan(59);
+  expect(diffDays).toBeLessThan(61);
 });
 
 test('[ENVELOPE_EXPIRATION]: sending document with custom org expiration period', async ({
@@ -288,4 +290,138 @@ test('[ENVELOPE_EXPIRATION]: resending refreshes expiresAt', async ({ page }) =>
     expect(updatedRecipient.expiresAt).not.toBeNull();
     expect(updatedRecipient.expiresAt!.getTime()).toBeGreaterThan(initialExpiresAt.getTime());
   }).toPass({ timeout: 10_000 });
+});
+
+const seedEnvelopeForExpiry = async (
+  request: APIRequestContext,
+  token: string,
+  title: string,
+  email: string,
+) => {
+  const createPayload: TCreateEnvelopePayload = {
+    type: EnvelopeType.DOCUMENT,
+    title,
+    recipients: [
+      {
+        email,
+        name: 'Signer Fixed Date',
+        role: RecipientRole.SIGNER,
+        fields: [
+          {
+            type: 'SIGNATURE',
+            page: 1,
+            positionX: 10,
+            positionY: 10,
+            width: 10,
+            height: 5,
+            fieldMeta: { type: 'signature' },
+          },
+        ],
+      },
+    ],
+  };
+
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(createPayload));
+  formData.append('files', new File([examplePdf], 'example.pdf', { type: 'application/pdf' }));
+
+  const createRes = await request.post(`${baseUrl}/envelope/create`, {
+    headers: { Authorization: `Bearer ${token}` },
+    multipart: formData,
+  });
+
+  expect(createRes.ok()).toBeTruthy();
+
+  const { id }: TCreateEnvelopeResponse = await createRes.json();
+
+  return id;
+};
+
+test('[ENVELOPE_EXPIRATION]: sending with a fixed date sets that exact instant', async ({
+  request,
+}) => {
+  const { user, team } = await seedUser();
+
+  const { token } = await createApiToken({
+    userId: user.id,
+    teamId: team.id,
+    tokenName: 'test-expiration-fixed-date',
+    expiresIn: null,
+  });
+
+  const envelopeId = await seedEnvelopeForExpiry(
+    request,
+    token,
+    '[TEST] Fixed Date Expiration',
+    'signer-fixed-date@test.documenso.com',
+  );
+
+  // A wall clock, resolved against the envelope timezone rather than the server's.
+  const expiresAt = DateTime.utc().plus({ days: 10 }).toFormat("yyyy-MM-dd'T'HH:mm");
+
+  const distributeRes = await request.post(`${baseUrl}/envelope/distribute`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      envelopeId,
+      meta: { timezone: 'Etc/UTC', envelopeExpirationPeriod: { expiresAt } },
+    } satisfies TDistributeEnvelopeRequest,
+  });
+
+  expect(distributeRes.ok()).toBeTruthy();
+
+  const recipients = await prisma.recipient.findMany({ where: { envelopeId } });
+
+  expect(recipients.length).toBe(1);
+  expect(recipients[0].expiresAt?.toISOString()).toBe(
+    DateTime.fromISO(expiresAt, { zone: 'Etc/UTC' }).toUTC().toISO({ suppressMilliseconds: false }),
+  );
+
+  // The chosen mode is persisted so the editor can show it back as a fixed date.
+  const envelope = await prisma.envelope.findUniqueOrThrow({
+    where: { id: envelopeId },
+    include: { documentMeta: true },
+  });
+
+  expect(envelope.documentMeta?.envelopeExpirationPeriod).toEqual({ expiresAt });
+});
+
+test('[ENVELOPE_EXPIRATION]: a fixed date that has passed blocks the send', async ({ request }) => {
+  const { user, team } = await seedUser();
+
+  const { token } = await createApiToken({
+    userId: user.id,
+    teamId: team.id,
+    tokenName: 'test-expiration-past-date',
+    expiresIn: null,
+  });
+
+  const envelopeId = await seedEnvelopeForExpiry(
+    request,
+    token,
+    '[TEST] Past Date Expiration',
+    'signer-past-date@test.documenso.com',
+  );
+
+  const distributeRes = await request.post(`${baseUrl}/envelope/distribute`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      envelopeId,
+      meta: {
+        timezone: 'Etc/UTC',
+        envelopeExpirationPeriod: { expiresAt: '2020-01-15T20:00' },
+      },
+    } satisfies TDistributeEnvelopeRequest,
+  });
+
+  expect(distributeRes.ok()).toBeFalsy();
+  expect(await distributeRes.text()).toContain('expiration date');
+
+  // Nothing was mutated — the envelope is still a draft with no deadlines stamped.
+  const envelope = await prisma.envelope.findUniqueOrThrow({
+    where: { id: envelopeId },
+    include: { recipients: true },
+  });
+
+  expect(envelope.status).toBe(DocumentStatus.DRAFT);
+  expect(envelope.recipients.every((recipient) => recipient.expiresAt === null)).toBe(true);
 });

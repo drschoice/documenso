@@ -43,6 +43,7 @@ export const distributeEnvelopeRoute = authenticatedProcedure
         emailReplyTo: meta.emailReplyTo,
         nextFieldNavigationTypes: meta.nextFieldNavigationTypes,
         nextFieldNavigationLabels: meta.nextFieldNavigationLabels,
+        envelopeExpirationPeriod: meta.envelopeExpirationPeriod,
         requestMetadata: ctx.metadata,
       });
     }

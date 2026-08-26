@@ -139,10 +139,14 @@ export const createTeam = async ({
   await prisma
     .$transaction(
       async (tx) => {
+        const defaultSettings = generateDefaultTeamSettings();
+
         const teamSettings = await tx.teamGlobalSettings.create({
           data: {
-            ...generateDefaultTeamSettings(),
+            ...defaultSettings,
             defaultRecipients: Prisma.DbNull,
+            // A nullable Json column rejects a bare null.
+            envelopeExpirationPeriod: defaultSettings.envelopeExpirationPeriod ?? Prisma.DbNull,
             id: generateDatabaseId('team_setting'),
           },
         });

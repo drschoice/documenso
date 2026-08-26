@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 
 import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settings';
 import { prisma } from '@documenso/prisma';
+import { seedBlankTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
@@ -147,4 +149,64 @@ test('[ENVELOPE_EXPIRATION]: team overrides organisation expiration', async ({ p
   const teamSettings = await getTeamSettings({ teamId: team.id });
 
   expect(teamSettings.envelopeExpirationPeriod).toEqual({ unit: 'day', amount: 5 });
+});
+
+test('[ENVELOPE_EXPIRATION]: the use-template dialog seeds and overrides the expiration', async ({
+  page,
+}) => {
+  const { user, team } = await seedUser();
+  const template = await seedBlankTemplate(user, team.id);
+
+  await prisma.documentMeta.update({
+    where: { id: template.documentMetaId },
+    data: { envelopeExpirationPeriod: { unit: 'week', amount: 2 }, timezone: 'Etc/UTC' },
+  });
+
+  await apiSignin({
+    page,
+    email: user.email,
+    redirectPath: `/t/${team.url}/templates`,
+  });
+
+  await page.getByRole('button', { name: 'Use Template' }).click();
+
+  const dialog = page.getByRole('dialog');
+  const expirationTrigger = dialog
+    .locator('label:has-text("Expiration")')
+    .locator('xpath=..')
+    .locator('[role="combobox"]')
+    .first();
+
+  // The dialog starts from whatever the template is configured with.
+  await expect(expirationTrigger).toContainText('Custom duration');
+  await expect(dialog.getByRole('spinbutton')).toHaveValue('2');
+
+  // Override it with a fixed deadline for this one document.
+  await expirationTrigger.click();
+  await page.getByRole('option', { name: 'Specific date and time' }).click();
+
+  const target = DateTime.now().plus({ days: 4 });
+
+  await dialog.locator('button:has(svg.lucide-calendar)').first().click();
+  await page.locator('[role="grid"]').first().waitFor();
+  await page
+    .locator('button[name="day"]:not([disabled])')
+    .filter({ hasText: new RegExp(`^${target.day}$`) })
+    .first()
+    .click();
+  await dialog.locator('input[type="time"]').fill('18:45');
+
+  await dialog.getByRole('button', { name: 'Create as draft' }).click();
+  await page.waitForURL(/\/documents\/[^/]+/);
+
+  const createdId = page.url().match(/documents\/([^/?]+)/)?.[1];
+
+  const created = await prisma.envelope.findFirstOrThrow({
+    where: { id: createdId },
+    include: { documentMeta: true },
+  });
+
+  expect(created.documentMeta.envelopeExpirationPeriod).toEqual({
+    expiresAt: `${target.toFormat('yyyy-MM-dd')}T18:45`,
+  });
 });

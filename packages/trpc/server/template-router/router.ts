@@ -605,7 +605,12 @@ export const templateRouter = router({
         }).catch((err) => {
           console.error(err);
 
-          throw new AppError('DOCUMENT_SEND_FAILED');
+          // Keep the code so existing consumers still match on it, but surface the underlying
+          // reason — otherwise actionable failures (a lapsed expiration date, a signer with no
+          // signature field) reach the caller as an opaque DOCUMENT_SEND_FAILED.
+          throw new AppError('DOCUMENT_SEND_FAILED', {
+            message: AppError.parseError(err).message,
+          });
         });
       }
 

@@ -1,4 +1,4 @@
-import { DocumentSource, EnvelopeType, WebhookTriggerEvents } from '@prisma/client';
+import { DocumentSource, EnvelopeType, Prisma, WebhookTriggerEvents } from '@prisma/client';
 import pMap from 'p-map';
 import { omit } from 'remeda';
 
@@ -110,6 +110,8 @@ export const duplicateEnvelope = async ({
       data: {
         ...omit(envelope.documentMeta, ['id']),
         emailSettings: envelope.documentMeta.emailSettings || undefined,
+        // A nullable Json column rejects a bare null.
+        envelopeExpirationPeriod: envelope.documentMeta.envelopeExpirationPeriod ?? Prisma.DbNull,
       },
     }),
   ]);

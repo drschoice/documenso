@@ -32,6 +32,7 @@ export const ZDistributeEnvelopeRequestSchema = z.object({
     emailSettings: true,
     nextFieldNavigationTypes: true,
     nextFieldNavigationLabels: true,
+    envelopeExpirationPeriod: true,
   }).optional(),
 });
 

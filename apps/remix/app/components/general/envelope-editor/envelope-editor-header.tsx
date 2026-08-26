@@ -230,6 +230,8 @@ export default function EnvelopeEditorHeader() {
                 templateSigningOrder={envelope.documentMeta?.signingOrder}
                 templateNextFieldNavigationTypes={envelope.documentMeta?.nextFieldNavigationTypes}
                 templateNextFieldNavigationLabels={envelope.documentMeta?.nextFieldNavigationLabels}
+                templateEnvelopeExpirationPeriod={envelope.documentMeta?.envelopeExpirationPeriod}
+                templateTimezone={envelope.documentMeta?.timezone}
                 templateFields={envelope.fields}
                 recipients={envelope.recipients}
                 documentRootPath={relativePath.documentRootPath}

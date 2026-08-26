@@ -68,6 +68,7 @@ export const ZTemplateSchema = TemplateSchema.pick({
     emailSettings: true,
     emailId: true,
     emailReplyTo: true,
+    envelopeExpirationPeriod: true,
   }).extend({
     templateId: z.number().nullable(),
   }),
@@ -158,6 +159,9 @@ export const ZTemplateManySchema = TemplateSchema.pick({
     distributionMethod: true,
     nextFieldNavigationTypes: true,
     nextFieldNavigationLabels: true,
+    // Surfaced so the "use template" dialog can seed and override the deadline.
+    envelopeExpirationPeriod: true,
+    timezone: true,
   }).nullable(),
   directLink: LegacyTemplateDirectLinkSchema.pick({
     token: true,

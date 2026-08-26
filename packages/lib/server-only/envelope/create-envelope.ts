@@ -3,6 +3,7 @@ import {
   DocumentSource,
   EnvelopeType,
   FolderType,
+  Prisma,
   RecipientRole,
   SendStatus,
   SigningStatus,
@@ -299,12 +300,18 @@ export const createEnvelope = async ({
     return delegatedOwner;
   };
 
+  const derivedDocumentMeta = extractDerivedDocumentMeta(settings, {
+    ...meta,
+    timezone: timezoneToUse,
+  });
+
   const [documentMeta, secondaryId, delegatedOwner] = await Promise.all([
     prisma.documentMeta.create({
-      data: extractDerivedDocumentMeta(settings, {
-        ...meta,
-        timezone: timezoneToUse,
-      }),
+      data: {
+        ...derivedDocumentMeta,
+        // A nullable Json column rejects a bare null.
+        envelopeExpirationPeriod: derivedDocumentMeta.envelopeExpirationPeriod ?? Prisma.DbNull,
+      },
     }),
     type === EnvelopeType.DOCUMENT
       ? incrementDocumentId().then((v) => v.formattedDocumentId)

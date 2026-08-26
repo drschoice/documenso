@@ -12,7 +12,10 @@ import {
 
 import { mailer } from '@documenso/email/mailer';
 import { DocumentInviteEmailTemplate } from '@documenso/email/templates/document-invite';
-import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
+import {
+  isEnvelopeExpirationDatePeriod,
+  resolveExpiresAt,
+} from '@documenso/lib/constants/envelope-expiration';
 import {
   RECIPIENT_ROLES_DESCRIPTION,
   RECIPIENT_ROLE_TO_EMAIL_TYPE,
@@ -25,6 +28,7 @@ import { prisma } from '@documenso/prisma';
 
 import { getI18nInstance } from '../../client-only/providers/i18n-server';
 import { NEXT_PUBLIC_WEBAPP_URL } from '../../constants/app';
+import { AppError, AppErrorCode } from '../../errors/app-error';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
 import {
   ZWebhookDocumentSchema,
@@ -102,7 +106,23 @@ export const resendDocument = async ({
   }
 
   // Refresh the expiresAt on each resent recipient.
-  const expiresAt = resolveExpiresAt(envelope.documentMeta?.envelopeExpirationPeriod ?? null);
+  const expiresAt = resolveExpiresAt(
+    envelope.documentMeta?.envelopeExpirationPeriod ?? null,
+    envelope.documentMeta?.timezone,
+  );
+
+  // Resending is what an owner reaches for after the expiry notification, so a lapsed fixed deadline
+  // has to be corrected first — otherwise the reminder points at an already dead signing page.
+  if (
+    isEnvelopeExpirationDatePeriod(envelope.documentMeta?.envelopeExpirationPeriod) &&
+    expiresAt &&
+    expiresAt <= new Date()
+  ) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message:
+        'The expiration date for this document has already passed. Update it before resending.',
+    });
+  }
 
   const recipientsToRemind = envelope.recipients.filter(
     (recipient) =>

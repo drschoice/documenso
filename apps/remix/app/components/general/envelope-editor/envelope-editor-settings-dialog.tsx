@@ -266,6 +266,10 @@ export const EnvelopeEditorSettingsDialog = ({
 
   const emailSettings = form.watch('meta.emailSettings');
 
+  // A fixed expiration deadline is stored as a wall clock and read in the envelope's timezone, so
+  // the picker hint has to track the timezone field live rather than the persisted value.
+  const expirationTimezone = form.watch('meta.timezone');
+
   const { data: emailData, isLoading: isLoadingEmails } =
     trpc.enterprise.organisation.email.find.useQuery(
       {
@@ -841,8 +845,9 @@ export const EnvelopeEditorSettingsDialog = ({
 
                                   <TooltipContent className="max-w-xs text-muted-foreground">
                                     <Trans>
-                                      How long recipients have to complete this document after it is
-                                      sent. Uses the team default when set to inherit.
+                                      When recipients lose the ability to complete this document.
+                                      Either a duration counted from the moment it is sent, or a
+                                      fixed date and time read in the timezone above.
                                     </Trans>
                                   </TooltipContent>
                                 </Tooltip>
@@ -853,6 +858,8 @@ export const EnvelopeEditorSettingsDialog = ({
                                   value={field.value}
                                   onChange={field.onChange}
                                   disabled={envelopeHasBeenSent}
+                                  allowSpecificDate
+                                  timezone={expirationTimezone}
                                 />
                               </FormControl>
 

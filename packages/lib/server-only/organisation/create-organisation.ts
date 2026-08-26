@@ -60,10 +60,14 @@ export const createOrganisation = async ({
   }
 
   return await prisma.$transaction(async (tx) => {
+    const defaultSettings = generateDefaultOrganisationSettings();
+
     const organisationSetting = await tx.organisationGlobalSettings.create({
       data: {
-        ...generateDefaultOrganisationSettings(),
+        ...defaultSettings,
         defaultRecipients: Prisma.DbNull,
+        // A nullable Json column rejects a bare null.
+        envelopeExpirationPeriod: defaultSettings.envelopeExpirationPeriod ?? Prisma.DbNull,
         id: generateDatabaseId('org_setting'),
       },
     });

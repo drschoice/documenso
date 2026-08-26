@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
 import { ZDocumentLiteSchema } from '@documenso/lib/types/document';
 import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
 import {
@@ -39,6 +40,7 @@ export const ZDistributeDocumentRequestSchema = z.object({
       emailId: z.string().nullish(),
       emailReplyTo: zEmail().nullish(),
       emailSettings: ZDocumentEmailSettingsSchema.optional(),
+      envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
     })
     .optional(),
 });

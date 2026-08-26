@@ -21,7 +21,7 @@ Expiration is tracked **per recipient**, not per document. If one recipient's de
 
 ## Default Behaviour
 
-Every organisation has a default expiration period of **3 months**. This means that when you send a document, each recipient has 3 months from the time the document is sent to complete their signing.
+Every organisation has a default expiration period of **60 days**. This means that when you send a document, each recipient has 60 days from the time the document is sent to complete their signing.
 
 You can change this default at the organisation or team level, or override it per document.
 
@@ -48,9 +48,13 @@ To configure, navigate to **Team Settings > Preferences > Document** and find **
 </Tab>
 <Tab value="Document">
 
-Overrides the team or organisation default for a single document. Options are a **custom duration** or **never expires**.
+Overrides the team or organisation default for a single document. Options are a **custom duration**, a **specific date and time**, or **never expires**.
 
 If you do not change the expiration when editing a document, the team or organisation default applies.
+
+A specific date and time is only available per document (and per template) — a fixed calendar date would go stale as an organisation-wide default, so those levels offer only a duration or never expires.
+
+When you create a document from a template, the **Create document from template** dialog starts from the template's expiration and lets you override it for that one document. If the template carries a fixed date that has already passed, the dialog says so — you can still create a draft, but not create and send until you pick a later date.
 
 </Tab>
 </Tabs>
@@ -72,10 +76,15 @@ In the document editor, open the **Settings** dialog and go to the **General** t
 
 Find the **Expiration** field. Choose one of:
 
-- **Custom duration** — enter a number and select a unit (days, weeks, months, or years)
+- **Custom duration** — enter a number and select a unit (days, weeks, months, or years), counted from the moment the document is sent
+- **Specific date and time** — pick a fixed deadline from the calendar and set the time of day (defaults to 8:00 PM)
 - **Never expires** — the recipient can sign at any time
 
 If you leave it unchanged, the team or organisation default applies.
+
+A specific date and time is read in the document's **Time Zone**, set just above the Expiration field in the same dialog. The field shows the resolved deadline and its timezone so there is no ambiguity.
+
+You can also set or adjust the expiration in the **Send Document** dialog, right before the document goes out, and in the **Create document from template** dialog when using a template.
 
 ![Recipient Expiration Screenshot](/recipient-expiration/configure-expiration.webp)
 
@@ -84,7 +93,9 @@ If you leave it unchanged, the team or organisation default applies.
 
 ### Send the document
 
-When you send the document, the expiration deadline is calculated from that moment. For example, if you set a 7-day expiration and send the document on March 1st, the recipient has until March 8th to sign.
+For a custom duration, the deadline is calculated from the moment you send. For example, if you set a 7-day expiration and send the document on March 1st, the recipient has until March 8th to sign.
+
+A specific date and time is a fixed deadline, so it does not move with the send date. If the date you chose has already passed by the time you try to send, the send is refused and you are asked to pick a later one.
 
 </Step>
 </Steps>
@@ -143,7 +154,9 @@ When a recipient's signing deadline passes:
 
 ## Resending to Extend a Deadline
 
-If a recipient's deadline has passed (or is about to), you can resend the document to them. Resending recalculates the expiration from the current time, effectively extending the deadline.
+If a recipient's deadline has passed (or is about to), you can resend the document to them. When the document uses a custom duration, resending recalculates the expiration from the current time, effectively extending the deadline.
+
+A specific date and time is a fixed deadline, so resending does not extend it. If that date has already passed, the resend is refused — update the expiration date first.
 
 {/* prettier-ignore */}
 <Steps>
@@ -158,7 +171,7 @@ Navigate to the document page and find the recipient whose deadline has expired.
 
 ### Resend
 
-Click the resend option for the recipient. This sends a new signing link and resets the expiration clock based on the document's configured expiration period.
+Click the resend option for the recipient. This sends a new signing link and, for a duration-based expiration, resets the clock based on the document's configured expiration period.
 
 </Step>
 </Steps>
@@ -167,10 +180,11 @@ Click the resend option for the recipient. This sends a new signing link and res
 
 | Unit   | Example         | Description                                 |
 | ------ | --------------- | ------------------------------------------- |
-| Days   | 7 days          | Recipient has 7 days from when the document is sent |
+| Days   | 60 days         | Recipient has 60 days from when the document is sent (default) |
 | Weeks  | 2 weeks         | Recipient has 2 weeks from when the document is sent |
-| Months | 3 months        | Recipient has 3 months from when the document is sent (default) |
+| Months | 3 months        | Recipient has 3 months from when the document is sent |
 | Years  | 1 year          | Recipient has 1 year from when the document is sent |
+| Fixed date | 31 December 2026, 8:00 PM | Recipient has until that exact moment, read in the document's timezone |
 
 You can also set expiration to **never expires**, which means the signing link remains valid indefinitely.
 

@@ -41,6 +41,7 @@ export const distributeDocumentRoute = authenticatedProcedure
         language: meta.language,
         emailId: meta.emailId,
         emailReplyTo: meta.emailReplyTo,
+        envelopeExpirationPeriod: meta.envelopeExpirationPeriod,
         requestMetadata: ctx.metadata,
       });
     }

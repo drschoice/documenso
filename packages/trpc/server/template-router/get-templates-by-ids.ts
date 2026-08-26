@@ -64,6 +64,8 @@ export const getTemplatesByIdsRoute = authenticatedProcedure
             distributionMethod: true,
             nextFieldNavigationTypes: true,
             nextFieldNavigationLabels: true,
+            envelopeExpirationPeriod: true,
+            timezone: true,
           },
         },
         directLink: {
@@ -113,6 +115,8 @@ export const getTemplatesByIdsRoute = authenticatedProcedure
               distributionMethod: envelope.documentMeta.distributionMethod,
               nextFieldNavigationTypes: envelope.documentMeta.nextFieldNavigationTypes,
               nextFieldNavigationLabels: envelope.documentMeta.nextFieldNavigationLabels,
+              envelopeExpirationPeriod: envelope.documentMeta.envelopeExpirationPeriod,
+              timezone: envelope.documentMeta.timezone,
             }
           : null,
         directLink: envelope.directLink

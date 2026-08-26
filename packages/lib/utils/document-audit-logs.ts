@@ -207,6 +207,7 @@ export const diffDocumentMetaChanges = (
   const oldEmailId = oldData?.emailId || null;
   const oldEmailReplyTo = oldData?.emailReplyTo || null;
   const oldEmailSettings = oldData?.emailSettings || null;
+  const oldExpirationPeriod = oldData?.envelopeExpirationPeriod || null;
 
   const newDateFormat = newData?.dateFormat ?? '';
   const newMessage = newData?.message ?? '';
@@ -216,6 +217,7 @@ export const diffDocumentMetaChanges = (
   const newEmailId = newData?.emailId || null;
   const newEmailReplyTo = newData?.emailReplyTo || null;
   const newEmailSettings = newData?.emailSettings || null;
+  const newExpirationPeriod = newData?.envelopeExpirationPeriod || null;
 
   if (oldDateFormat !== newDateFormat) {
     diffs.push({
@@ -278,6 +280,14 @@ export const diffDocumentMetaChanges = (
       type: DOCUMENT_META_DIFF_TYPE.EMAIL_SETTINGS,
       from: JSON.stringify(oldEmailSettings),
       to: JSON.stringify(newEmailSettings),
+    });
+  }
+
+  if (!isDeepEqual(oldExpirationPeriod, newExpirationPeriod)) {
+    diffs.push({
+      type: DOCUMENT_META_DIFF_TYPE.ENVELOPE_EXPIRATION_PERIOD,
+      from: JSON.stringify(oldExpirationPeriod),
+      to: JSON.stringify(newExpirationPeriod),
     });
   }
 

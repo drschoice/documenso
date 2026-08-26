@@ -282,6 +282,8 @@ export default function TemplatePage({ params }: Route.ComponentProps) {
                   templateNextFieldNavigationLabels={
                     envelope.documentMeta?.nextFieldNavigationLabels
                   }
+                  templateEnvelopeExpirationPeriod={envelope.documentMeta?.envelopeExpirationPeriod}
+                  templateTimezone={envelope.documentMeta?.timezone}
                   templateFields={envelope.fields}
                   recipients={envelope.recipients}
                   documentRootPath={documentRootPath}
