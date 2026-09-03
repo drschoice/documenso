@@ -1592,14 +1592,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     return null;
   }
 
-  const isPickingOnThisPage =
-    visibilityPickMode.active !== null &&
-    localPageFields.some((field) => field.formId === visibilityPickMode.active?.triggerFormId);
-
-  const isLinkPickingOnThisPage =
-    linkPickMode.active !== null &&
-    localPageFields.some((field) => field.formId === linkPickMode.active?.sourceFormId);
-
   return (
     <>
       {selectedKonvaFieldGroups.length > 0 &&
@@ -1673,50 +1665,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
               {t(field.name)}
             </button>
           ))}
-        </div>
-      )}
-
-      {isPickingOnThisPage && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '8px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 50,
-          }}
-          className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
-        >
-          <span>
-            <Trans>
-              Click fields to show when{' '}
-              <span className="font-semibold">“{visibilityPickMode.active?.value}”</span> is
-              selected
-            </Trans>
-          </span>
-          <Button type="button" size="sm" onClick={() => visibilityPickMode.exit()}>
-            <Trans>Done</Trans>
-          </Button>
-        </div>
-      )}
-
-      {isLinkPickingOnThisPage && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '8px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 50,
-          }}
-          className="flex w-max items-center gap-3 rounded-md border border-primary bg-background px-3 py-1.5 text-xs shadow-sm"
-        >
-          <span>
-            <Trans>Click fields to link — a value entered in one is copied to all of them</Trans>
-          </span>
-          <Button type="button" size="sm" onClick={() => linkPickMode.exit()}>
-            <Trans>Done</Trans>
-          </Button>
         </div>
       )}
 
