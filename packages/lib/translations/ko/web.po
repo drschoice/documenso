@@ -2738,12 +2738,12 @@ msgstr "서명 지우기"
 msgid "Click fields on the document to show or hide them for this option."
 msgstr ""
 
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-pick-mode-banner.tsx
 msgid "Click fields to link — a value entered in one is copied to all of them"
 msgstr ""
 
-#. placeholder {0}: visibilityPickMode.active?.value
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page-renderer.tsx
+#. placeholder {0}: visibilityTarget.value
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-pick-mode-banner.tsx
 msgid "Click fields to show when <0>“{0}”</0> is selected"
 msgstr ""
 
@@ -4505,8 +4505,8 @@ msgstr "전송하지 않음(모든 문서 삭제)"
 
 #: apps/remix/app/components/forms/editor/editor-field-conditional-visibility-section.tsx
 #: apps/remix/app/components/forms/editor/editor-field-link-fields-section.tsx
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page-renderer.tsx
-#: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-pick-mode-banner.tsx
+#: apps/remix/app/components/general/envelope-editor/envelope-editor-pick-mode-banner.tsx
 msgid "Done"
 msgstr ""
 
