@@ -43,6 +43,14 @@ export type TSeedV2RecipientInput = {
   name?: string;
   role?: RecipientRole;
   signingOrder?: number;
+  /**
+   * The split name columns (`e77aacc48`). A NAME field bound to a part resolves
+   * against these rather than against `name`, so a spec covering `namePart` has to
+   * be able to seed them independently of the derived full name.
+   */
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
 };
 
 /**
@@ -65,6 +73,7 @@ export const seedV2PendingEnvelope = async ({
   recipients,
   fields,
   status = DocumentStatus.PENDING,
+  documentMeta: documentMetaInput,
 }: {
   ownerUserId: number;
   teamId: number;
@@ -72,6 +81,15 @@ export const seedV2PendingEnvelope = async ({
   recipients: TSeedV2RecipientInput[];
   fields: TSeedV2FieldInput[];
   status?: DocumentStatus;
+  /**
+   * Written straight onto the envelope's `DocumentMeta`.
+   *
+   * Several fork behaviours are driven entirely from here rather than from the
+   * fields - the signing timezone and date format the DATE renderer formats
+   * against, the `nextFieldNavigation*` completion filter, the signature font -
+   * so a spec has to be able to seed them.
+   */
+  documentMeta?: Prisma.DocumentMetaCreateInput;
 }) => {
   const pdf = fs.readFileSync(EXAMPLE_PDF_PATH).toString('base64');
 
@@ -79,7 +97,7 @@ export const seedV2PendingEnvelope = async ({
     data: { type: DocumentDataType.BYTES_64, data: pdf, initialData: pdf },
   });
 
-  const documentMeta = await prisma.documentMeta.create({ data: {} });
+  const documentMeta = await prisma.documentMeta.create({ data: documentMetaInput ?? {} });
   const documentId = await incrementDocumentId();
 
   const envelope = await prisma.envelope.create({
@@ -118,6 +136,9 @@ export const seedV2PendingEnvelope = async ({
           name: recipient.name ?? `Signer ${index + 1}`,
           token: prefixedId('token'),
           role: recipient.role ?? RecipientRole.SIGNER,
+          firstName: recipient.firstName,
+          middleName: recipient.middleName,
+          lastName: recipient.lastName,
           signingOrder: recipient.signingOrder ?? index + 1,
           readStatus: ReadStatus.OPENED,
           sendStatus: SendStatus.SENT,
@@ -152,7 +173,16 @@ export const seedV2PendingEnvelope = async ({
     );
   }
 
-  return { envelope, envelopeItem, recipients: createdRecipients, fields: createdFields };
+  return {
+    envelope,
+    envelopeItem,
+    documentMeta,
+    // The public signing routes are still addressed by the legacy numeric
+    // document id, not the envelope id.
+    documentId: documentId.documentId,
+    recipients: createdRecipients,
+    fields: createdFields,
+  };
 };
 
 export const getSigningUrl = (token: string) => `${WEBAPP}/sign/${token}`;
@@ -279,4 +309,33 @@ export const expectEnvelopeCompleted = async (envelopeId: string) => {
 
     expect(envelope.status).toBe(DocumentStatus.COMPLETED);
   }).toPass({ timeout: 30_000 });
+};
+
+/**
+ * Complete signing through the public, token-authed tRPC route.
+ *
+ * The counterpart to `completeV2Signing` for cases where the assertion is about
+ * what the *server* accepts. The signing UI disables its own Complete button
+ * while required fields are outstanding, so a test of which fields the server
+ * considers mandatory - the `nextFieldNavigation*` filter, conditional
+ * visibility - cannot be written by clicking.
+ *
+ * Returns the raw tRPC envelope; a rejection surfaces as a non-200 with
+ * `error` populated rather than as a throw.
+ */
+export const completeV2SigningViaTrpc = async (
+  page: Page,
+  { token, documentId }: { token: string; documentId: number },
+) => {
+  const response = await page.request.post(
+    `${WEBAPP}/api/trpc/recipient.completeDocumentWithToken?batch=1`,
+    {
+      data: { 0: { json: { token, documentId } } },
+      headers: { 'content-type': 'application/json' },
+    },
+  );
+
+  const body: unknown = await response.json();
+
+  return { status: response.status(), body: Array.isArray(body) ? body[0] : body };
 };

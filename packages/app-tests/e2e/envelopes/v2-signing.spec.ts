@@ -1,15 +1,23 @@
 import { expect, test } from '@playwright/test';
-import { FieldType } from '@prisma/client';
+import { FieldType, SigningStatus } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 import { prisma } from '@documenso/prisma';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import {
+  clickV2SigningField,
+  completeV2SigningViaTrpc,
+  expectEnvelopeCompleted,
   openV2SigningPage,
   seedV2PendingEnvelope,
   signV2FieldViaTrpc,
 } from '../fixtures/envelope-signing';
-import { getKonvaElementCountForPage } from '../fixtures/konva';
+import {
+  getAllKonvaNodeAttrs,
+  getKonvaElementCountForPage,
+  getKonvaTextContents,
+} from '../fixtures/konva';
 
 /**
  * Signing behaviour that only exists on the `internalVersion: 2` Konva signer.
@@ -213,5 +221,386 @@ test.describe('copy-and-link fields on the v2 signer', () => {
 
     expect(persistedUnlinked.customText).toBe('');
     expect(persistedUnlinked.inserted).toBe(false);
+  });
+});
+
+test.describe('the date field dialog on the v2 signer', () => {
+  /**
+   * `21551a2ff` replaced the auto-inserted DATE field with a calendar dialog. Every
+   * pre-existing DATE test drives the v1 renderer, which still auto-inserts, so the
+   * dialog has never been opened by a test.
+   */
+  test('clicking a date field opens the picker and persists the chosen day', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [{ email: `v2-date-${user.id}@example.com`, name: 'V2 Signer' }],
+      // Date-only so the assertion is about the calendar day, which is the whole
+      // point of the field, rather than about the minute the test happened to run.
+      documentMeta: { dateFormat: 'yyyy-MM-dd', timezone: 'Etc/UTC' },
+      fields: [
+        {
+          type: FieldType.DATE,
+          width: 30,
+          height: 10,
+          fieldMeta: { type: 'date', label: 'Date of signature' },
+        },
+      ],
+    });
+
+    const [recipient] = seeded.recipients;
+    const [dateField] = seeded.fields;
+
+    await openV2SigningPage(page, recipient.token);
+    await clickV2SigningField(page, dateField.id);
+
+    // The dialog titles itself with the field's label rather than the generic
+    // "Select Date" when the author set one.
+    await expect(page.getByRole('dialog').getByText('Date of signature')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Confirm' }).click();
+
+    // The dialog opens on today, so confirming without touching the calendar signs
+    // today. `DateTime.local()` reads the same clock and zone as the browser.
+    const today = DateTime.local().toFormat('yyyy-MM-dd');
+
+    await expect(async () => {
+      const persisted = await prisma.field.findFirstOrThrow({ where: { id: dateField.id } });
+
+      expect(persisted.inserted).toBe(true);
+      expect(persisted.customText).toBe(today);
+    }).toPass({ timeout: 15_000 });
+  });
+
+  test('cancelling the picker leaves the field unsigned', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [{ email: `v2-date-cancel-${user.id}@example.com`, name: 'V2 Signer' }],
+      documentMeta: { dateFormat: 'yyyy-MM-dd', timezone: 'Etc/UTC' },
+      fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date' } }],
+    });
+
+    const [recipient] = seeded.recipients;
+    const [dateField] = seeded.fields;
+
+    await openV2SigningPage(page, recipient.token);
+    await clickV2SigningField(page, dateField.id);
+
+    // No label was set, so the dialog falls back to its generic title.
+    await expect(page.getByRole('dialog').getByText('Select Date')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+
+    const persisted = await prisma.field.findFirstOrThrow({ where: { id: dateField.id } });
+
+    expect(persisted.inserted).toBe(false);
+    expect(persisted.customText).toBe('');
+  });
+
+  /**
+   * `287d23732`. The dialog encodes the chosen day as **UTC noon** rather than as
+   * local midnight, because the server formats it with
+   * `.setZone(documentMeta.timezone)` before writing `customText`
+   * (`packages/lib/utils/envelope-signing.ts`). Local midnight in an eastern zone
+   * lands on the previous UTC day, so a signer in Sydney picking the 15th had the
+   * 14th sealed into the PDF for a document rendered in New York.
+   *
+   * Noon leaves ~12 hours of headroom either way, which covers every zone from
+   * UTC-12 to UTC+11. This asserts both ends of that range.
+   */
+  for (const timezone of ['Pacific/Niue', 'Asia/Tokyo']) {
+    test(`a UTC-noon date renders as the same calendar day in ${timezone}`, async ({ page }) => {
+      const { user, team } = await seedUser();
+
+      const seeded = await seedV2PendingEnvelope({
+        ownerUserId: user.id,
+        teamId: team.id,
+        recipients: [{ email: `v2-date-tz-${user.id}@example.com`, name: 'V2 Signer' }],
+        documentMeta: { dateFormat: 'yyyy-MM-dd', timezone },
+        fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date' } }],
+      });
+
+      const [recipient] = seeded.recipients;
+      const [dateField] = seeded.fields;
+
+      const response = await signV2FieldViaTrpc(page, {
+        token: recipient.token,
+        fieldId: dateField.id,
+        fieldValue: { type: FieldType.DATE, value: '2026-03-15T12:00:00.000Z' },
+      });
+
+      expect(response.status).toBe(200);
+
+      const persisted = await prisma.field.findFirstOrThrow({ where: { id: dateField.id } });
+
+      expect(persisted.customText).toBe('2026-03-15');
+    });
+  }
+});
+
+test.describe("other recipients' fields on the v2 signer", () => {
+  /**
+   * `520b44858`. The signer used to see only fields belonging to recipients who had
+   * already finished; now every other recipient's fields are painted greyed out and
+   * non-interactive so the signer can see the shape of the whole document.
+   *
+   * Two things there are worth protecting. The greyed fields must not swallow
+   * clicks - they are drawn first, underneath, and explicitly given
+   * `listening(false)` - and a *pending* recipient's in-progress value must never
+   * be shown to anyone else.
+   */
+  test('are painted but non-interactive, and a pending signer’s input stays private', async ({
+    page,
+  }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [
+        { email: `v2-viewer-${user.id}@example.com`, name: 'First Signer' },
+        { email: `v2-other-${user.id}@example.com`, name: 'Second Signer' },
+      ],
+      fields: [
+        {
+          type: FieldType.TEXT,
+          recipientIndex: 0,
+          positionY: 10,
+          width: 30,
+          fieldMeta: { type: 'text', label: 'Mine' },
+        },
+        {
+          type: FieldType.TEXT,
+          recipientIndex: 1,
+          positionY: 40,
+          width: 30,
+          customText: 'IN PROGRESS, NOT YET SUBMITTED',
+          inserted: true,
+          fieldMeta: { type: 'text', label: 'Theirs' },
+        },
+      ],
+    });
+
+    const [firstRecipient, secondRecipient] = seeded.recipients;
+
+    await openV2SigningPage(page, firstRecipient.token);
+
+    await expect(async () => {
+      const groups = await getAllKonvaNodeAttrs(page, 1, '.field-group');
+
+      expect(groups).toHaveLength(2);
+      // Exactly one of the two is inert: the other recipient's.
+      expect(groups.filter((group) => group.listening)).toHaveLength(1);
+      expect(groups.filter((group) => !group.listening)).toHaveLength(1);
+    }).toPass({ timeout: 15_000 });
+
+    // The second recipient is still NOT_SIGNED, so their value is blanked out even
+    // though the field itself is drawn.
+    const whilePending = await getKonvaTextContents(page, 1);
+    expect(whilePending.join('\n')).not.toContain('IN PROGRESS, NOT YET SUBMITTED');
+
+    await prisma.recipient.update({
+      where: { id: secondRecipient.id },
+      data: { signingStatus: SigningStatus.SIGNED, signedAt: new Date() },
+    });
+
+    await openV2SigningPage(page, firstRecipient.token);
+
+    // Once they have finished, the same value becomes part of the document the
+    // first signer is being asked to sign, so it is shown.
+    await expect(async () => {
+      const afterSigning = await getKonvaTextContents(page, 1);
+
+      expect(afterSigning.join('\n')).toContain('IN PROGRESS, NOT YET SUBMITTED');
+    }).toPass({ timeout: 15_000 });
+  });
+});
+
+test.describe('next-field navigation restricts which fields block completion', () => {
+  /**
+   * `04dbd580c`. Setting `nextFieldNavigationTypes` / `nextFieldNavigationLabels` on
+   * the envelope does more than steer the "next field" button: both
+   * `complete-document-with-token.ts` and `seal-document.handler.ts` re-check
+   * required fields against that filter, so fields outside it stop being mandatory.
+   *
+   * That is a completion-gating change with no coverage at all, and it is asserted
+   * here against the server rather than the UI because the signing page disables
+   * its own Complete button while required fields are outstanding.
+   */
+  const seedNavigationEnvelope = async (
+    userId: number,
+    teamId: number,
+    documentMeta: Parameters<typeof seedV2PendingEnvelope>[0]['documentMeta'],
+  ) =>
+    seedV2PendingEnvelope({
+      ownerUserId: userId,
+      teamId,
+      recipients: [{ email: `v2-nav-${userId}-${Date.now()}@example.com`, name: 'V2 Signer' }],
+      documentMeta,
+      fields: [
+        { type: FieldType.SIGNATURE, positionY: 10, width: 30, height: 10 },
+        {
+          type: FieldType.TEXT,
+          positionY: 40,
+          width: 30,
+          fieldMeta: { type: 'text', label: 'Optional under the filter', required: true },
+        },
+      ],
+    });
+
+  test('a required field outside the filter no longer blocks completion', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedNavigationEnvelope(user.id, team.id, {
+      nextFieldNavigationTypes: [FieldType.SIGNATURE],
+    });
+
+    const [recipient] = seeded.recipients;
+    const [signatureField, textField] = seeded.fields;
+
+    const signed = await signV2FieldViaTrpc(page, {
+      token: recipient.token,
+      fieldId: signatureField.id,
+      fieldValue: { type: FieldType.SIGNATURE, value: 'Ada Lovelace' },
+    });
+
+    expect(signed.status).toBe(200);
+
+    const completed = await completeV2SigningViaTrpc(page, {
+      token: recipient.token,
+      documentId: seeded.documentId,
+    });
+
+    expect(completed.status).toBe(200);
+
+    // Sealing applies the same filter, so reaching COMPLETED proves both halves.
+    await expectEnvelopeCompleted(seeded.envelope.id);
+
+    const persistedText = await prisma.field.findFirstOrThrow({ where: { id: textField.id } });
+    expect(persistedText.inserted).toBe(false);
+  });
+
+  test('the same envelope without a filter refuses to complete', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedNavigationEnvelope(user.id, team.id, undefined);
+
+    const [recipient] = seeded.recipients;
+    const [signatureField] = seeded.fields;
+
+    await signV2FieldViaTrpc(page, {
+      token: recipient.token,
+      fieldId: signatureField.id,
+      fieldValue: { type: FieldType.SIGNATURE, value: 'Ada Lovelace' },
+    });
+
+    const completed = await completeV2SigningViaTrpc(page, {
+      token: recipient.token,
+      documentId: seeded.documentId,
+    });
+
+    expect(completed.status).toBeGreaterThanOrEqual(400);
+
+    const envelope = await prisma.envelope.findFirstOrThrow({
+      where: { id: seeded.envelope.id },
+    });
+
+    expect(envelope.status).toBe('PENDING');
+  });
+
+  test('the filter can be expressed by field label instead of type', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedNavigationEnvelope(user.id, team.id, {
+      nextFieldNavigationLabels: ['Optional under the filter'],
+    });
+
+    const [recipient] = seeded.recipients;
+    const [, textField] = seeded.fields;
+
+    // Mirror image of the type-filtered case: here the TEXT field is the only one
+    // in the filter, so the always-required SIGNATURE is what gets waived.
+    const signed = await signV2FieldViaTrpc(page, {
+      token: recipient.token,
+      fieldId: textField.id,
+      fieldValue: { type: FieldType.TEXT, value: 'Filled in' },
+    });
+
+    expect(signed.status).toBe(200);
+
+    const completed = await completeV2SigningViaTrpc(page, {
+      token: recipient.token,
+      documentId: seeded.documentId,
+    });
+
+    expect(completed.status).toBe(200);
+    await expectEnvelopeCompleted(seeded.envelope.id);
+  });
+});
+
+test.describe('name parts on the v2 signer', () => {
+  /**
+   * `e77aacc48` gave recipients first/middle/last columns and let a NAME field bind
+   * to one of them via `fieldMeta.namePart`. The recipient-side columns are covered
+   * by `envelope-recipients.spec.ts`; what happens at signing time is not.
+   *
+   * Clicking a bound NAME field signs it outright - `handleNameFieldClick` only
+   * falls back to a dialog when the part resolves to nothing - so this also pins
+   * down that a part-bound field never opens one.
+   */
+  test('each part-bound name field signs with only its own part', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [
+        {
+          email: `v2-nameparts-${user.id}@example.com`,
+          name: 'Ada Augusta Lovelace',
+          firstName: 'Ada',
+          middleName: 'Augusta',
+          lastName: 'Lovelace',
+        },
+      ],
+      fields: (['full', 'first', 'middle', 'last'] as const).map((namePart, index) => ({
+        type: FieldType.NAME,
+        positionY: 10 + index * 15,
+        width: 30,
+        height: 8,
+        fieldMeta: { type: 'name' as const, namePart },
+      })),
+    });
+
+    const [recipient] = seeded.recipients;
+    const [fullField, firstField, middleField, lastField] = seeded.fields;
+
+    await openV2SigningPage(page, recipient.token);
+
+    for (const field of seeded.fields) {
+      await clickV2SigningField(page, field.id);
+    }
+
+    // No dialog: every part resolved off the recipient's columns.
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+
+    await expect(async () => {
+      const persisted = await prisma.field.findMany({
+        where: { id: { in: seeded.fields.map((field) => field.id) } },
+      });
+
+      const byId = new Map(persisted.map((field) => [field.id, field.customText]));
+
+      expect(byId.get(fullField.id)).toBe('Ada Augusta Lovelace');
+      expect(byId.get(firstField.id)).toBe('Ada');
+      expect(byId.get(middleField.id)).toBe('Augusta');
+      expect(byId.get(lastField.id)).toBe('Lovelace');
+    }).toPass({ timeout: 20_000 });
   });
 });
