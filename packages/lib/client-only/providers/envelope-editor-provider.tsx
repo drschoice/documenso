@@ -242,8 +242,13 @@ export const EnvelopeEditorProvider = ({
       }));
 
       // Reset the local fields to ensure deleted recipient fields are removed.
+      //
+      // Read through the ref rather than the `envelope` captured by this
+      // debounced callback: by the time it runs, fields may have been placed or
+      // removed, and re-seeding from the stale copy resurrects fields belonging
+      // to the recipient that was just deleted.
       editorFields.resetForm(
-        envelope.fields.filter((field) =>
+        envelopeRef.current.fields.filter((field) =>
           recipients.some((recipient) => recipient.id === field.recipientId),
         ),
       );
