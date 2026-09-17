@@ -296,6 +296,78 @@ export const clickEnvelopeEditorStep = async (
   await root.locator(`[data-testid="envelope-editor-step-${stepId}"]`).first().click();
 };
 
+/**
+ * Wait for the editor's PDF canvas to be rendered.
+ *
+ * The Konva stage only mounts once the PDF has been fetched and rasterised,
+ * which routinely takes longer than Playwright's 5s default expect timeout -
+ * especially on the first render of a worker, or against a dev server that is
+ * still compiling the route. Every editor spec needs this wait, so it lives
+ * here with a timeout that reflects what the step actually costs.
+ */
+export const waitForEditorCanvas = async (root: Page, timeout = 30_000) => {
+  await root.locator('.konva-container canvas').first().waitFor({ state: 'visible', timeout });
+};
+
+export type TFieldButtonName =
+  | 'Signature'
+  | 'Email'
+  | 'Name'
+  | 'Initials'
+  | 'Date'
+  | 'Text'
+  | 'Number'
+  | 'Radio'
+  | 'Checkbox'
+  | 'Dropdown';
+
+/**
+ * Place a field on the PDF canvas: pick the type, then click where it goes.
+ *
+ * Beware that the newly placed field becomes the selected one, and the selected
+ * field's floating action toolbar covers roughly 30-110px directly below it. A
+ * follow-up placement that lands there will be swallowed by the toolbar, so
+ * space consecutive placements out or alternate columns.
+ */
+export const placeFieldOnPdf = async (
+  root: Page,
+  fieldName: TFieldButtonName,
+  position: { x: number; y: number },
+) => {
+  await root.getByRole('button', { name: fieldName, exact: true }).click();
+
+  await waitForEditorCanvas(root);
+  await root.locator('.konva-container canvas').first().click({ position });
+};
+
+/**
+ * Select an already-placed field so its settings form opens in the sidebar.
+ *
+ * `force` is required because the floating action toolbar of whichever field is
+ * currently selected sits over the canvas and intercepts the click.
+ */
+export const selectFieldOnCanvas = async (root: Page, position: { x: number; y: number }) => {
+  await waitForEditorCanvas(root);
+  await root.waitForTimeout(300);
+  await root.locator('.konva-container canvas').first().click({ position, force: true });
+};
+
+/**
+ * Switch which recipient new fields are assigned to, in the Add Fields step.
+ */
+export const selectRecipientInFieldsStep = async (root: Page, recipientIdentifier: string) => {
+  // Scope to the "Selected Recipient" section: the field settings form renders
+  // comboboxes of its own (textAlign, direction, numberFormat, ...), so a bare
+  // `button[role="combobox"]` matches more than one element once a field is
+  // selected.
+  const recipientSection = root
+    .locator('section')
+    .filter({ has: root.getByRole('heading', { name: 'Selected Recipient' }) });
+
+  await recipientSection.locator('button[role="combobox"]').click();
+  await root.getByText(recipientIdentifier).click();
+};
+
 export const clickAddMyselfButton = async (root: Page) => {
   await root.getByRole('button', { name: 'Add Myself' }).click();
 };
