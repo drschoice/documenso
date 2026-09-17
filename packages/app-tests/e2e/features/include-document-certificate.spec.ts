@@ -11,6 +11,7 @@ import { seedTeam } from '@documenso/prisma/seed/teams';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
+import { getEnvelopeEditorSettingsTrigger } from '../fixtures/envelope-editor';
 import { signSignaturePad } from '../fixtures/signature';
 
 test.describe('Signing Certificate Tests', () => {
@@ -475,7 +476,11 @@ test.describe('Signing Certificate Tests', () => {
     // Defaults to inheriting the organisation/team setting.
     expect(await readOverride()).toBeNull();
 
-    await page.getByRole('button', { name: 'Settings' }).click();
+    // The settings trigger is an icon button identified by its `title`, which is
+    // how every passing editor spec locates it. Resolving it by accessible name
+    // did not match here.
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
 
     const trigger = page.getByTestId('envelope-include-signing-certificate-trigger');
 

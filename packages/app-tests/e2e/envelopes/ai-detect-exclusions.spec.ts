@@ -23,6 +23,7 @@ import {
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
+import { clickEnvelopeEditorStep, waitForEditorCanvas } from '../fixtures/envelope-editor';
 
 async function seedDraftEnvelopeWithTwoItems(ownerUserId: number, teamId: number) {
   const fs = await import('node:fs');
@@ -102,6 +103,13 @@ test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', asyn
       body: JSON.stringify({ type: 'complete', fields: [] }) + '\n',
     });
   });
+
+  // "Detect with AI" lives in the fields step's sidebar, but the editor opens on
+  // the upload step, so the button is not mounted yet. This spec never navigated
+  // there, which is why it could not have passed since it was written - the e2e
+  // workflow was never able to run (issue #28).
+  await clickEnvelopeEditorStep(page, 'addFields');
+  await waitForEditorCanvas(page);
 
   // Open the AI detect dialog.
   await page.getByRole('button', { name: /detect with ai/i }).click();

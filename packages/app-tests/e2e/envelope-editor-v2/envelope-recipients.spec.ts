@@ -13,7 +13,10 @@ import {
   clickEnvelopeEditorStep,
   getEnvelopeEditorSettingsTrigger,
   getRecipientEmailInputs,
+  getRecipientFirstNameInputs,
   getRecipientFullNamePreviews,
+  getRecipientLastNameInputs,
+  getRecipientMiddleNameInputs,
   getRecipientRemoveButtons,
   getSigningOrderInputs,
   openDocumentEnvelopeEditor,
@@ -22,12 +25,12 @@ import {
   persistEmbeddedEnvelope,
   setRecipientEmail,
   setRecipientName,
+  setRecipientNameParts,
   setRecipientRole,
   setSigningOrderValue,
   toggleAllowDictateSigners,
   toggleSigningOrder,
 } from '../fixtures/envelope-editor';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 type RecipientFlowResult = {
   externalId: string;
@@ -65,9 +68,13 @@ const updateExternalId = async (surface: TEnvelopeEditorSurface, externalId: str
   await surface.root.locator('input[name="externalId"]').fill(externalId);
   await surface.root.getByRole('button', { name: 'Update' }).click();
 
-  if (!surface.isEmbedded) {
-    await expectToastTextToBeVisible(surface.root, 'Envelope updated');
-  }
+  // Barrier: the dialog closes (`setOpen(false)`) as soon as the update
+  // mutation resolves, immediately before the success toast is raised. The
+  // toast itself is not usable as a barrier - it lives about a second and
+  // `TOAST_LIMIT` is 1, so any other toast in the same beat evicts it. That the
+  // update really landed is proven later by looking the envelope up by this
+  // externalId.
+  await expect(surface.root.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
 };
 
 const navigateToAddFieldsAndBack = async (root: Page) => {
@@ -216,6 +223,83 @@ const assertRecipientsPersistedInDatabase = async ({
   );
 };
 
+/**
+ * `e77aacc48` split a recipient's name into first/middle/last columns and kept
+ * `name` as a derived value. The flow above only ever asserts the derived name,
+ * so this covers the columns themselves - including a middle name, which the
+ * full-name splitting in `setRecipientName` cannot express unambiguously.
+ */
+const NAME_PARTS_RECIPIENT = {
+  email: 'name-parts@example.com',
+  firstName: 'Ada',
+  middleName: 'Augusta',
+  lastName: 'Lovelace',
+};
+
+const runRecipientNamePartsFlow = async (surface: TEnvelopeEditorSurface) => {
+  const externalId = `e2e-name-parts-${nanoid()}`;
+
+  await updateExternalId(surface, externalId);
+
+  await setRecipientEmail(surface.root, 0, NAME_PARTS_RECIPIENT.email);
+  await setRecipientNameParts(surface.root, 0, {
+    firstName: NAME_PARTS_RECIPIENT.firstName,
+    middleName: NAME_PARTS_RECIPIENT.middleName,
+    lastName: NAME_PARTS_RECIPIENT.lastName,
+  });
+
+  const expectedFullName = `${NAME_PARTS_RECIPIENT.firstName} ${NAME_PARTS_RECIPIENT.middleName} ${NAME_PARTS_RECIPIENT.lastName}`;
+
+  await expect(getRecipientFullNamePreviews(surface.root).nth(0)).toHaveText(expectedFullName);
+
+  await navigateToAddFieldsAndBack(surface.root);
+
+  // The individual parts survive a round trip through the editor, not just the
+  // derived preview.
+  await expect(getRecipientFirstNameInputs(surface.root).nth(0)).toHaveValue(
+    NAME_PARTS_RECIPIENT.firstName,
+  );
+  await expect(getRecipientMiddleNameInputs(surface.root).nth(0)).toHaveValue(
+    NAME_PARTS_RECIPIENT.middleName,
+  );
+  await expect(getRecipientLastNameInputs(surface.root).nth(0)).toHaveValue(
+    NAME_PARTS_RECIPIENT.lastName,
+  );
+
+  return { externalId, expectedFullName };
+};
+
+const assertRecipientNamePartsPersistedInDatabase = async ({
+  surface,
+  externalId,
+  expectedFullName,
+}: {
+  surface: TEnvelopeEditorSurface;
+  externalId: string;
+  expectedFullName: string;
+}) => {
+  const envelope = await prisma.envelope.findFirstOrThrow({
+    where: {
+      externalId,
+      userId: surface.userId,
+      teamId: surface.teamId,
+      type: surface.envelopeType,
+    },
+    include: { recipients: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const recipient = envelope.recipients.find((r) => r.email === NAME_PARTS_RECIPIENT.email);
+
+  expect(recipient).toBeDefined();
+  expect(recipient?.firstName).toBe(NAME_PARTS_RECIPIENT.firstName);
+  expect(recipient?.middleName).toBe(NAME_PARTS_RECIPIENT.middleName);
+  expect(recipient?.lastName).toBe(NAME_PARTS_RECIPIENT.lastName);
+
+  // `name` stays derived from the parts.
+  expect(recipient?.name).toBe(expectedFullName);
+};
+
 test.describe('document editor', () => {
   test('add myself, CRUD, roles, signing order and dictate signers', async ({ page }) => {
     const surface = await openDocumentEnvelopeEditor(page);
@@ -225,6 +309,15 @@ test.describe('document editor', () => {
       surface,
       ...result,
     });
+  });
+
+  test('recipient first/middle/last name parts persist and derive the full name', async ({
+    page,
+  }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+    const result = await runRecipientNamePartsFlow(surface);
+
+    await assertRecipientNamePartsPersistedInDatabase({ surface, ...result });
   });
 });
 
