@@ -78,23 +78,85 @@ describe('evaluateAllVisibility — operator semantics', () => {
     expect(evaluateAllVisibility([trigger, dep]).get(11)).toBe(true);
   });
 
-  it('checkbox contains: customText is JSON array; match by value', () => {
+  // Radio and checkbox customText carries two encodings in the wild: the v1
+  // (DOM) signer writes option VALUES, the v2 (Konva) signer writes 0-based
+  // INDEXES into fieldMeta.values. Both have to resolve.
+  const checkboxMeta = {
+    type: 'checkbox', stableId: 'cbx',
+    values: [{ id: 1, checked: false, value: 'Yes' }, { id: 2, checked: false, value: 'No' }],
+  };
+
+  const checkboxDependent = mkField({
+    id: 11, fieldMeta: vis({
+      match: 'all',
+      rules: [{ operator: 'contains', triggerFieldStableId: 'cbx', value: 'Yes' }],
+    }),
+  });
+
+  it('checkbox contains: customText is a JSON array of values (v1 encoding)', () => {
     const trigger = mkField({
       id: 10, type: FieldType.CHECKBOX,
-      customText: '["1"]',
+      customText: '["Yes"]',
       inserted: true,
+      fieldMeta: checkboxMeta,
+    });
+    expect(evaluateAllVisibility([trigger, checkboxDependent]).get(11)).toBe(true);
+  });
+
+  it('checkbox contains: customText is a JSON array of indexes (v2 encoding)', () => {
+    const trigger = mkField({
+      id: 10, type: FieldType.CHECKBOX,
+      customText: '[0]',
+      inserted: true,
+      fieldMeta: checkboxMeta,
+    });
+    expect(evaluateAllVisibility([trigger, checkboxDependent]).get(11)).toBe(true);
+  });
+
+  it('checkbox contains: an unselected option does not match under either encoding', () => {
+    const byValue = mkField({
+      id: 10, type: FieldType.CHECKBOX, customText: '["No"]', inserted: true, fieldMeta: checkboxMeta,
+    });
+    expect(evaluateAllVisibility([byValue, checkboxDependent]).get(11)).toBe(false);
+
+    const byIndex = mkField({
+      id: 10, type: FieldType.CHECKBOX, customText: '[1]', inserted: true, fieldMeta: checkboxMeta,
+    });
+    expect(evaluateAllVisibility([byIndex, checkboxDependent]).get(11)).toBe(false);
+  });
+
+  it('radio equals: customText is the 0-based index (v2 encoding)', () => {
+    const trigger = mkField({
+      id: 10, type: FieldType.RADIO, customText: '0', inserted: true,
       fieldMeta: {
-        type: 'checkbox', stableId: 'cbx',
-        values: [{ id: 1, checked: false, value: 'Yes' }, { id: 2, checked: false, value: 'No' }],
+        type: 'radio', stableId: 'mar',
+        values: [{ id: 1, checked: false, value: 'Married' }, { id: 2, checked: false, value: 'Single' }],
       },
     });
     const dep = mkField({
       id: 11, fieldMeta: vis({
         match: 'all',
-        rules: [{ operator: 'contains', triggerFieldStableId: 'cbx', value: 'Yes' }],
+        rules: [{ operator: 'equals', triggerFieldStableId: 'mar', value: 'Married' }],
       }),
     });
     expect(evaluateAllVisibility([trigger, dep]).get(11)).toBe(true);
+  });
+
+  it('radio equals: the other option under the index encoding does not match', () => {
+    const trigger = mkField({
+      id: 10, type: FieldType.RADIO, customText: '1', inserted: true,
+      fieldMeta: {
+        type: 'radio', stableId: 'mar',
+        values: [{ id: 1, checked: false, value: 'Married' }, { id: 2, checked: false, value: 'Single' }],
+      },
+    });
+    const dep = mkField({
+      id: 11, fieldMeta: vis({
+        match: 'all',
+        rules: [{ operator: 'equals', triggerFieldStableId: 'mar', value: 'Married' }],
+      }),
+    });
+    expect(evaluateAllVisibility([trigger, dep]).get(11)).toBe(false);
   });
 
   it('isEmpty when trigger not inserted', () => {
