@@ -14,6 +14,18 @@ import { apiSignin } from './authentication';
 
 const examplePdfBuffer = fs.readFileSync(path.join(__dirname, '../../../../assets/example.pdf'));
 
+/**
+ * A three-page PDF.
+ *
+ * `example.pdf` is a single page, which silently makes any per-page behaviour
+ * untestable - "duplicate on all pages" has nowhere to copy to, and a field's
+ * page anchoring can't be observed. This is the smallest asset in the repo with
+ * more than one page.
+ */
+export const multiPagePdfBuffer = fs.readFileSync(
+  path.join(__dirname, '../../../../assets/field-font-alignment.pdf'),
+);
+
 export type TEnvelopeEditorSurface = {
   root: Page;
   isEmbedded: boolean;
@@ -253,11 +265,15 @@ export const getEnvelopeItemReplaceButtons = (root: Page) =>
 export const getEnvelopeItemDropzoneInput = (root: Page) =>
   root.locator('[data-testid="envelope-item-dropzone"] input[type="file"]');
 
-export const addEnvelopeItemPdf = async (root: Page, fileName = 'embedded-envelope-item.pdf') => {
+export const addEnvelopeItemPdf = async (
+  root: Page,
+  fileName = 'embedded-envelope-item.pdf',
+  buffer: Buffer = examplePdfBuffer,
+) => {
   await getEnvelopeItemDropzoneInput(root).setInputFiles({
     name: fileName,
     mimeType: 'application/pdf',
-    buffer: examplePdfBuffer,
+    buffer,
   });
 };
 
