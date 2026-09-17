@@ -21,7 +21,6 @@ import {
   openTemplateEnvelopeEditor,
   persistEmbeddedEnvelope,
 } from '../fixtures/envelope-editor';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 test.use({
   storageState: {
@@ -63,9 +62,11 @@ const updateExternalId = async (surface: TEnvelopeEditorSurface, externalId: str
   await surface.root.locator('input[name="externalId"]').fill(externalId);
   await surface.root.getByRole('button', { name: 'Update' }).click();
 
-  if (!surface.isEmbedded) {
-    await expectToastTextToBeVisible(surface.root, 'Envelope updated');
-  }
+  // Barrier: the dialog closes (`setOpen(false)`) as soon as the update
+  // mutation resolves, immediately before the success toast. The toast is
+  // not usable as a barrier - it lives about a second and `TOAST_LIMIT` is
+  // 1, so the editor's autosave can evict it.
+  await expect(surface.root.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
 };
 
 const navigateToAddFieldsAndBack = async (root: Page) => {

@@ -6,7 +6,6 @@ import { seedBlankTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -106,7 +105,10 @@ test('[BULK_ACTIONS]: can move multiple templates to a folder', async ({ page })
   await page.getByRole('button', { name: folder.name }).click();
   await page.getByRole('button', { name: 'Move' }).click();
 
-  await expectToastTextToBeVisible(page, 'Selected items have been moved.');
+  // The bulk bar clears its selection once the move resolves. That is the
+  // barrier the toast used to provide before the navigation below; the toast
+  // itself is evicted within about a second (TOAST_LIMIT = 1). See issue #31.
+  await expect(page.getByText(/\d+ selected/)).not.toBeVisible();
 
   await page.goto(`/t/${sender.team.url}/templates/f/${folder.id}`);
   await expect(page.getByRole('link', { name: 'Bulk Test Template 1' })).toBeVisible();
@@ -134,8 +136,6 @@ test('[BULK_ACTIONS]: can delete multiple templates', async ({ page }) => {
 
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
-  await expectToastTextToBeVisible(page, 'Templates deleted');
-
   await expect(page.getByRole('link', { name: 'Bulk Test Template 1' })).not.toBeVisible();
   await expect(page.getByRole('link', { name: 'Bulk Test Template 2' })).not.toBeVisible();
 
@@ -157,8 +157,6 @@ test('[BULK_ACTIONS]: selection clears after successful move', async ({ page }) 
   await page.getByRole('button', { name: 'Move to Folder' }).click();
   await page.getByRole('button', { name: folder.name }).click();
   await page.getByRole('button', { name: 'Move' }).click();
-
-  await expectToastTextToBeVisible(page, 'Selected items have been moved.');
   await expect(page.getByText(/\d+ selected/)).not.toBeVisible();
 });
 
@@ -176,8 +174,6 @@ test('[BULK_ACTIONS]: selection clears after successful delete', async ({ page }
 
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
-
-  await expectToastTextToBeVisible(page, 'Templates deleted');
   await expect(page.getByText(/\d+ selected/)).not.toBeVisible();
 });
 
@@ -246,7 +242,10 @@ test('[BULK_ACTIONS]: can move templates from folder to home (root)', async ({ p
 
   await page.getByRole('button', { name: 'Move' }).click();
 
-  await expectToastTextToBeVisible(page, 'Selected items have been moved.');
+  // The bulk bar clears its selection once the move resolves. That is the
+  // barrier the toast used to provide before the navigation below; the toast
+  // itself is evicted within about a second (TOAST_LIMIT = 1). See issue #31.
+  await expect(page.getByText(/\d+ selected/)).not.toBeVisible();
 
   await page.goto(`/t/${sender.team.url}/templates`);
   await expect(page.getByRole('link', { name: 'Bulk Test Template 1' })).toBeVisible();

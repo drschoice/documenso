@@ -232,6 +232,12 @@ const expectCreateToFail = async (surface: TEnvelopeEditorSurface) => {
     surface.envelopeType === 'DOCUMENT' ? 'Create Document' : 'Create Template';
 
   await surface.root.getByRole('button', { name: actionButtonName }).click();
+
+  // The one place a toast assertion is still the right tool. Everywhere else the
+  // toast merely echoed an outcome we could assert directly, so it was removed
+  // (issue #31) - but this is the failure path, and the toast is the only thing
+  // the failure produces. Asserting the absence of the success heading instead
+  // would pass just as happily against a page that never responded at all.
   await expectToastTextToBeVisible(surface.root, 'Failed to create document');
 };
 

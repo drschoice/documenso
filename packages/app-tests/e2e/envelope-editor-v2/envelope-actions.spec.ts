@@ -24,7 +24,6 @@ import {
   openDocumentEnvelopeEditor,
   openTemplateEnvelopeEditor,
 } from '../fixtures/envelope-editor';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 const WEBAPP_BASE_URL = NEXT_PUBLIC_WEBAPP_URL();
 const V2_API_BASE_URL = `${WEBAPP_BASE_URL}/api/v2-beta`;
@@ -199,15 +198,18 @@ test.describe('document editor', () => {
     // Click Send.
     await page.getByRole('button', { name: 'Send' }).click();
 
-    // Assert toast appears.
-    await expectToastTextToBeVisible(page, 'Envelope distributed');
+    // Poll the database instead of gating on a toast: with TOAST_LIMIT = 1 any
+    // autosave toast evicts this one within about a second, so whether the
+    // assertion saw it came down to machine load. See issue #31.
+    await expect
+      .poll(async () => {
+        const envelope = await prisma.envelope.findUniqueOrThrow({
+          where: { id: surface.envelopeId },
+        });
 
-    // Assert the document status was changed in the database.
-    const updatedEnvelope = await prisma.envelope.findUniqueOrThrow({
-      where: { id: surface.envelopeId },
-    });
-
-    expect(updatedEnvelope.status).toBe(DocumentStatus.PENDING);
+        return envelope.status;
+      })
+      .toBe(DocumentStatus.PENDING);
   });
 
   test('send document shows validation when signers lack signature fields', async ({ page }) => {
@@ -266,10 +268,16 @@ test.describe('document editor', () => {
     // Click "Send reminder".
     await page.getByRole('button', { name: 'Send reminder' }).click();
 
-    // Assert toast appears.
-    await expectToastTextToBeVisible(page, 'Envelope resent');
-
     // Verify a resend audit log entry was created in the database.
+    // Poll the database instead of gating on a toast: with TOAST_LIMIT = 1 any
+    // autosave toast evicts this one within about a second, so whether the
+    // assertion saw it came down to machine load. See issue #31.
+    await expect
+      .poll(async () =>
+        prisma.documentAuditLog.count({ where: { envelopeId, type: 'EMAIL_SENT' } }),
+      )
+      .toBeGreaterThan(0);
+
     const auditLog = await prisma.documentAuditLog.findFirst({
       where: {
         envelopeId,
@@ -294,9 +302,6 @@ test.describe('document editor', () => {
 
     // Click "Duplicate".
     await page.getByRole('button', { name: 'Duplicate' }).click();
-
-    // Assert toast appears.
-    await expectToastTextToBeVisible(page, 'Envelope Duplicated');
 
     // The page should have navigated to the new document's edit page.
     await expect(page).toHaveURL(/\/documents\/.*\/edit/);
@@ -340,9 +345,6 @@ test.describe('document editor', () => {
 
     // For DRAFT documents no confirmation input is needed, just click "Delete".
     await page.getByRole('button', { name: 'Delete' }).click();
-
-    // Assert toast appears.
-    await expectToastTextToBeVisible(page, 'Document deleted');
 
     // The page should navigate back to the documents list.
     await expect(page).toHaveURL(/\/documents$/);
@@ -397,10 +399,14 @@ test.describe('template editor', () => {
     // Click "Save" to persist the toggle state.
     await page.getByRole('button', { name: 'Save' }).click();
 
-    // Assert success toast.
-    await expectToastTextToBeVisible(page, 'Success');
-
     // Verify a TemplateDirectLink was created and enabled in the database.
+    // Poll the database instead of gating on a toast: with TOAST_LIMIT = 1 any
+    // autosave toast evicts this one within about a second, so whether the
+    // assertion saw it came down to machine load. See issue #31.
+    await expect
+      .poll(async () => prisma.templateDirectLink.count({ where: { envelopeId: template.id } }))
+      .toBeGreaterThan(0);
+
     const directLink = await prisma.templateDirectLink.findFirst({
       where: { envelopeId: template.id },
     });
@@ -420,9 +426,6 @@ test.describe('template editor', () => {
 
     // Click "Duplicate".
     await page.getByRole('button', { name: 'Duplicate' }).click();
-
-    // Assert toast appears.
-    await expectToastTextToBeVisible(page, 'Envelope Duplicated');
 
     // The page should have navigated to the new template's edit page.
     await expect(page).toHaveURL(/\/templates\/.*\/edit/);

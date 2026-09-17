@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DocumentStatus, DocumentVisibility, TeamMemberRole } from '@prisma/client';
 
+import { prisma } from '@documenso/prisma';
 import {
   seedBlankDocument,
   seedDocuments,
@@ -11,11 +12,7 @@ import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin, apiSignout } from '../fixtures/authentication';
 import { checkDocumentTabCount } from '../fixtures/documents';
-import {
-  expectTextToBeVisible,
-  expectToastTextToBeVisible,
-  openDropdownMenu,
-} from '../fixtures/generic';
+import { expectTextToBeVisible, openDropdownMenu } from '../fixtures/generic';
 
 test('[TEAMS]: check team documents count', async ({ page }) => {
   const { team, teamOwner, teamMember2 } = await seedTeamDocuments();
@@ -251,7 +248,24 @@ test('[TEAMS]: resend pending team document', async ({ page }) => {
   await page.getByLabel('test.documenso.com').first().click();
   await page.getByRole('button', { name: 'Send reminder' }).click();
 
-  await expectToastTextToBeVisible(page, 'Document re-sent');
+  // The toast was the only thing this test asserted about the resend, and it is
+  // evicted within about a second (TOAST_LIMIT = 1). Assert the effect instead:
+  // resending writes an EMAIL_SENT audit log against one of the team's envelopes.
+  const teamEnvelopes = await prisma.envelope.findMany({
+    where: { teamId: team.id },
+    select: { id: true },
+  });
+
+  await expect
+    .poll(async () =>
+      prisma.documentAuditLog.count({
+        where: {
+          envelopeId: { in: teamEnvelopes.map((envelope) => envelope.id) },
+          type: 'EMAIL_SENT',
+        },
+      }),
+    )
+    .toBeGreaterThan(0);
 });
 
 test('[TEAMS]: delete draft team document', async ({ page }) => {
