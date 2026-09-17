@@ -37,28 +37,30 @@ type DocumentToSeed = {
 
 export const seedDocuments = async (documents: DocumentToSeed[]) => {
   await Promise.all(
-    // eslint-disable-next-line @typescript-eslint/require-await
-    documents.map(async (document, i) =>
-      match(document.type)
+    documents.map(async (document, i) => {
+      const options = {
+        key: i,
+        createDocumentOptions: document.documentOptions,
+      };
+
+      // `.otherwise()` is load-bearing, not tidiness: a `match` chain with no
+      // terminator returns the Match object rather than the handler's promise,
+      // so `Promise.all` would resolve as soon as the seeds were *started* and
+      // callers would race their own fixture data.
+      await match(document.type)
         .with(DocumentStatus.DRAFT, async () =>
-          seedDraftDocument(document.sender, document.teamId, document.recipients, {
-            key: i,
-            createDocumentOptions: document.documentOptions,
-          }),
+          seedDraftDocument(document.sender, document.teamId, document.recipients, options),
         )
         .with(DocumentStatus.PENDING, async () =>
-          seedPendingDocument(document.sender, document.teamId, document.recipients, {
-            key: i,
-            createDocumentOptions: document.documentOptions,
-          }),
+          seedPendingDocument(document.sender, document.teamId, document.recipients, options),
         )
         .with(DocumentStatus.COMPLETED, async () =>
-          seedCompletedDocument(document.sender, document.teamId, document.recipients, {
-            key: i,
-            createDocumentOptions: document.documentOptions,
-          }),
-        ),
-    ),
+          seedCompletedDocument(document.sender, document.teamId, document.recipients, options),
+        )
+        .otherwise(() => {
+          throw new Error(`seedDocuments does not support status "${document.type}"`);
+        });
+    }),
   );
 };
 
@@ -480,7 +482,9 @@ export const seedPendingDocumentNoFields = async ({
   owner: User;
   recipients: (User | string)[];
   teamId: number;
-  updateDocumentOptions?: Partial<Prisma.EnvelopeUncheckedUpdateInput>;
+  // Prisma accepts either shape here; the unchecked variant alone rejects nested
+  // relation writes such as `documentMeta: { upsert: ... }`, which callers do use.
+  updateDocumentOptions?: Prisma.EnvelopeUpdateInput | Prisma.EnvelopeUncheckedUpdateInput;
 }) => {
   const document = await seedBlankDocument(owner, teamId);
 
@@ -537,7 +541,9 @@ export const seedPendingDocumentWithFullFields = async ({
   owner: User;
   recipients: (User | string)[];
   recipientsCreateOptions?: Partial<Prisma.RecipientUncheckedCreateInput>[];
-  updateDocumentOptions?: Partial<Prisma.EnvelopeUncheckedUpdateInput>;
+  // Prisma accepts either shape here; the unchecked variant alone rejects nested
+  // relation writes such as `documentMeta: { upsert: ... }`, which callers do use.
+  updateDocumentOptions?: Prisma.EnvelopeUpdateInput | Prisma.EnvelopeUncheckedUpdateInput;
   fields?: FieldType[];
   teamId: number;
 }) => {
