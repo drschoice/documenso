@@ -24,6 +24,80 @@ export type RateLimitCheckResult = {
   reset: Date;
 };
 
+export type ResolvedRateLimitConfig = {
+  max: number;
+  globalMax?: number;
+  window: WindowStr;
+};
+
+const WINDOW_PATTERN = /^\d+[smhd]$/;
+
+const isWindowStr = (value: string | undefined): value is WindowStr =>
+  typeof value === 'string' && WINDOW_PATTERN.test(value);
+
+const readPositiveNumber = (value: string | undefined): number | undefined => {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+/**
+ * Environment variable prefix for a given action, e.g. `api.v2` becomes
+ * `NEXT_PRIVATE_RATE_LIMIT_API_V2`.
+ */
+export const rateLimitEnvPrefix = (action: string): string =>
+  `NEXT_PRIVATE_RATE_LIMIT_${action.toUpperCase().replace(/[.-]/g, '_')}`;
+
+/**
+ * Resolve a limiter's effective configuration from the environment.
+ *
+ * Deployments differ in what counts as abuse: a scripted integration hitting the
+ * API on behalf of one account looks nothing like a login endpoint facing the
+ * internet. Rather than forcing the all-or-nothing `DANGEROUS_BYPASS_RATE_LIMITS`
+ * escape hatch, every limiter can be tuned:
+ *
+ * - `NEXT_PRIVATE_RATE_LIMIT_<ACTION>_MAX` - per-identifier (or per-IP when the
+ *   route has no identifier) ceiling, e.g. `NEXT_PRIVATE_RATE_LIMIT_API_V2_MAX=10000`
+ * - `NEXT_PRIVATE_RATE_LIMIT_<ACTION>_GLOBAL_MAX` - per-IP ceiling for routes
+ *   that set one
+ * - `NEXT_PRIVATE_RATE_LIMIT_<ACTION>_WINDOW` - bucket size, e.g. `1m`, `15m`, `1h`
+ * - `NEXT_PRIVATE_RATE_LIMIT_MULTIPLIER` - scales every limit that has no
+ *   explicit override, so a script-heavy environment can raise all of them at
+ *   once without enumerating each action
+ *
+ * An explicit per-action override always wins over the multiplier. Invalid or
+ * non-positive values are ignored in favour of the built-in default, so a
+ * typo weakens nothing.
+ */
+export const resolveRateLimitConfig = (
+  config: RateLimitConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ResolvedRateLimitConfig => {
+  const prefix = rateLimitEnvPrefix(config.action);
+
+  const multiplier = readPositiveNumber(env.NEXT_PRIVATE_RATE_LIMIT_MULTIPLIER) ?? 1;
+
+  const maxOverride = readPositiveNumber(env[`${prefix}_MAX`]);
+  const globalMaxOverride = readPositiveNumber(env[`${prefix}_GLOBAL_MAX`]);
+  const windowOverride = env[`${prefix}_WINDOW`];
+
+  const max = maxOverride ?? config.max * multiplier;
+
+  const globalMax =
+    globalMaxOverride ??
+    (config.globalMax === undefined ? undefined : config.globalMax * multiplier);
+
+  return {
+    max: Math.max(1, Math.floor(max)),
+    globalMax: globalMax === undefined ? undefined : Math.max(1, Math.floor(globalMax)),
+    window: isWindowStr(windowOverride) ? windowOverride : config.window,
+  };
+};
+
 /**
  * Parse window string (e.g., '1h', '15m', '30s') to milliseconds.
  */
@@ -59,13 +133,17 @@ export const getBucket = (windowMs: number): Date => {
  * and returns the new count.
  */
 export const createRateLimit = (config: RateLimitConfig) => {
-  const windowMs = parseWindow(config.window);
-
   return {
     async check(params: CheckParams): Promise<RateLimitCheckResult> {
+      // Resolved per check rather than at module load: the limiters are created
+      // as module-level constants, which can be evaluated before the process
+      // environment has been populated.
+      const resolved = resolveRateLimitConfig(config);
+
+      const windowMs = parseWindow(resolved.window);
       const bucket = getBucket(windowMs);
       const reset = new Date(bucket.getTime() + windowMs);
-      const ipLimit = config.globalMax ?? config.max;
+      const ipLimit = resolved.globalMax ?? resolved.max;
 
       if (process.env.DANGEROUS_BYPASS_RATE_LIMITS === 'true') {
         return {
@@ -98,10 +176,10 @@ export const createRateLimit = (config: RateLimitConfig) => {
         });
 
         // Check IP against globalMax if set, or against max if no identifier is provided.
-        let ipCheckLimit = config.globalMax;
+        let ipCheckLimit = resolved.globalMax;
 
         if (!params.identifier) {
-          ipCheckLimit = config.max;
+          ipCheckLimit = resolved.max;
         }
 
         if (ipCheckLimit && ipResult.count > ipCheckLimit) {
@@ -143,28 +221,28 @@ export const createRateLimit = (config: RateLimitConfig) => {
             },
           });
 
-          if (identifierResult.count > config.max) {
+          if (identifierResult.count > resolved.max) {
             logger.warn({
               msg: 'Rate limit exceeded',
               action: config.action,
               keyType: 'identifier',
               key: params.identifier,
               count: identifierResult.count,
-              limit: config.max,
+              limit: resolved.max,
             });
 
             return {
               isLimited: true,
               remaining: 0,
-              limit: config.max,
+              limit: resolved.max,
               reset,
             };
           }
 
           return {
             isLimited: false,
-            remaining: Math.max(0, config.max - identifierResult.count),
-            limit: config.max,
+            remaining: Math.max(0, resolved.max - identifierResult.count),
+            limit: resolved.max,
             reset,
           };
         }
@@ -183,7 +261,7 @@ export const createRateLimit = (config: RateLimitConfig) => {
           error,
         });
 
-        const limit = params.identifier ? config.max : ipLimit;
+        const limit = params.identifier ? resolved.max : ipLimit;
 
         return {
           isLimited: false,
