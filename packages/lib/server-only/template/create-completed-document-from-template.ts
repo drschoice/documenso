@@ -171,8 +171,13 @@ const getDefaultFillValue = (
   mergedRecipient: TDefaultFillRecipient | undefined,
 ): TTemplateFieldFillValue | null => {
   if (field.type === FieldType.NAME) {
+    // `ZFieldMetaSchema` is `.optional()`, which accepts `undefined` but not
+    // `null` - and Prisma hands back `null` for a Json column that was never
+    // set. Parsing it unguarded threw, so the whole route 500'd on any template
+    // holding a plain NAME field. Every other call site of this parse already
+    // guards the same way.
     const value = resolveRecipientNamePart(
-      getFieldNamePart(ZFieldMetaSchema.parse(field.fieldMeta)),
+      getFieldNamePart(field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined),
       {
         recipient: mergedRecipient,
       },

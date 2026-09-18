@@ -180,13 +180,13 @@ describe('extractDerivedDocumentMeta', () => {
     });
   });
 
-  it('treats a null font on the envelope as inherit, not as a cleared value', () => {
-    expect(
-      extractDerivedDocumentMeta(orgSettings, {
-        signatureFontFamily: null,
-        signatureFontSize: null,
-      }),
-    ).toMatchObject({
+  it('inherits when the override carries no font at all', () => {
+    // An override object that simply says nothing about the font is the real
+    // shape of "inherit" here. Null is not: unlike the team settings, where the
+    // columns are nullable and null genuinely means inherit, `DocumentMeta`
+    // declares both font columns non-nullable with defaults, so a null can
+    // never reach this function from the database.
+    expect(extractDerivedDocumentMeta(orgSettings, { subject: 'Please sign' })).toMatchObject({
       signatureFontFamily: 'Caveat',
       signatureFontSize: 24,
     });

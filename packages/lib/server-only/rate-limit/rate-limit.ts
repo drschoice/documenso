@@ -75,7 +75,11 @@ export const rateLimitEnvPrefix = (action: string): string =>
  */
 export const resolveRateLimitConfig = (
   config: RateLimitConfig,
-  env: NodeJS.ProcessEnv = process.env,
+  // `Partial` rather than `NodeJS.ProcessEnv`: this repo augments ProcessEnv with
+  // the variables the app requires, and the resolver only ever reads four of
+  // them, so demanding the full shape would force every caller - the tests in
+  // particular - to invent values it never looks at.
+  env: Partial<NodeJS.ProcessEnv> = process.env,
 ): ResolvedRateLimitConfig => {
   const prefix = rateLimitEnvPrefix(config.action);
 
