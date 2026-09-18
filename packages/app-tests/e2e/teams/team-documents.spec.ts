@@ -278,9 +278,13 @@ test('[TEAMS]: delete draft team document', async ({ page }) => {
   });
 
   const actionBtn = page.getByTestId('document-table-action-btn').first();
-  await expect(actionBtn).toBeVisible({
-    timeout: 500,
-  });
+
+  // No artificial cap: `apiSignin` navigates and then sleeps a flat 500ms, and
+  // against a production build the documents table has usually not painted its
+  // rows by then. A second budget for a positive assertion tests the machine,
+  // not the product - the page snapshot from the failure has the table fully
+  // rendered.
+  await expect(actionBtn).toBeVisible();
   await openDropdownMenu(page, actionBtn);
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
@@ -320,9 +324,13 @@ test('[TEAMS]: delete pending team document', async ({ page }) => {
   });
 
   const actionBtn = page.getByTestId('document-table-action-btn').first();
-  await expect(actionBtn).toBeVisible({
-    timeout: 500,
-  });
+
+  // No artificial cap: `apiSignin` navigates and then sleeps a flat 500ms, and
+  // against a production build the documents table has usually not painted its
+  // rows by then. A second budget for a positive assertion tests the machine,
+  // not the product - the page snapshot from the failure has the table fully
+  // rendered.
+  await expect(actionBtn).toBeVisible();
   await openDropdownMenu(page, actionBtn);
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Delete' }).click({ force: true });
@@ -363,9 +371,13 @@ test('[TEAMS]: delete completed team document', async ({ page }) => {
   });
 
   const actionBtn = page.getByTestId('document-table-action-btn').first();
-  await expect(actionBtn).toBeVisible({
-    timeout: 500,
-  });
+
+  // No artificial cap: `apiSignin` navigates and then sleeps a flat 500ms, and
+  // against a production build the documents table has usually not painted its
+  // rows by then. A second budget for a positive assertion tests the machine,
+  // not the product - the page snapshot from the failure has the table fully
+  // rendered.
+  await expect(actionBtn).toBeVisible();
   await openDropdownMenu(page, actionBtn);
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Delete' }).click({ force: true });

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settings';
+import { resolveDateFormat } from '@documenso/lib/utils/document';
 import { prisma } from '@documenso/prisma';
 import { DocumentVisibility } from '@documenso/prisma/client';
 import { seedTeamDocumentWithMeta } from '@documenso/prisma/seed/documents';
@@ -108,7 +109,18 @@ test('[ORGANISATIONS]: manage document preferences', async ({ page }) => {
   expect(documentMeta.drawSignatureEnabled).toEqual(false);
   expect(documentMeta.language).toEqual('pl');
   expect(documentMeta.timezone).toEqual('Europe/London');
-  expect(documentMeta.dateFormat).toEqual('MM/dd/yyyy');
+
+  // `4b92dfa5c` stopped stamping the team's date format onto a new document.
+  // Language and timezone are still materialised at creation, but the date
+  // format is left null on purpose so that an organisation changing it later
+  // reaches documents that were never given one of their own - the same
+  // "null means inherit" contract as `includeSigningCertificate`. What the
+  // reader gets is resolved from the team settings at read time.
+  expect(documentMeta.dateFormat).toBeNull();
+
+  expect(resolveDateFormat(await getTeamSettings({ teamId: team.id }), documentMeta)).toEqual(
+    'MM/dd/yyyy',
+  );
 });
 
 test('[ORGANISATIONS]: manage branding preferences', async ({ page }) => {

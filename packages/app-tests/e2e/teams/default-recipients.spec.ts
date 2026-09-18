@@ -114,10 +114,12 @@ test.describe('Default Recipients', () => {
 
     // Add a regular signer using the v2 editor
     await page.getByTestId('signer-email-input').last().fill('regular-signer@documenso.com');
-    await page
-      .getByPlaceholder(/Recipient/)
-      .first()
-      .fill('Regular Signer');
+
+    // `e77aacc48` split the single "Recipient name" box into First/Middle/Last,
+    // so the old `/Recipient/` placeholder matches nothing. Address the parts by
+    // their own testids and let the editor derive the full name.
+    await page.getByTestId('signer-first-name-input').last().fill('Regular');
+    await page.getByTestId('signer-last-name-input').last().fill('Signer');
 
     // Wait for autosave to complete
     await page.waitForTimeout(3000);
