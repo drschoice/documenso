@@ -69,7 +69,9 @@ const ZTextFieldFormSchema = ZTextFieldMeta.pick({
   .refine(
     (data) => {
       // The text cannot exceed the cell count in comb layout
-      return data.layout !== 'cells' || !data.text || [...data.text].length <= (data.cells ?? []).length;
+      return (
+        data.layout !== 'cells' || !data.text || [...data.text].length <= (data.cells ?? []).length
+      );
     },
     {
       message: 'Text cannot exceed the number of cells',
@@ -122,6 +124,34 @@ export const EditorFieldTextForm = ({
   const formValues = useWatch({
     control,
   });
+
+  /**
+   * The inline "select the field and type" overlay writes the value, `readOnly`
+   * and `required` straight into the field meta without going through this form.
+   * React Hook Form seeds itself from `value` once, at mount, so its copy then
+   * goes stale - and the effect below pushes the *whole* form state up on the
+   * next interaction with any control here, which silently threw the typed value
+   * away. Re-seed the three fields the overlay owns whenever the incoming meta
+   * disagrees. The equality guards make this idempotent, so it settles rather
+   * than ping-ponging with that effect.
+   */
+  useEffect(() => {
+    const nextText = value.text || '';
+    const nextReadOnly = value.readOnly || false;
+    const nextRequired = value.required || false;
+
+    if (form.getValues('text') !== nextText) {
+      form.setValue('text', nextText);
+    }
+
+    if (form.getValues('readOnly') !== nextReadOnly) {
+      form.setValue('readOnly', nextReadOnly);
+    }
+
+    if (form.getValues('required') !== nextRequired) {
+      form.setValue('required', nextRequired);
+    }
+  }, [value.text, value.readOnly, value.required]);
 
   const isCombLayout = formValues.layout === 'cells';
 

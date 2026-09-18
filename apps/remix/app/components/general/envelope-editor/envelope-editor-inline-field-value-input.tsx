@@ -40,6 +40,9 @@ type EnvelopeEditorInlineFieldValueInputProps = {
  * The overlay owns the value while editing (local state) and pushes each change
  * up via `onChangeValue`; the caller writes it into the field meta and the
  * Konva text (hidden behind this overlay) re-renders from it.
+ *
+ * It carries a testid because it has no label, placeholder or accessible name to
+ * find it by - it is deliberately invisible chrome sitting on top of the canvas.
  */
 export const EnvelopeEditorInlineFieldValueInput = ({
   field,
@@ -80,8 +83,7 @@ export const EnvelopeEditorInlineFieldValueInput = ({
 
   const fieldMeta = field.fieldMeta;
   const fontSize = (fieldMeta?.fontSize || DEFAULT_STANDARD_FONT_SIZE) * scale;
-  const textAlign =
-    fieldMeta && 'textAlign' in fieldMeta ? fieldMeta.textAlign || 'left' : 'left';
+  const textAlign = fieldMeta && 'textAlign' in fieldMeta ? fieldMeta.textAlign || 'left' : 'left';
   const characterLimit =
     fieldMeta?.type === 'text' && fieldMeta.characterLimit ? fieldMeta.characterLimit : undefined;
 
@@ -145,6 +147,7 @@ export const EnvelopeEditorInlineFieldValueInput = ({
     return (
       <textarea
         ref={inputRef}
+        data-testid="inline-field-value-input"
         value={localValue}
         onChange={(event) => handleChange(event.target.value)}
         onKeyDown={handleKeyDown}
@@ -157,6 +160,7 @@ export const EnvelopeEditorInlineFieldValueInput = ({
   return (
     <input
       ref={inputRef}
+      data-testid="inline-field-value-input"
       type="text"
       inputMode={field.type === 'NUMBER' ? 'decimal' : 'text'}
       value={localValue}
