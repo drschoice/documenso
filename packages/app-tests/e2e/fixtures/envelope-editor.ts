@@ -6,6 +6,7 @@ import path from 'node:path';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
 import { DEFAULT_EMBEDDED_EDITOR_CONFIG } from '@documenso/lib/types/envelope-editor';
+import { prisma } from '@documenso/prisma';
 import { seedBlankDocument } from '@documenso/prisma/seed/documents';
 import { seedBlankTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
@@ -93,12 +94,32 @@ export const createEmbeddedEnvelopeEditHash = ({
   });
 };
 
-export const openDocumentEnvelopeEditor = async (page: Page): Promise<TEnvelopeEditorSurface> => {
+export const openDocumentEnvelopeEditor = async (
+  page: Page,
+  options: { multiPage?: boolean } = {},
+): Promise<TEnvelopeEditorSurface> => {
   const { user, team } = await seedUser();
 
   const document = await seedBlankDocument(user, team.id, {
     internalVersion: 2,
   });
+
+  if (options.multiPage) {
+    // `seedBlankDocument` always seeds the single-page example, so swap the
+    // bytes underneath it rather than adding a second envelope item - a second
+    // item would put the fields step behind an item selector and change what is
+    // being tested.
+    const pdf = multiPagePdfBuffer.toString('base64');
+
+    const envelopeItem = await prisma.envelopeItem.findFirstOrThrow({
+      where: { envelopeId: document.id },
+    });
+
+    await prisma.documentData.update({
+      where: { id: envelopeItem.documentDataId },
+      data: { data: pdf, initialData: pdf },
+    });
+  }
 
   await apiSignin({
     page,

@@ -1121,6 +1121,102 @@ const assertFieldAppearancePersistedInDatabase = async ({
   expect(values.map((value) => value.value)).toEqual(['Visible label', 'Second label']);
 };
 
+// --- Duplicate on all pages flow ---
+
+type TDuplicateAllPagesFlowResult = {
+  externalId: string;
+};
+
+/**
+ * `dd142b00b`. The canvas toolbar's second duplicate button copies the selected
+ * field onto every page of the document, which is how a signer-facing form gets
+ * an initials box in the same spot on all of them.
+ *
+ * The plain Duplicate arm is covered; this one never was, because
+ * `example.pdf` - what every editor surface seeds - is a single page, so the
+ * feature had nowhere to copy to and any assertion would have passed vacuously.
+ */
+const runDuplicateAllPagesFlow = async (
+  surface: TEnvelopeEditorSurface,
+): Promise<TDuplicateAllPagesFlowResult> => {
+  const externalId = `e2e-dup-all-pages-${nanoid()}`;
+  const root = surface.root;
+
+  await updateExternalId(surface, externalId);
+  await setupRecipientsForFieldPlacement(surface);
+
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await waitForEditorCanvas(root);
+
+  await placeFieldOnPdf(root, 'Initials', { x: LEFT_COLUMN, y: 200 });
+  await expectKonvaElementCount(root, 1, '.field-group', 1);
+
+  // Pages 2 and 3 start empty, so the copies can't be confused with anything
+  // already there.
+  await expectKonvaElementCount(root, 2, '.field-group', 0);
+  await expectKonvaElementCount(root, 3, '.field-group', 0);
+
+  await selectFieldOnCanvas(root, { x: LEFT_COLUMN, y: 200 });
+
+  const duplicateAllButton = root.locator('button[title="Duplicate on all pages"]');
+  await expect(duplicateAllButton).toBeVisible();
+  await duplicateAllButton.click();
+
+  await confirmDuplicateDialog(root, 'Duplicate on all pages?');
+
+  // One per page, and the original is not duplicated onto its own page.
+  await expectKonvaElementCount(root, 1, '.field-group', 1);
+  await expectKonvaElementCount(root, 2, '.field-group', 1);
+  await expectKonvaElementCount(root, 3, '.field-group', 1);
+
+  await clickEnvelopeEditorStep(root, 'upload');
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await waitForEditorCanvas(root);
+
+  await expectKonvaElementCount(root, 2, '.field-group', 1);
+
+  return { externalId };
+};
+
+const assertDuplicateAllPagesPersistedInDatabase = async ({
+  surface,
+  externalId,
+}: {
+  surface: TEnvelopeEditorSurface;
+  externalId: string;
+}) => {
+  const envelope = await prisma.envelope.findFirstOrThrow({
+    where: {
+      externalId,
+      userId: surface.userId,
+      teamId: surface.teamId,
+      type: surface.envelopeType,
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { fields: true },
+  });
+
+  expect(envelope.fields).toHaveLength(3);
+
+  for (const field of envelope.fields) {
+    expect(field.type).toBe(FieldType.INITIALS);
+  }
+
+  expect(envelope.fields.map((field) => field.page).sort()).toEqual([1, 2, 3]);
+
+  // The copies land in the same place on each page, which is the point of the
+  // feature - a field that drifted per page would be useless for a form.
+  const positions = envelope.fields.map((field) => ({
+    x: Number(field.positionX),
+    y: Number(field.positionY),
+  }));
+
+  for (const position of positions) {
+    expect(position.x).toBeCloseTo(positions[0].x, 1);
+    expect(position.y).toBeCloseTo(positions[0].y, 1);
+  }
+};
+
 // --- Test describe blocks ---
 
 test.describe('document editor', () => {
@@ -1200,6 +1296,16 @@ test.describe('document editor', () => {
     const result = await runFieldAppearanceFlow(surface);
 
     await assertFieldAppearancePersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
+  test('duplicate a field onto every page', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page, { multiPage: true });
+    const result = await runDuplicateAllPagesFlow(surface);
+
+    await assertDuplicateAllPagesPersistedInDatabase({
       surface,
       ...result,
     });
