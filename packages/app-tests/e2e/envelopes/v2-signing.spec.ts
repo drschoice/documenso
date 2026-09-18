@@ -17,6 +17,7 @@ import {
   getAllKonvaNodeAttrs,
   getKonvaElementCountForPage,
   getKonvaTextContents,
+  getKonvaTextContentsFor,
 } from '../fixtures/konva';
 
 /**
@@ -610,5 +611,129 @@ test.describe('name parts on the v2 signer', () => {
     // No dialog at any point: every part resolved off the recipient's columns,
     // so `handleNameFieldClick` never had to fall back to asking.
     await expect(page.getByRole('dialog')).not.toBeVisible();
+  });
+});
+
+test.describe('comb fields on the v2 signer', () => {
+  const CELL_COUNT = 6;
+
+  const combTextMeta = {
+    type: 'text' as const,
+    label: 'Reference',
+    required: true,
+    readOnly: false,
+    layout: 'cells' as const,
+    cellSize: 20,
+    cells: Array.from({ length: CELL_COUNT }, (_, index) => ({
+      id: index + 1,
+      offsetX: index * 4,
+      offsetY: 0,
+    })),
+  };
+
+  const seedCombEnvelope = async () => {
+    const { user, team } = await seedUser();
+
+    return await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [{ email: `comb-signing-${user.id}@example.com`, name: 'Comb Signer' }],
+      fields: [
+        {
+          type: FieldType.TEXT,
+          positionY: 20,
+          width: 30,
+          height: 8,
+          fieldMeta: combTextMeta,
+        },
+      ],
+    });
+  };
+
+  test('the cell count is the character limit, and each character lands in a cell', async ({
+    page,
+  }) => {
+    const seeded = await seedCombEnvelope();
+
+    const [recipient] = seeded.recipients;
+    const [combField] = seeded.fields;
+
+    // A comb field has no separate `characterLimit`: the cells are the limit, so
+    // a seventh character has nowhere to go and the server says so rather than
+    // silently dropping it.
+    const tooLong = await signV2FieldViaTrpc(page, {
+      token: recipient.token,
+      fieldId: combField.id,
+      fieldValue: { type: FieldType.TEXT, value: 'ABC1234' },
+    });
+
+    // The message names the limit it hit, rather than the "Invalid email" this
+    // branch used to report for any text field (issue #36).
+    expect(JSON.stringify(tooLong.body)).toContain('exceeds the character limit (6)');
+
+    const unsigned = await prisma.field.findFirstOrThrow({ where: { id: combField.id } });
+
+    expect(unsigned.inserted).toBe(false);
+
+    expect(
+      (
+        await signV2FieldViaTrpc(page, {
+          token: recipient.token,
+          fieldId: combField.id,
+          fieldValue: { type: FieldType.TEXT, value: 'ABC123' },
+        })
+      ).status,
+    ).toBe(200);
+
+    await openV2SigningPage(page, recipient.token);
+
+    // One text node per cell rather than one string in a box - that is the whole
+    // difference between a comb field and a text field wearing a grid.
+    await expect(async () => {
+      expect(await getKonvaTextContentsFor(page, 1, '.field-cell-text')).toEqual([
+        'A',
+        'B',
+        'C',
+        '1',
+        '2',
+        '3',
+      ]);
+    }).toPass({ timeout: 30_000 });
+
+    expect(await getKonvaElementCountForPage(page, 1, '.field-option-group')).toBe(CELL_COUNT);
+  });
+
+  test('a comb field shorter than its cells leaves the rest empty', async ({ page }) => {
+    const seeded = await seedCombEnvelope();
+
+    const [recipient] = seeded.recipients;
+    const [combField] = seeded.fields;
+
+    expect(
+      (
+        await signV2FieldViaTrpc(page, {
+          token: recipient.token,
+          fieldId: combField.id,
+          fieldValue: { type: FieldType.TEXT, value: 'AB' },
+        })
+      ).status,
+    ).toBe(200);
+
+    await openV2SigningPage(page, recipient.token);
+
+    // The cells stay - a partly filled comb still has to read as a form field
+    // with room left, not as a two-character text box.
+    await expect(async () => {
+      expect(await getKonvaTextContentsFor(page, 1, '.field-cell-text')).toEqual([
+        'A',
+        'B',
+        '',
+        '',
+        '',
+        '',
+      ]);
+    }).toPass({ timeout: 30_000 });
+
+    expect(await getKonvaElementCountForPage(page, 1, '.field-option-group')).toBe(CELL_COUNT);
   });
 });

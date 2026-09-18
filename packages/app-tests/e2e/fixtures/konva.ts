@@ -173,6 +173,38 @@ export const getKonvaTextContents = async (page: Page, pageNumber: number): Prom
 };
 
 /**
+ * The strings painted by the nodes matching a selector, in render order,
+ * including the empty ones.
+ *
+ * `getKonvaTextContents` drops empty strings, which is right when asking what a
+ * viewer reads but wrong for a comb field: an unfilled cell paints an empty text
+ * node, and "cell 3 is blank" is exactly the thing worth asserting.
+ */
+export const getKonvaTextContentsFor = async (
+  page: Page,
+  pageNumber: number,
+  elementSelector: string,
+): Promise<string[]> => {
+  await waitForCanvas(page);
+
+  return await page.evaluate(
+    ({ pageNumber, elementSelector }) => {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const konva: typeof Konva = (window as unknown as { Konva: typeof Konva }).Konva;
+
+      const stage = konva.stages.find((s) => s.attrs.id === `page-${pageNumber}`);
+
+      if (!stage) {
+        return [];
+      }
+
+      return stage.find(elementSelector).map((node) => (node as Konva.Text).text() ?? '');
+    },
+    { pageNumber, elementSelector },
+  );
+};
+
+/**
  * Drag a Konva node by a delta, in viewport pixels.
  *
  * Konva shapes are painted into a single `<canvas>`, so Playwright cannot target
