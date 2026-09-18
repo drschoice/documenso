@@ -1,24 +1,23 @@
 /**
- * End-to-end tests for conditional field visibility.
+ * Conditional field visibility on the *legacy* (`internalVersion: 1`) signer.
  *
- * Strategy: seed a PENDING document directly via the database (bypassing the template-creation
- * UI) with two fields:
+ * This spec used to assert that a field whose rule is unmet is absent from the
+ * DOM. It is not, and deliberately so: the v1 signing page mounts
+ * `DocumentSigningProvider` but not `EnvelopeSigningProvider`, so
+ * `DocumentSigningFieldContainer` has no visibility map to filter by. Requiring
+ * that context is what took down the whole v1 page when conditional visibility
+ * first landed, and making it optional is what fixed it - which silently made
+ * these assertions wrong rather than failing loudly.
  *
- *  1. RADIO  "marital_status"  — options: ["Married", "Single"]
- *  2. TEXT   "spouse_name"     — visibility rule: show only when marital_status equals "Married"
+ * What is left here is the contract that made that trade-off safe: the field is
+ * shown, and `sign-field-with-token` refuses it anyway. The rest of conditional
+ * visibility - hiding, revealing, completion gating, the webhook payload, the
+ * audit trail and the certificate - is covered against the v2 signer, which is
+ * the one this fork actually ships:
  *
- * Then navigate to the signing URL, interact with the fields, and assert that the
- * spouse_name field is absent from the DOM when the signer picks "Single" and is
- * present (and required) when the signer picks "Married".
- *
- * The signing completion flow is verified against the database so the test works
- * without a real email server or PDF renderer.
- *
- * NOTE: The UI-driven template-creation scenario (Tasks 21.4–21.5) is left as
- *       test.fixme because the exact drag-and-drop / advanced-settings selectors
- *       for placing a field on the PDF canvas and opening the VisibilitySection
- *       sidebar require interactive selector discovery against a running dev
- *       server. See the FIXME block at the bottom of this file for guidance.
+ * - `envelopes/v2-signing.spec.ts` - hide/reveal and the server-side refusal
+ * - `envelopes/conditional-visibility-completion.spec.ts` - sweeping, auditing,
+ *   the webhook payload and the certificate's skipped-field list
  */
 import { expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
@@ -34,6 +33,7 @@ import { DocumentDataType, DocumentSource, EnvelopeType, Prisma } from '@documen
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
+import { completeV2SigningViaTrpc } from '../fixtures/envelope-signing';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -173,6 +173,9 @@ async function seedConditionalDocument(ownerUserId: number, teamId: number, sign
 
   return {
     envelope,
+    // `completeDocumentWithToken` is addressed by the numeric document id, not
+    // the envelope's prefixed one.
+    documentId: documentId.documentId,
     recipient: {
       ...recipient,
       fields: [radioField, textField],
@@ -190,10 +193,10 @@ async function seedConditionalDocument(ownerUserId: number, teamId: number, sign
 
 test.describe('Conditional field visibility', () => {
   /**
-   * Scenario A: radio = "Single" → spouse_name field must NOT be in the DOM.
-   *             Document must complete successfully (spouse_name is skipped).
+   * The legacy signer paints every field, unmet rule or not, and the server is
+   * what holds the line.
    */
-  test('[CONDITIONAL]: hidden field is absent from DOM when condition is not met (Single)', async ({
+  test('[CONDITIONAL]: a field with an unmet rule is shown on v1 but refused by the server', async ({
     page,
   }) => {
     const { user, team } = await seedUser();
@@ -205,26 +208,13 @@ test.describe('Conditional field visibility', () => {
       signerEmail,
     );
 
-    // Navigate to the signing URL
     await page.goto(`${WEBAPP}/sign/${recipient.token}`);
 
-    // Wait for the PDF viewer to initialise. The radio field container should appear.
     await expect(page.locator(`#field-${radioField.id}`)).toBeVisible({ timeout: 20_000 });
 
-    // At this point neither field has been signed, so the text field should also
-    // be visible (its trigger radio has no value yet — evaluateVisibility returns
-    // visible=false because the rule.value "Married" doesn't match empty string).
-    // The FieldRootContainer returns null when hidden=true, so the element is absent.
-    await expect(page.locator(`#field-${textField.id}`)).not.toBeVisible();
+    // Answer "Single", which leaves the dependent's rule unmet.
+    await page.locator(`label[for="option-${radioField.id}-2"]`).click();
 
-    // Select "Single" on the radio field
-    const singleOptionId = `option-${radioField.id}-2`; // id:2 = "Single" per seed
-    await page.locator(`label[for="${singleOptionId}"]`).click();
-
-    // After picking Single the text field should remain absent (condition not met)
-    await expect(page.locator(`#field-${textField.id}`)).not.toBeVisible();
-
-    // The radio field should now be inserted (auto-signs when a value is selected)
     await expect(async () => {
       await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute(
         'data-inserted',
@@ -232,44 +222,32 @@ test.describe('Conditional field visibility', () => {
       );
     }).toPass({ timeout: 10_000 });
 
-    // Complete the document — spouse_name will be skipped as it is hidden
-    await page.getByRole('button', { name: 'Complete' }).click();
-    await page.waitForTimeout(500);
-    // Confirm dialog if present
-    const signButton = page.getByRole('button', { name: 'Sign' });
-    if (await signButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await signButton.click({ force: true });
-    }
+    // Still on the page: no client-side filtering here, by design.
+    await expect(page.locator(`#field-${textField.id}`)).toBeVisible();
 
-    await page.waitForURL(`/sign/${recipient.token}/complete`, { timeout: 20_000 });
-
-    // Verify via the database that:
-    //  a) the document completed (or is now pending next signer)
-    //  b) a FIELD_SKIPPED_CONDITIONAL audit log was emitted for the text field
-    await expect(async () => {
-      const auditLogs = await prisma.documentAuditLog.findMany({
-        where: {
-          envelopeId: recipient.envelopeId,
-          type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_SKIPPED_CONDITIONAL,
+    // Driven through the route rather than the field, because what is under test
+    // is the server's answer, not whichever control the legacy page happens to
+    // put on a text field.
+    const response = await page.request.post(
+      `${WEBAPP}/api/trpc/field.signFieldWithToken?batch=1`,
+      {
+        data: {
+          0: { json: { token: recipient.token, fieldId: textField.id, value: 'Jane Doe' } },
         },
-      });
-      expect(auditLogs.length).toBeGreaterThan(0);
+        headers: { 'content-type': 'application/json' },
+      },
+    );
 
-      const skippedLog = auditLogs[0];
-      const data = skippedLog.data as { fieldLabel?: string; unmetRuleSummary?: string } | null;
-      // Should reference the spouse name label
-      expect(data?.fieldLabel ?? '').toMatch(/spouse/i);
-    }).toPass({ timeout: 30_000 });
+    expect(response.ok()).toBeFalsy();
+    expect(await response.text()).toContain('not currently active');
+
+    const unsigned = await prisma.field.findUniqueOrThrow({ where: { id: textField.id } });
+
+    expect(unsigned.inserted).toBe(false);
+    expect(unsigned.customText).toBe('');
   });
 
-  /**
-   * Scenario B: radio = "Married" → spouse_name IS visible and required.
-   *             Signing without filling it should not complete.
-   *             After filling it the document should complete.
-   */
-  test('[CONDITIONAL]: required field IS visible when condition is met (Married)', async ({
-    page,
-  }) => {
+  test('[CONDITIONAL]: a field whose rule is met signs normally on v1', async ({ page }) => {
     const { user, team } = await seedUser();
     const signerEmail = `signer-married-${nanoid(6)}@example.com`;
 
@@ -281,20 +259,11 @@ test.describe('Conditional field visibility', () => {
 
     await page.goto(`${WEBAPP}/sign/${recipient.token}`);
 
-    // Radio field should be visible
     await expect(page.locator(`#field-${radioField.id}`)).toBeVisible({ timeout: 20_000 });
 
-    // Text field is hidden before any radio selection (trigger empty → condition false)
-    await expect(page.locator(`#field-${textField.id}`)).not.toBeVisible();
+    // Answer "Married", which satisfies the dependent's rule.
+    await page.locator(`label[for="option-${radioField.id}-1"]`).click();
 
-    // Select "Married"
-    const marriedOptionId = `option-${radioField.id}-1`; // id:1 = "Married" per seed
-    await page.locator(`label[for="${marriedOptionId}"]`).click();
-
-    // After selecting "Married", the text field should NOW be visible
-    await expect(page.locator(`#field-${textField.id}`)).toBeVisible({ timeout: 10_000 });
-
-    // Wait for radio to be inserted
     await expect(async () => {
       await expect(page.locator(`#field-${radioField.id}`)).toHaveAttribute(
         'data-inserted',
@@ -302,35 +271,24 @@ test.describe('Conditional field visibility', () => {
       );
     }).toPass({ timeout: 10_000 });
 
-    // Fill in the text field (click to activate, then type)
-    await page.locator(`#field-${textField.id}`).click();
-    await page.keyboard.type('Jane Doe');
-
-    // Wait for text field insertion
-    await expect(async () => {
-      await expect(page.locator(`#field-${textField.id}`)).toHaveAttribute('data-inserted', 'true');
-    }).toPass({ timeout: 10_000 });
-
-    // Complete
-    await page.getByRole('button', { name: 'Complete' }).click();
-    await page.waitForTimeout(500);
-    const signButton = page.getByRole('button', { name: 'Sign' });
-    if (await signButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await signButton.click({ force: true });
-    }
-
-    await page.waitForURL(`/sign/${recipient.token}/complete`, { timeout: 20_000 });
-
-    // Verify no FIELD_SKIPPED_CONDITIONAL was emitted (the field was filled, not skipped)
-    await expect(async () => {
-      const skippedLogs = await prisma.documentAuditLog.findMany({
-        where: {
-          envelopeId: recipient.envelopeId,
-          type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_SKIPPED_CONDITIONAL,
+    // The control arm for the refusal above: the same call now succeeds, so the
+    // rejection is the rule doing its job rather than the route being broken.
+    const response = await page.request.post(
+      `${WEBAPP}/api/trpc/field.signFieldWithToken?batch=1`,
+      {
+        data: {
+          0: { json: { token: recipient.token, fieldId: textField.id, value: 'Jane Doe' } },
         },
-      });
-      expect(skippedLogs).toHaveLength(0);
-    }).toPass({ timeout: 30_000 });
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+
+    expect(response.ok()).toBeTruthy();
+
+    const signed = await prisma.field.findUniqueOrThrow({ where: { id: textField.id } });
+
+    expect(signed.inserted).toBe(true);
+    expect(signed.customText).toBe('Jane Doe');
   });
 
   /**
@@ -342,18 +300,17 @@ test.describe('Conditional field visibility', () => {
    * assert that the field is absent from the webhook payload shape
    * (i.e. the field's secondaryId is not in the mapped visible fields).
    */
-  test('[CONDITIONAL]: completed document has skipped-field audit log when condition unmet', async () => {
+  test('[CONDITIONAL]: completed document has skipped-field audit log when condition unmet', async ({
+    page,
+  }) => {
     const { user, team } = await seedUser();
 
     // We construct the scenario entirely at the DB level:
     // Seed the doc, then manually "sign" the radio as Single and call
     // complete-document-with-token via the server function directly.
     const signerEmail = `signer-complete-${nanoid(6)}@example.com`;
-    const { recipient, radioField, textField, envelope } = await seedConditionalDocument(
-      user.id,
-      team.id,
-      signerEmail,
-    );
+    const { recipient, radioField, textField, envelope, documentId } =
+      await seedConditionalDocument(user.id, team.id, signerEmail);
 
     // Simulate radio field signed with "Single"
     await prisma.field.update({
@@ -364,15 +321,19 @@ test.describe('Conditional field visibility', () => {
     // Text field remains uninserted (as if hidden)
     // Text field is required but hidden — the completion logic should skip it.
 
-    // Call the server-side completion function directly
-    const { completeDocumentWithToken } = await import(
-      '@documenso/lib/server-only/document/complete-document-with-token'
-    );
-
-    await completeDocumentWithToken({
+    // Over HTTP rather than by importing `completeDocumentWithToken` here.
+    // Calling it in-process drags the lingui `msg` macro in through the email
+    // templates, and tsx does not run the macro transform, so the import dies
+    // at collection time with "import_macro.msg is not a function" and the
+    // whole file reports zero tests. The route is the same function, and the
+    // helper is shared with the v2 specs - it is the public signing route, not
+    // a v2-only one.
+    const completion = await completeV2SigningViaTrpc(page, {
       token: recipient.token,
-      id: { type: 'envelopeId', id: envelope.id },
+      documentId,
     });
+
+    expect(completion.status).toBe(200);
 
     // Verify FIELD_SKIPPED_CONDITIONAL was written for textField
     const skippedLogs = await prisma.documentAuditLog.findMany({

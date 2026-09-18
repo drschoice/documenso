@@ -115,7 +115,11 @@ test.describe('[TEMPLATE_FLOW]: Duplicate Recipients', () => {
 
     // Set same email for both recipient instances
     const emailInputs = await page.locator('[aria-label="Email"]').all();
-    const nameInputs = await page.locator('[aria-label="Name"]').all();
+    // `e77aacc48` split the recipient name into First/Middle/Last with a derived
+    // full-name box underneath, so nothing is labelled plainly "Name" any more
+    // and this resolved to an empty list. The full name is what the recipient row
+    // stores, which is what this test is setting.
+    const nameInputs = await page.locator('[aria-label="Full name"]').all();
 
     // First instance
     await emailInputs[0].fill('same@example.com');
