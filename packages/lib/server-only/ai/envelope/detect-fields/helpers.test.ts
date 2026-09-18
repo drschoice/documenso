@@ -36,6 +36,36 @@ describe('normalizeDetectedField', () => {
     expect(normalized.height).toBe(10);
   });
 
+  it('carries the label through to the field meta', () => {
+    // `523350b83` taught the model to answer with a label and threaded it into
+    // `fieldMeta.label`. It is what the signer reads above an empty box, so a
+    // field that arrives unlabelled is a field nobody knows how to fill in.
+    const normalized = normalizeDetectedField({
+      ...baseField,
+      box2d: [0, 0, 100, 100],
+    });
+
+    expect(normalized.label).toBe('Account number');
+  });
+
+  it('keeps each option group member labelled by the group, not by itself', () => {
+    const normalized = normalizeDetectedField({
+      ...baseField,
+      type: 'CHECKBOX',
+      label: 'Delivery method',
+      box2d: [0, 0, 10, 10],
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      options: [
+        { value: 'Post', box2d: [100, 100, 140, 200] },
+        { value: 'Email', box2d: [200, 100, 240, 200] },
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      ] as DetectedField['options'],
+    });
+
+    expect(normalized.label).toBe('Delivery method');
+    expect(normalized.options?.map((option) => option.value)).toEqual(['Post', 'Email']);
+  });
+
   it('carries the comb layout through untouched', () => {
     const normalized = normalizeDetectedField({
       ...baseField,

@@ -27,6 +27,7 @@ import {
 import {
   dragKonvaNode,
   expectKonvaElementCount,
+  getAllKonvaNodeAttrs,
   getKonvaNodeAttrs,
   getKonvaTextContents,
 } from '../fixtures/konva';
@@ -1008,6 +1009,155 @@ const assertFreeLayoutPersistedInDatabase = async ({
   expect(values[0].offsetX).not.toBe(values[1].offsetX);
 };
 
+// --- Dragging a field that is not the selected one ---
+
+type TDragUnselectedFieldFlowResult = {
+  externalId: string;
+  before: { x: number; y: number };
+};
+
+const readFieldPositions = async (surface: TEnvelopeEditorSurface, externalId: string) => {
+  const envelope = await prisma.envelope.findFirstOrThrow({
+    where: {
+      externalId,
+      userId: surface.userId,
+      teamId: surface.teamId,
+      type: surface.envelopeType,
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { fields: true },
+  });
+
+  return envelope.fields.map((field) => ({
+    type: field.type,
+    x: Number(field.positionX),
+    y: Number(field.positionY),
+  }));
+};
+
+/**
+ * `d3188261b`. Starting a drag on a field that is not currently selected also
+ * selects it, and selection re-runs the effect that (re)builds the page's Konva
+ * nodes. That used to destroy and recreate the very node the mouse was holding:
+ * Konva force-stops the drag, then fires `dragend` on a group already detached
+ * from the layer, and the coordinates written back are not where the field was
+ * dropped.
+ *
+ * The fix skips the rebuild while the field or one of its free-layout options is
+ * mid-drag. It is only reachable when the dragged field is NOT the selected one,
+ * which is why the other drag coverage here misses it entirely - those drag the
+ * field they have just placed, and placing a field selects it.
+ */
+const runDragUnselectedFieldFlow = async (
+  surface: TEnvelopeEditorSurface,
+): Promise<TDragUnselectedFieldFlowResult> => {
+  const externalId = `e2e-drag-unselected-${nanoid()}`;
+  const root = surface.root;
+
+  await updateExternalId(surface, externalId);
+  await setupRecipientsForFieldPlacement(surface);
+
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await waitForEditorCanvas(root);
+
+  await placeFieldOnPdf(root, 'Text', { x: LEFT_COLUMN, y: 200 });
+  await expectKonvaElementCount(root, 1, '.field-group', 1);
+
+  await placeFieldOnPdf(root, 'Signature', { x: RIGHT_COLUMN, y: 420 });
+  await expectKonvaElementCount(root, 1, '.field-group', 2);
+
+  // The signature was placed last, so it is the selected field. Select the text
+  // field to deselect it: the signature is the one about to be dragged, and the
+  // whole point is that it is dragged from an unselected state.
+  await selectFieldOnCanvas(root, { x: LEFT_COLUMN, y: 200 });
+
+  // The text field's own settings form is the barrier: it only renders once the
+  // selection has actually moved off the signature.
+  await expect(root.locator('[data-testid="field-form-characterLimit"]')).toBeVisible();
+
+  let before: Awaited<ReturnType<typeof readFieldPositions>> = [];
+
+  await expect(async () => {
+    before = await readFieldPositions(surface, externalId);
+
+    expect(before).toHaveLength(2);
+  }).toPass({ timeout: 20_000 });
+
+  const signatureBefore = before.find((field) => field.type === FieldType.SIGNATURE);
+  const textBefore = before.find((field) => field.type === FieldType.TEXT);
+
+  expect(signatureBefore).toBeDefined();
+  expect(textBefore).toBeDefined();
+
+  // Address the signature by its rendered position rather than by index: render
+  // order is not a contract, and picking the wrong node would make this pass for
+  // the wrong reason.
+  const nodes = await getAllKonvaNodeAttrs(root, 1, '.field-group');
+
+  expect(nodes).toHaveLength(2);
+
+  const signatureIndex = nodes.indexOf(
+    nodes.reduce((furthest, node) => (node.x > furthest.x ? node : furthest)),
+  );
+
+  await dragKonvaNode(root, 1, '.field-group', signatureIndex, { x: -60, y: 80 });
+
+  // Left and down on screen is left and down in the stored percentages. The
+  // magnitude depends on the canvas scale, so only the direction is asserted -
+  // under the bug the drop coordinates were the ones lost.
+  await expect(async () => {
+    const after = await readFieldPositions(surface, externalId);
+
+    expect(after).toHaveLength(2);
+
+    const signatureAfter = after.find((field) => field.type === FieldType.SIGNATURE);
+    const textAfter = after.find((field) => field.type === FieldType.TEXT);
+
+    expect(signatureAfter?.x).toBeLessThan(signatureBefore!.x);
+    expect(signatureAfter?.y).toBeGreaterThan(signatureBefore!.y);
+
+    // The field that was selected throughout must not have been dragged along
+    // with it.
+    expect(textAfter?.x).toBeCloseTo(textBefore!.x, 1);
+    expect(textAfter?.y).toBeCloseTo(textBefore!.y, 1);
+  }).toPass({ timeout: 20_000 });
+
+  // Both fields survive the round trip: a drag that ended on a detached node
+  // used to leave the layer short of the node it destroyed.
+  await clickEnvelopeEditorStep(root, 'upload');
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await waitForEditorCanvas(root);
+
+  await expectKonvaElementCount(root, 1, '.field-group', 2);
+
+  return { externalId, before: { x: signatureBefore!.x, y: signatureBefore!.y } };
+};
+
+const assertDragUnselectedFieldPersistedInDatabase = async ({
+  surface,
+  externalId,
+  before,
+}: {
+  surface: TEnvelopeEditorSurface;
+} & TDragUnselectedFieldFlowResult) => {
+  const positions = await readFieldPositions(surface, externalId);
+
+  expect(positions).toHaveLength(2);
+
+  const signature = positions.find((field) => field.type === FieldType.SIGNATURE);
+
+  expect(signature).toBeDefined();
+  expect(signature!.x).toBeLessThan(before.x);
+  expect(signature!.y).toBeGreaterThan(before.y);
+
+  // A field pushed off the page is the other shape this bug took: the detached
+  // group reported coordinates relative to the wrong parent.
+  expect(signature!.x).toBeGreaterThanOrEqual(0);
+  expect(signature!.y).toBeGreaterThanOrEqual(0);
+  expect(signature!.x).toBeLessThanOrEqual(100);
+  expect(signature!.y).toBeLessThanOrEqual(100);
+};
+
 // --- Field appearance flow: option text, name part, translucent background ---
 
 type TFieldAppearanceFlowResult = {
@@ -1315,6 +1465,16 @@ test.describe('document editor', () => {
     });
   });
 
+  test('drag a field that is not the selected one', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+    const result = await runDragUnselectedFieldFlow(surface);
+
+    await assertDragUnselectedFieldPersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
   test('name part, hidden option text and translucent field background', async ({ page }) => {
     const surface = await openDocumentEnvelopeEditor(page);
     const result = await runFieldAppearanceFlow(surface);
@@ -1464,6 +1624,24 @@ test.describe('embedded create', () => {
     await persistEmbeddedEnvelope(surface);
 
     await assertAllFieldTypesPersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
+  // The comb layout is a fork feature and the embedded editor is a separate
+  // mount of the same settings forms, with its own token-scoped persistence -
+  // covered on the document and template surfaces, never here.
+  test('place and configure a comb text field', async ({ page }) => {
+    const surface = await openEmbeddedEnvelopeEditor(page, {
+      envelopeType: 'DOCUMENT',
+      tokenNamePrefix: 'e2e-embed-comb',
+    });
+    const result = await runCombFieldFlow(surface);
+
+    await persistEmbeddedEnvelope(surface);
+
+    await assertCombFieldPersistedInDatabase({
       surface,
       ...result,
     });

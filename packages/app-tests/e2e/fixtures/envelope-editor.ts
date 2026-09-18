@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
+import type { EnvelopeEditorConfig } from '@documenso/lib/types/envelope-editor';
 import { DEFAULT_EMBEDDED_EDITOR_CONFIG } from '@documenso/lib/types/envelope-editor';
 import { prisma } from '@documenso/prisma';
 import { seedBlankDocument } from '@documenso/prisma/seed/documents';
@@ -42,7 +43,7 @@ export type TEnvelopeEditorType = 'DOCUMENT' | 'TEMPLATE';
 
 type TEmbeddedHashCommonOptions = {
   externalId?: string;
-  features?: typeof DEFAULT_EMBEDDED_EDITOR_CONFIG;
+  features?: EnvelopeEditorConfig;
   css?: string;
   cssVars?: Record<string, string>;
   darkModeDisabled?: boolean;
@@ -175,7 +176,7 @@ type OpenEmbeddedEnvelopeEditorOptions = {
   tokenNamePrefix?: string;
   externalId?: string;
   folderId?: string;
-  features?: typeof DEFAULT_EMBEDDED_EDITOR_CONFIG;
+  features?: EnvelopeEditorConfig;
   css?: string;
   cssVars?: Record<string, string>;
   darkModeDisabled?: boolean;
