@@ -12,13 +12,18 @@ import {
 } from '../fixtures/envelope-editor';
 
 /**
- * The expiration controls in the send dialog (`6736d0b8e`).
+ * The send dialog's own controls.
  *
- * The editor's own settings dialog is covered by `envelope-settings.spec.ts`,
- * but the send dialog carries a second, independent copy of the picker - the
- * last chance to set a deadline before recipients are emailed - plus a guard
- * that stops a document going out with a deadline that has already passed.
- * Neither had any coverage.
+ * The dialog is the last chance to change how a document behaves before its
+ * recipients are emailed, and it carries settings that exist nowhere else in the
+ * editor. None of them had coverage.
+ *
+ * - Expiration (`6736d0b8e`): a second, independent copy of the picker from the
+ *   settings dialog, plus a guard that stops a document going out with a
+ *   deadline that has already passed.
+ * - Next-button navigation (`04dbd580c`): which fields the signing page's Next
+ *   button is allowed to jump to. The signing-time half of this is covered in
+ *   `v2-signing.spec.ts`; what is here is the only place the filter can be set.
  */
 
 const getComboboxByLabel = (root: Page | Locator, label: string) =>
@@ -135,5 +140,78 @@ test.describe('expiration in the send dialog', () => {
     });
 
     expect(unchanged.status).toBe('DRAFT');
+  });
+});
+
+test.describe('next-button navigation in the send dialog', () => {
+  test('field types and labels chosen at send time reach the envelope', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page);
+
+    await clickAddMyselfButton(page);
+    await clickEnvelopeEditorStep(page, 'addFields');
+    await waitForEditorCanvas(page);
+
+    await placeFieldOnPdf(page, 'Signature', { x: 150, y: 150 });
+
+    // Two labelled fields sharing one label, so the dropdown has something to
+    // deduplicate. A signature carries no label and must contribute nothing.
+    await placeFieldOnPdf(page, 'Text', { x: 150, y: 250 });
+    await page.locator('[data-testid="field-form-label"]').fill('Amount');
+
+    await placeFieldOnPdf(page, 'Number', { x: 150, y: 350 });
+    await page.locator('[data-testid="field-form-label"]').fill('Amount');
+
+    // The dialog builds its label list from the envelope it was handed, so the
+    // fields have to have reached the server before it opens.
+    await expect(async () => {
+      const fields = await prisma.field.findMany({ where: { envelopeId: surface.envelopeId } });
+
+      expect(fields).toHaveLength(3);
+      expect(
+        fields.filter(
+          (field) => (field.fieldMeta as { label?: string } | null)?.label === 'Amount',
+        ),
+      ).toHaveLength(2);
+    }).toPass({ timeout: 30_000 });
+
+    await openSendDialog(page);
+
+    const dialog = page.getByRole('dialog');
+
+    const typesTrigger = getComboboxByLabel(dialog, 'Next Button Field Types');
+    const labelsTrigger = getComboboxByLabel(dialog, 'Next Button Field Labels');
+
+    // An empty filter is not "no navigation" but "navigate to everything", and
+    // the placeholders are what tell the sender that.
+    await expect(typesTrigger).toContainText('All field types');
+    await expect(labelsTrigger).toContainText('All field labels');
+
+    await typesTrigger.click();
+    await page.getByRole('option', { name: 'Signature', exact: true }).click();
+    await page.getByRole('option', { name: 'Text', exact: true }).click();
+    await page.keyboard.press('Escape');
+
+    await labelsTrigger.click();
+
+    // Only labels that exist on this document are offered, once each - the
+    // signature is absent and the two 'Amount' fields collapse into one entry.
+    await expect(page.getByRole('option')).toHaveCount(1);
+    await expect(page.getByRole('option', { name: 'Amount', exact: true })).toBeVisible();
+
+    await page.getByRole('option', { name: 'Amount', exact: true }).click();
+    await page.keyboard.press('Escape');
+
+    await dialog.getByRole('button', { name: 'Send' }).click();
+
+    await expect(async () => {
+      const envelope = await prisma.envelope.findFirstOrThrow({
+        where: { id: surface.envelopeId },
+        include: { documentMeta: true },
+      });
+
+      expect(envelope.status).toBe('PENDING');
+      expect(envelope.documentMeta.nextFieldNavigationTypes).toEqual(['SIGNATURE', 'TEXT']);
+      expect(envelope.documentMeta.nextFieldNavigationLabels).toEqual(['Amount']);
+    }).toPass({ timeout: 30_000 });
   });
 });

@@ -391,6 +391,17 @@ test.describe('Signing Certificate Tests', () => {
     });
   };
 
+  const setOrganisationSigningCertificate = async (organisationId: string, value: boolean) => {
+    const organisation = await prisma.organisation.findFirstOrThrow({
+      where: { id: organisationId },
+    });
+
+    await prisma.organisationGlobalSettings.update({
+      where: { id: organisation.organisationGlobalSettingsId },
+      data: { includeSigningCertificate: value },
+    });
+  };
+
   const setEnvelopeSigningCertificate = async (envelopeId: string, value: boolean | null) => {
     const envelope = await prisma.envelope.findFirstOrThrow({ where: { id: envelopeId } });
 
@@ -446,6 +457,55 @@ test.describe('Signing Certificate Tests', () => {
     await setEnvelopeSigningCertificate(document.id, null);
 
     expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
+  });
+
+  /**
+   * The setting is a three-level chain - organisation, then team, then envelope -
+   * and the tests above only ever exercise its lower two links. A team that has
+   * never opened its own settings stores `null`, so what a document does is
+   * decided entirely by the organisation. Both directions are asserted, because a
+   * test that only proved "no certificate" would still pass if sealing had
+   * stopped appending one at all.
+   */
+  const seedTeamInheritingCertificate = async (organisationValue: boolean) => {
+    const { owner, team, organisation } = await seedTeam();
+
+    const { document, recipients } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await setOrganisationSigningCertificate(organisation.id, organisationValue);
+    await setTeamSigningCertificate(team.id, null);
+    await setEnvelopeSigningCertificate(document.id, null);
+
+    // Guards the test against quietly becoming a restatement of the team-level
+    // tests if the seed or the setter ever starts writing a concrete value here.
+    const teamSettings = await prisma.teamGlobalSettings.findFirstOrThrow({
+      where: { team: { id: team.id } },
+    });
+
+    expect(teamSettings.includeSigningCertificate).toBeNull();
+
+    return { document, recipients };
+  };
+
+  test('a team that has set nothing follows its organisation turning the certificate off', async ({
+    page,
+  }) => {
+    const { document, recipients } = await seedTeamInheritingCertificate(false);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
+  });
+
+  test('a team that has set nothing follows its organisation turning the certificate on', async ({
+    page,
+  }) => {
+    const { document, recipients } = await seedTeamInheritingCertificate(true);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(1);
   });
 
   test('envelope editor can toggle the signing certificate', async ({ page }) => {
