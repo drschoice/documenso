@@ -46,7 +46,9 @@ async function seedDraftEnvelopeWithTwoItems(ownerUserId: number, teamId: number
     data: {
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
-      internalVersion: 1,
+      // The editor route sends anything that is not version 2 to `legacy_editor`,
+      // which has neither the step rail nor the AI sidebar this test drives.
+      internalVersion: 2,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,
@@ -105,9 +107,9 @@ test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', asyn
   });
 
   // "Detect with AI" lives in the fields step's sidebar, but the editor opens on
-  // the upload step, so the button is not mounted yet. This spec never navigated
-  // there, which is why it could not have passed since it was written - the e2e
-  // workflow was never able to run (issue #28).
+  // the upload step, so the button is not mounted yet. Together with the
+  // `internalVersion` above, this is why the spec could not have passed since it
+  // was written - the e2e workflow was never able to run (issue #28).
   await clickEnvelopeEditorStep(page, 'addFields');
   await waitForEditorCanvas(page);
 

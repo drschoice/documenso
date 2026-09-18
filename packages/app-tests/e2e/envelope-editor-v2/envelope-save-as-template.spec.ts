@@ -22,6 +22,7 @@ import {
   openDocumentEnvelopeEditor,
   waitForEditorCanvas,
 } from '../fixtures/envelope-editor';
+import { openDropdownMenu } from '../fixtures/generic';
 
 const WEBAPP_BASE_URL = NEXT_PUBLIC_WEBAPP_URL();
 const V2_API_BASE_URL = `${WEBAPP_BASE_URL}/api/v2-beta`;
@@ -345,7 +346,12 @@ test.describe('documents table', () => {
     await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
 
     // Click the actions dropdown for the document row.
-    await page.getByTestId('document-table-action-btn').first().click();
+    //
+    // Via the fixture rather than a plain click: the documents table remounts
+    // shortly after load, which closes a freshly-opened Radix menu and detaches
+    // the item mid-click. The fixture opens, closes and reopens by keyboard to
+    // land on the other side of that remount.
+    await openDropdownMenu(page, page.getByTestId('document-table-action-btn').first());
 
     // Click "Save as Template" in the dropdown.
     await page.getByRole('menuitem', { name: 'Save as Template' }).click();

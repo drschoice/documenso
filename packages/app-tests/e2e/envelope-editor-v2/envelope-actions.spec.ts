@@ -265,6 +265,12 @@ test.describe('document editor', () => {
     // Select the recipient checkbox.
     await page.getByRole('checkbox').first().click();
 
+    // Distributing the envelope during setup already wrote an EMAIL_SENT entry, so
+    // the assertion below has to wait for a NEW one rather than for any to exist.
+    const emailsSentBefore = await prisma.documentAuditLog.count({
+      where: { envelopeId, type: 'EMAIL_SENT' },
+    });
+
     // Click "Send reminder".
     await page.getByRole('button', { name: 'Send reminder' }).click();
 
@@ -276,7 +282,7 @@ test.describe('document editor', () => {
       .poll(async () =>
         prisma.documentAuditLog.count({ where: { envelopeId, type: 'EMAIL_SENT' } }),
       )
-      .toBeGreaterThan(0);
+      .toBeGreaterThan(emailsSentBefore);
 
     const auditLog = await prisma.documentAuditLog.findFirst({
       where: {
@@ -300,10 +306,15 @@ test.describe('document editor', () => {
     // The duplicate dialog should appear.
     await expect(page.getByRole('heading', { name: 'Duplicate Document' })).toBeVisible();
 
+    // The editor is already at an /edit URL, so asserting that pattern alone would
+    // match before anything happened and gate nothing. Wait for the id to change.
+    const urlBeforeDuplicate = page.url();
+
     // Click "Duplicate".
     await page.getByRole('button', { name: 'Duplicate' }).click();
 
     // The page should have navigated to the new document's edit page.
+    await expect(page).not.toHaveURL(urlBeforeDuplicate);
     await expect(page).toHaveURL(/\/documents\/.*\/edit/);
 
     // Verify a new envelope was created in the database.
@@ -424,10 +435,15 @@ test.describe('template editor', () => {
     // The duplicate dialog should appear.
     await expect(page.getByRole('heading', { name: 'Duplicate Template' })).toBeVisible();
 
+    // The editor is already at an /edit URL, so asserting that pattern alone would
+    // match before anything happened and gate nothing. Wait for the id to change.
+    const urlBeforeDuplicate = page.url();
+
     // Click "Duplicate".
     await page.getByRole('button', { name: 'Duplicate' }).click();
 
     // The page should have navigated to the new template's edit page.
+    await expect(page).not.toHaveURL(urlBeforeDuplicate);
     await expect(page).toHaveURL(/\/templates\/.*\/edit/);
 
     // Verify a new envelope was created in the database.

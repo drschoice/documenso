@@ -456,6 +456,11 @@ test.describe('Signing Certificate Tests', () => {
       recipients: ['signer@example.com'],
       fields: [FieldType.SIGNATURE],
       teamId: team.id,
+      // `seedBlankDocument` defaults to `internalVersion: 1`, and the editor route
+      // redirects anything that is not version 2 straight to `legacy_editor`, which
+      // has none of the v2 sidebar. This test asserts a v2 editor control, so it has
+      // to be seeded on v2.
+      updateDocumentOptions: { internalVersion: 2 },
     });
 
     await apiSignin({
@@ -476,9 +481,7 @@ test.describe('Signing Certificate Tests', () => {
     // Defaults to inheriting the organisation/team setting.
     expect(await readOverride()).toBeNull();
 
-    // The settings trigger is an icon button identified by its `title`, which is
-    // how every passing editor spec locates it. Resolving it by accessible name
-    // did not match here.
+    // Located by `title`, matching every other editor spec.
     await getEnvelopeEditorSettingsTrigger(page).click();
     await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
 
