@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { FieldType, WebhookTriggerEvents } from '@prisma/client';
 
+import { encryptSecondaryData } from '@documenso/lib/server-only/crypto/encrypt';
 import { prisma } from '@documenso/prisma';
 import { seedUser } from '@documenso/prisma/seed/users';
 
@@ -24,6 +25,9 @@ import {
  *   human-readable reason the certificate renders.
  * - Completion sweeps a hidden field's stored value, so a value captured before
  *   the trigger changed never reaches the sealed PDF.
+ *
+ * The second test then follows the same audit entry to where a reader actually
+ * sees it: the signing certificate.
  */
 
 const RADIO_STABLE_ID = 'marital-status';
@@ -182,4 +186,97 @@ test('a hidden field is swept, audited, and kept out of the webhook payload', as
     expect(fieldIds).toContain(visibleField.id);
     expect(fieldIds).not.toContain(dependentField.id);
   }).toPass({ timeout: 45_000 });
+});
+
+test('the signing certificate lists the skipped field and why it was skipped', async ({ page }) => {
+  const { user, team } = await seedUser();
+
+  const seeded = await seedV2PendingEnvelope({
+    ownerUserId: user.id,
+    teamId: team.id,
+    recipients: [{ email: `visibility-certificate-${user.id}@example.com`, name: 'V2 Signer' }],
+    fields: [
+      {
+        type: FieldType.RADIO,
+        positionY: 10,
+        width: 30,
+        height: 12,
+        fieldMeta: {
+          type: 'radio',
+          direction: 'vertical',
+          required: true,
+          stableId: RADIO_STABLE_ID,
+          label: 'Marital status',
+          values: [
+            { id: 1, checked: false, value: 'Married' },
+            { id: 2, checked: false, value: 'Single' },
+          ],
+        },
+      },
+      {
+        type: FieldType.TEXT,
+        positionY: 35,
+        width: 30,
+        fieldMeta: {
+          type: 'text',
+          label: 'Spouse name',
+          required: true,
+          stableId: DEPENDENT_STABLE_ID,
+          visibility: {
+            match: 'all',
+            rules: [
+              { operator: 'equals', triggerFieldStableId: RADIO_STABLE_ID, value: 'Married' },
+            ],
+          },
+        },
+      },
+    ],
+  });
+
+  const [recipient] = seeded.recipients;
+  const [radioField] = seeded.fields;
+
+  expect(
+    (
+      await signV2FieldViaTrpc(page, {
+        token: recipient.token,
+        fieldId: radioField.id,
+        fieldValue: { type: FieldType.RADIO, value: 1 },
+      })
+    ).status,
+  ).toBe(200);
+
+  expect(
+    (
+      await completeV2SigningViaTrpc(page, {
+        token: recipient.token,
+        documentId: seeded.documentId,
+      })
+    ).status,
+  ).toBe(200);
+
+  await expectEnvelopeCompleted(seeded.envelope.id);
+
+  // The certificate is a normal app route that the sealing job screenshots
+  // through a headless browser; visiting it directly renders exactly what the
+  // PDF ends up holding, without having to extract text back out of the PDF.
+  const encryptedId = encryptSecondaryData({ data: seeded.documentId.toString() });
+
+  await page.goto(`/__htmltopdf/certificate?d=${encodeURIComponent(encryptedId)}`);
+
+  const heading = page.getByText('Fields Not Shown (Conditional)');
+
+  await expect(heading).toBeVisible();
+
+  const entries = heading.locator('xpath=following-sibling::ul').first().getByRole('listitem');
+
+  // Only what was actually withheld, not every field that carries a condition -
+  // the trigger itself was answered and shown, so it does not belong here.
+  await expect(entries).toHaveCount(1);
+
+  // The label, not the internal id: the certificate is read by people who were
+  // never shown the field and have no idea what `spouse-name` is.
+  await expect(entries.first()).toContainText('Spouse name');
+  await expect(entries.first()).toContainText('not shown because');
+  await expect(entries.first()).toContainText('Marital status');
 });
