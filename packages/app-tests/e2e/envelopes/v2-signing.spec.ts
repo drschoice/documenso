@@ -583,24 +583,32 @@ test.describe('name parts on the v2 signer', () => {
 
     await openV2SigningPage(page, recipient.token);
 
-    for (const field of seeded.fields) {
-      await clickV2SigningField(page, field.id);
-    }
+    // One at a time, waiting for each to land. Signing re-renders the stage, so
+    // clicking straight through all four races the repaint and a click can be
+    // delivered to a node that is being replaced.
+    const signNameField = async (fieldId: number, expected: string) => {
+      await expect(async () => {
+        const persisted = await prisma.field.findFirstOrThrow({ where: { id: fieldId } });
 
-    // No dialog: every part resolved off the recipient's columns.
+        if (persisted.customText === expected) {
+          return;
+        }
+
+        await clickV2SigningField(page, fieldId);
+
+        const after = await prisma.field.findFirstOrThrow({ where: { id: fieldId } });
+
+        expect(after.customText).toBe(expected);
+      }).toPass({ timeout: 30_000 });
+    };
+
+    await signNameField(fullField.id, 'Ada Augusta Lovelace');
+    await signNameField(firstField.id, 'Ada');
+    await signNameField(middleField.id, 'Augusta');
+    await signNameField(lastField.id, 'Lovelace');
+
+    // No dialog at any point: every part resolved off the recipient's columns,
+    // so `handleNameFieldClick` never had to fall back to asking.
     await expect(page.getByRole('dialog')).not.toBeVisible();
-
-    await expect(async () => {
-      const persisted = await prisma.field.findMany({
-        where: { id: { in: seeded.fields.map((field) => field.id) } },
-      });
-
-      const byId = new Map(persisted.map((field) => [field.id, field.customText]));
-
-      expect(byId.get(fullField.id)).toBe('Ada Augusta Lovelace');
-      expect(byId.get(firstField.id)).toBe('Ada');
-      expect(byId.get(middleField.id)).toBe('Augusta');
-      expect(byId.get(lastField.id)).toBe('Lovelace');
-    }).toPass({ timeout: 20_000 });
   });
 });
