@@ -1023,7 +1023,8 @@ type TFieldAppearanceFlowResult = {
  *   readable underneath. The PDF regression can't see it - export mode paints no
  *   background at all - so it has to be read off the Konva node.
  * - `492e3f67a` / `5d8386f8b` made the option label next to a radio/checkbox
- *   button optional, for forms whose labels are already printed on the page.
+ *   button optional, for forms whose labels are already printed on the page, and
+ *   made hidden-and-free-placed the default for newly placed v2 option fields.
  * - `e77aacc48` let a NAME field bind to one part of the recipient's name.
  */
 const runFieldAppearanceFlow = async (
@@ -1058,13 +1059,35 @@ const runFieldAppearanceFlow = async (
   await root.locator('[data-testid="field-form-values-0-value"]').fill('Visible label');
   await root.locator('[data-testid="field-form-values-1-value"]').fill('Second label');
 
+  // A radio placed into a v2 envelope arrives with its captions already hidden
+  // and free placement on (`withOptionFieldDefaults`), because the case the fork
+  // built the feature for is a scanned form whose labels are printed on the page
+  // already. Fields that predate the change keep rendering their captions, so
+  // this default is only observable on a freshly placed one - here.
+  await expect(root.locator('[data-testid="field-form-showOptionText"]')).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+  await expect(root.locator('[data-testid="field-form-freePlacement"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  await expect(async () => {
+    expect(await getKonvaTextContents(root, 1)).not.toContain('Visible label');
+  }).toPass({ timeout: 15_000 });
+
+  // The buttons are painted either way - only the caption is optional.
+  await expectKonvaElementCount(root, 1, '.field-option-group', 2);
+
+  await setFieldFormCheckbox(root, 'field-form-showOptionText', true);
+
   await expect(async () => {
     expect(await getKonvaTextContents(root, 1)).toContain('Visible label');
   }).toPass({ timeout: 15_000 });
 
   await setFieldFormCheckbox(root, 'field-form-showOptionText', false);
 
-  // The button stays; only its caption goes.
   await expect(async () => {
     expect(await getKonvaTextContents(root, 1)).not.toContain('Visible label');
   }).toPass({ timeout: 15_000 });
@@ -1114,6 +1137,7 @@ const assertFieldAppearancePersistedInDatabase = async ({
   const radioMeta = radioField!.fieldMeta as Record<string, unknown>;
   expect(radioMeta.type).toBe('radio');
   expect(radioMeta.showOptionText).toBe(false);
+  expect(radioMeta.layout).toBe('free');
 
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const values = (radioMeta.values ?? []) as TPersistedOption[];

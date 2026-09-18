@@ -37,12 +37,15 @@ async function seedDraftEnvelope(
     .readFileSync(path.join(__dirname, '../../../../assets/example.pdf'))
     .toString('base64');
 
-  const dataA = await prisma.documentData.create({
-    data: { type: DocumentDataType.BYTES_64, data: examplePdf, initialData: examplePdf },
-  });
-  const dataB = await prisma.documentData.create({
-    data: { type: DocumentDataType.BYTES_64, data: examplePdf, initialData: examplePdf },
-  });
+  // One row per item rather than a shared one, so nothing here depends on two
+  // envelope items being allowed to point at the same document data.
+  const documentData = await Promise.all(
+    itemTitles.map(async () =>
+      prisma.documentData.create({
+        data: { type: DocumentDataType.BYTES_64, data: examplePdf, initialData: examplePdf },
+      }),
+    ),
+  );
 
   const documentMeta = await prisma.documentMeta.create({ data: {} });
   const documentId = await incrementDocumentId();
@@ -66,7 +69,7 @@ async function seedDraftEnvelope(
           id: prefixedId('envelope_item'),
           title,
           order: index,
-          documentDataId: index === 0 ? dataA.id : dataB.id,
+          documentDataId: documentData[index].id,
         })),
       },
     },
@@ -132,6 +135,10 @@ test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', asyn
   // Wait for checklist to render.
   await expect(page.getByText(/analyze these documents/i)).toBeVisible();
 
+  // Two documents is one click either way, so the select-all toggle is withheld
+  // until there are three - see the arm below.
+  await expect(page.getByRole('button', { name: 'Deselect all' })).toHaveCount(0);
+
   // Uncheck "Skip.pdf".
   await page.getByLabel('Skip.pdf').click();
 
@@ -184,22 +191,28 @@ const openDetectDialog = async (
 test('select all and deselect all drive every item, and Detect needs at least one', async ({
   page,
 }) => {
-  const { envelope } = await openDetectDialog(page);
+  // Three items, because that is where the toggle starts being offered.
+  const { envelope } = await openDetectDialog(page, {
+    itemTitles: ['One.pdf', 'Two.pdf', 'Three.pdf'],
+  });
 
   await expect(page.getByText(/analyze these documents/i)).toBeVisible();
 
   const detectButton = page.getByRole('button', { name: /^detect$/i });
-  const [keepItem, skipItem] = envelope.envelopeItems;
+  const checkboxes = envelope.envelopeItems.map((item) => page.getByLabel(item.title));
 
   // Everything starts included, so the toggle offers to clear the selection.
-  await expect(page.getByLabel(keepItem.title)).toBeChecked();
-  await expect(page.getByLabel(skipItem.title)).toBeChecked();
+  for (const checkbox of checkboxes) {
+    await expect(checkbox).toBeChecked();
+  }
+
   await expect(detectButton).toBeEnabled();
 
   await page.getByRole('button', { name: 'Deselect all' }).click();
 
-  await expect(page.getByLabel(keepItem.title)).not.toBeChecked();
-  await expect(page.getByLabel(skipItem.title)).not.toBeChecked();
+  for (const checkbox of checkboxes) {
+    await expect(checkbox).not.toBeChecked();
+  }
 
   // Detecting across nothing is meaningless, so the action is closed off rather
   // than sending a request that could only come back empty.
@@ -207,8 +220,10 @@ test('select all and deselect all drive every item, and Detect needs at least on
 
   await page.getByRole('button', { name: 'Select all' }).click();
 
-  await expect(page.getByLabel(keepItem.title)).toBeChecked();
-  await expect(page.getByLabel(skipItem.title)).toBeChecked();
+  for (const checkbox of checkboxes) {
+    await expect(checkbox).toBeChecked();
+  }
+
   await expect(detectButton).toBeEnabled();
 });
 
