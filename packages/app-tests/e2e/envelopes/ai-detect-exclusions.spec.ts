@@ -9,7 +9,7 @@
  * The AI service is never actually called — the route is fulfilled by Playwright
  * with a fake streaming response containing zero detected fields.
  */
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 
 import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increment-id';
 import { prefixedId } from '@documenso/lib/universal/id';
@@ -24,8 +24,13 @@ import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
 import { clickEnvelopeEditorStep, waitForEditorCanvas } from '../fixtures/envelope-editor';
+import { expectKonvaElementCount } from '../fixtures/konva';
 
-async function seedDraftEnvelopeWithTwoItems(ownerUserId: number, teamId: number) {
+async function seedDraftEnvelope(
+  ownerUserId: number,
+  teamId: number,
+  { itemTitles = ['Keep.pdf', 'Skip.pdf'], withRecipient = false } = {},
+) {
   const fs = await import('node:fs');
   const path = await import('node:path');
   const examplePdf = fs
@@ -57,26 +62,34 @@ async function seedDraftEnvelopeWithTwoItems(ownerUserId: number, teamId: number
       userId: ownerUserId,
       teamId,
       envelopeItems: {
-        create: [
-          {
-            id: prefixedId('envelope_item'),
-            title: 'Keep.pdf',
-            order: 0,
-            documentDataId: dataA.id,
-          },
-          {
-            id: prefixedId('envelope_item'),
-            title: 'Skip.pdf',
-            order: 1,
-            documentDataId: dataB.id,
-          },
-        ],
+        create: itemTitles.map((title, index) => ({
+          id: prefixedId('envelope_item'),
+          title,
+          order: index,
+          documentDataId: index === 0 ? dataA.id : dataB.id,
+        })),
       },
     },
     include: { envelopeItems: true },
   });
 
-  return envelope;
+  // Detected fields carry a `recipientId`, so anything that applies them to the
+  // canvas needs a recipient to assign them to.
+  const recipient = withRecipient
+    ? await prisma.recipient.create({
+        data: {
+          envelopeId: envelope.id,
+          email: `ai-detect-${ownerUserId}@example.com`,
+          name: 'AI Detect Signer',
+          token: prefixedId('token'),
+          readStatus: 'NOT_OPENED',
+          sendStatus: 'NOT_SENT',
+          signingStatus: 'NOT_SIGNED',
+        },
+      })
+    : null;
+
+  return { ...envelope, recipient };
 }
 
 test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', async ({ page }) => {
@@ -88,7 +101,7 @@ test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', asyn
     data: { aiFeaturesEnabled: true },
   });
 
-  const envelope = await seedDraftEnvelopeWithTwoItems(user.id, team.id);
+  const envelope = await seedDraftEnvelope(user.id, team.id);
   const skipItem = envelope.envelopeItems.find((i) => i.title === 'Skip.pdf')!;
 
   await apiSignin({
@@ -135,4 +148,175 @@ test('uncheck one envelope item -> excludeEnvelopeItemIds contains its id', asyn
 
   expect(body.excludeEnvelopeItemIds).toEqual([skipItem.id]);
   expect(body.envelopeId).toBe(envelope.id);
+});
+
+/**
+ * Shared setup for the dialog arms below: enable AI for the organisation, seed a
+ * draft envelope, sign in and open the fields step where the sidebar lives.
+ */
+const openDetectDialog = async (
+  page: Page,
+  options: { itemTitles?: string[]; withRecipient?: boolean } = {},
+) => {
+  const { user, organisation, team } = await seedUser();
+
+  await prisma.organisationGlobalSettings.update({
+    where: { id: organisation.organisationGlobalSettingsId },
+    data: { aiFeaturesEnabled: true },
+  });
+
+  const envelope = await seedDraftEnvelope(user.id, team.id, options);
+
+  await apiSignin({
+    page,
+    email: user.email,
+    redirectPath: `/t/${team.url}/documents/${envelope.id}/edit`,
+  });
+
+  await clickEnvelopeEditorStep(page, 'addFields');
+  await waitForEditorCanvas(page);
+
+  await page.getByRole('button', { name: /detect with ai/i }).click();
+
+  return { envelope, team, user };
+};
+
+test('select all and deselect all drive every item, and Detect needs at least one', async ({
+  page,
+}) => {
+  const { envelope } = await openDetectDialog(page);
+
+  await expect(page.getByText(/analyze these documents/i)).toBeVisible();
+
+  const detectButton = page.getByRole('button', { name: /^detect$/i });
+  const [keepItem, skipItem] = envelope.envelopeItems;
+
+  // Everything starts included, so the toggle offers to clear the selection.
+  await expect(page.getByLabel(keepItem.title)).toBeChecked();
+  await expect(page.getByLabel(skipItem.title)).toBeChecked();
+  await expect(detectButton).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Deselect all' }).click();
+
+  await expect(page.getByLabel(keepItem.title)).not.toBeChecked();
+  await expect(page.getByLabel(skipItem.title)).not.toBeChecked();
+
+  // Detecting across nothing is meaningless, so the action is closed off rather
+  // than sending a request that could only come back empty.
+  await expect(detectButton).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Select all' }).click();
+
+  await expect(page.getByLabel(keepItem.title)).toBeChecked();
+  await expect(page.getByLabel(skipItem.title)).toBeChecked();
+  await expect(detectButton).toBeEnabled();
+});
+
+test('a single-document envelope is offered no checklist', async ({ page }) => {
+  await openDetectDialog(page, { itemTitles: ['Only.pdf'] });
+
+  // With one document there is nothing to choose between, so the checklist and
+  // its select-all toggle are not rendered at all.
+  await expect(page.getByText(/analyze these documents/i)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Deselect all' })).toHaveCount(0);
+
+  await expect(page.getByRole('button', { name: /^detect$/i })).toBeEnabled();
+});
+
+test('detected radio options and comb cells reach the canvas and the database', async ({
+  page,
+}) => {
+  const { envelope } = await openDetectDialog(page, {
+    itemTitles: ['Only.pdf'],
+    withRecipient: true,
+  });
+
+  const [item] = envelope.envelopeItems;
+  const recipient = envelope.recipient!;
+
+  // The stub stands in for the model. What is under test is everything after it:
+  // `onFieldDetectionComplete` turning a detected shape into real editor fields.
+  await page.route('**/api/ai/detect-fields', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body:
+        JSON.stringify({
+          type: 'complete',
+          fields: [
+            {
+              type: 'RADIO',
+              label: 'Marital status',
+              pageNumber: 1,
+              envelopeItemId: item.id,
+              recipientId: recipient.id,
+              positionX: 10,
+              positionY: 10,
+              width: 30,
+              height: 12,
+              confidence: 'high',
+              options: [
+                { value: 'Married', offsetX: 0, offsetY: 0 },
+                { value: 'Single', offsetX: 0, offsetY: 5 },
+              ],
+            },
+            {
+              type: 'TEXT',
+              label: 'Reference number',
+              pageNumber: 1,
+              envelopeItemId: item.id,
+              recipientId: recipient.id,
+              positionX: 10,
+              positionY: 40,
+              width: 40,
+              height: 8,
+              confidence: 'high',
+              layout: 'cells',
+              cellCount: 6,
+            },
+          ],
+        }) + '\n',
+    });
+  });
+
+  await page.getByRole('button', { name: /^detect$/i }).click();
+
+  await expect(page.getByRole('button', { name: /^add fields$/i })).toBeEnabled({
+    timeout: 30_000,
+  });
+
+  await page.getByRole('button', { name: /^add fields$/i }).click();
+
+  await expectKonvaElementCount(page, 1, '.field-group', 2);
+
+  await expect(async () => {
+    const fields = await prisma.field.findMany({ where: { envelopeId: envelope.id } });
+
+    expect(fields).toHaveLength(2);
+
+    const radio = fields.find((field) => field.type === 'RADIO');
+    const text = fields.find((field) => field.type === 'TEXT');
+
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const radioMeta = radio?.fieldMeta as Record<string, unknown> | null;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const textMeta = text?.fieldMeta as Record<string, unknown> | null;
+
+    // The detected label becomes the group topic, and each detected option
+    // becomes a real option carrying the offset it was found at - without those
+    // offsets the renderer stacks every option at the field origin.
+    expect(radioMeta?.label).toBe('Marital status');
+
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const values = (radioMeta?.values ?? []) as Array<{ value: string; offsetY?: number }>;
+
+    expect(values.map((value) => value.value)).toEqual(['Married', 'Single']);
+    expect(values[1].offsetY).toBe(5);
+
+    // A detected comb field arrives as a cell count and has to become seeded cells.
+    expect(textMeta?.label).toBe('Reference number');
+    expect(textMeta?.layout).toBe('cells');
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    expect((textMeta?.cells ?? []) as unknown[]).toHaveLength(6);
+  }).toPass({ timeout: 30_000 });
 });
