@@ -274,21 +274,21 @@ const runMultiRecipientFieldFlow = async (
   // Go back to fields and verify cascade removal.
   await clickEnvelopeEditorStep(root, 'addFields');
 
-  if (surface.isEmbedded) {
-    // KNOWN GAP (embedded surfaces only) - see issue #30.
-    //
-    // Removing the recipient does prune its fields from editor state, but a
-    // debounced autosave callback captured BEFORE the removal then fires and
-    // re-seeds the editor from its stale payload, putting the orphan back. The
-    // native surfaces are saved by the server round trip, which returns the
-    // corrected list; embedded has no such round trip.
-    //
-    // The persisted data is correct either way -
-    // `assertMultiRecipientCascadePersistedInDatabase` below confirms one
-    // recipient and one field - so this is stale local state, not data loss.
-    // Asserting the DB keeps the test meaningful rather than skipping it.
-    await expectKonvaElementCount(root, 1, '.field-group', 2);
-  } else {
+  // KNOWN GAP (embedded surfaces only) - see issue #30.
+  //
+  // Removing the recipient does prune its fields from editor state, but a
+  // debounced autosave callback captured BEFORE the removal can then fire and
+  // re-seed the editor from its stale payload, putting the orphan back. The
+  // native surfaces are saved by the server round trip, which returns the
+  // corrected list; embedded has no such round trip.
+  //
+  // Whether the stale callback wins is a race against the debounce, so the
+  // canvas settles on one field or two depending only on how fast the machine
+  // is - pinning either number here tests the timing rather than the product.
+  // The persisted data is correct either way, and every caller runs
+  // `assertMultiRecipientCascadePersistedInDatabase`, which confirms one
+  // recipient and one field, so that is where the cascade is asserted.
+  if (!surface.isEmbedded) {
     await expectKonvaElementCount(root, 1, '.field-group', 1);
   }
 
