@@ -185,12 +185,26 @@ export const EnvelopeEditorProvider = ({
     });
   }, []);
 
+  /**
+   * The ref is the source of truth, and the state is its mirror for rendering.
+   *
+   * Resolving the next envelope here rather than inside the `_setEnvelope`
+   * updater is what makes `envelopeRef.current` correct *synchronously*. React
+   * does not run an updater until it renders, so a ref written from inside one
+   * still holds the previous envelope for the rest of the current task - and
+   * everything that reads the ref to escape a stale closure (the debounced
+   * autosaves, `resetForms`, `flushAutosave`'s return value) was reading the
+   * value it was trying to avoid.
+   *
+   * Chained calls in one tick stay correct because each reads the ref, which the
+   * previous call has already advanced.
+   */
   const setEnvelope: typeof _setEnvelope = (action) => {
-    _setEnvelope((prev) => {
-      const next = typeof action === 'function' ? action(prev) : action;
-      envelopeRef.current = next;
-      return next;
-    });
+    const next = typeof action === 'function' ? action(envelopeRef.current) : action;
+
+    envelopeRef.current = next;
+
+    _setEnvelope(next);
   };
 
   const isEmbedded = editorConfig.embedded !== undefined;
@@ -221,16 +235,22 @@ export const EnvelopeEditorProvider = ({
     try {
       let recipients: TEditorEnvelope['recipients'] = [];
 
+      // Read through the ref, not the `envelope` this callback closed over: it
+      // was captured a debounce interval ago, and on an embedded surface the
+      // mapping below reads recipients out of it to carry over server-owned
+      // fields, so a stale copy reinstates a recipient that has been removed.
+      const currentEnvelope = envelopeRef.current;
+
       if (!isEmbedded) {
         const response = await setRecipientsMutation.mutateAsync({
-          envelopeId: envelope.id,
-          envelopeType: envelope.type,
+          envelopeId: currentEnvelope.id,
+          envelopeType: currentEnvelope.type,
           recipients: localRecipients,
         });
 
         recipients = response.data;
       } else {
-        recipients = mapLocalRecipientsToRecipients({ envelope, localRecipients });
+        recipients = mapLocalRecipientsToRecipients({ envelope: currentEnvelope, localRecipients });
       }
 
       setEnvelope((prev) => ({
@@ -288,16 +308,20 @@ export const EnvelopeEditorProvider = ({
     try {
       let fields: TSetEnvelopeFieldsResponse['data'] = [];
 
+      // As above: the captured `envelope` is a debounce interval old, and the
+      // embedded mapping reads existing fields out of it.
+      const currentEnvelope = envelopeRef.current;
+
       if (!isEmbedded) {
         const response = await setFieldsMutation.mutateAsync({
-          envelopeId: envelope.id,
-          envelopeType: envelope.type,
+          envelopeId: currentEnvelope.id,
+          envelopeType: currentEnvelope.type,
           fields: localFields,
         });
 
         fields = response.data;
       } else {
-        fields = mapLocalFieldsToFields({ envelope, localFields });
+        fields = mapLocalFieldsToFields({ envelope: currentEnvelope, localFields });
       }
 
       setEnvelope((prev) => ({
@@ -349,7 +373,7 @@ export const EnvelopeEditorProvider = ({
     try {
       const response = !isEmbedded
         ? await updateEnvelopeMutation.mutateAsync({
-            envelopeId: envelope.id,
+            envelopeId: envelopeRef.current.id,
             data,
             meta,
           })

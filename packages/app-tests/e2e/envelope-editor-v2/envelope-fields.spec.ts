@@ -274,23 +274,18 @@ const runMultiRecipientFieldFlow = async (
   // Go back to fields and verify cascade removal.
   await clickEnvelopeEditorStep(root, 'addFields');
 
-  // KNOWN GAP (embedded surfaces only) - see issue #30.
+  // Unbranched on purpose (it used to except the embedded surfaces, see #30).
   //
-  // Removing the recipient does prune its fields from editor state, but a
-  // debounced autosave callback captured BEFORE the removal can then fire and
-  // re-seed the editor from its stale payload, putting the orphan back. The
-  // native surfaces are saved by the server round trip, which returns the
-  // corrected list; embedded has no such round trip.
+  // Removing the recipient prunes its fields from editor state, but the editor
+  // then re-seeded itself from `envelopeRef.current` on the next step change,
+  // and that ref was written from inside a React state updater - so it still
+  // held the pre-removal envelope and put the orphan back. The native surfaces
+  // were rescued by the server round trip returning the corrected list;
+  // embedded has no round trip, so the stale copy won.
   //
-  // Whether the stale callback wins is a race against the debounce, so the
-  // canvas settles on one field or two depending only on how fast the machine
-  // is - pinning either number here tests the timing rather than the product.
-  // The persisted data is correct either way, and every caller runs
-  // `assertMultiRecipientCascadePersistedInDatabase`, which confirms one
-  // recipient and one field, so that is where the cascade is asserted.
-  if (!surface.isEmbedded) {
-    await expectKonvaElementCount(root, 1, '.field-group', 1);
-  }
+  // The database assertion below is what proves the cascade persisted; this one
+  // is what proves the canvas agrees with it without a reload.
+  await expectKonvaElementCount(root, 1, '.field-group', 1);
 
   return {
     externalId,
