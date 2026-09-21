@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 
 import { createTeam } from '@documenso/lib/server-only/team/create-team';
 import { nanoid } from '@documenso/lib/universal/id';
@@ -11,6 +11,27 @@ import {
   expectTextToNotBeVisible,
   openDropdownMenu,
 } from '../fixtures/generic';
+
+/**
+ * Dismiss a member/group picker's popover before clicking past it.
+ *
+ * These pickers are multi-select, so they stay open after a choice - by design,
+ * you are meant to pick several - and the popover then covers the dialog footer
+ * and swallows the click on Next/Create/Update. Escape closes the popover, but
+ * with none open it would close the dialog itself, so only press it when one is
+ * actually showing. The role picker in the same dialogs is single-select and
+ * closes on its own, which is why this is not applied after every option click.
+ */
+const closeOpenCombobox = async (page: Page) => {
+  const option = page.getByRole('option').first();
+
+  if (!(await option.isVisible().catch(() => false))) {
+    return;
+  }
+
+  await page.keyboard.press('Escape');
+  await expect(option).toBeHidden();
+};
 
 test('[ORGANISATIONS]: create and delete organisation', async ({ page }) => {
   const { user, organisation } = await seedUser({
@@ -155,6 +176,7 @@ test('[ORGANISATIONS]: inherit members', async ({ page }) => {
   await page.getByRole('button', { name: 'Add members' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: 'Member 1' }).first().click();
+  await closeOpenCombobox(page);
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Add Members' }).click();
   await expect(
@@ -316,6 +338,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('option', { name: 'Member1' }).click();
   await page.getByRole('option', { name: 'Member2' }).click();
   await page.getByRole('option', { name: 'Member3' }).click();
+  await closeOpenCombobox(page);
   await page.getByTestId('dialog-create-organisation-button').click();
   await expect(page.getByText('Group has been created.').first()).toBeVisible();
 
@@ -340,6 +363,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('option', { name: 'Organisation Member' }).click();
   await page.getByRole('combobox').filter({ hasText: 'Member1, Member2, Member3' }).click();
   await page.getByRole('option', { name: 'Member3' }).click();
+  await closeOpenCombobox(page);
   await page.getByRole('button', { name: 'Update' }).click();
   await expect(page.getByText('Group has been updated successfully').first()).toBeVisible();
 
@@ -352,6 +376,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('option', { name: 'Admin1' }).click();
   await page.getByRole('option', { name: 'Admin2' }).click();
   await page.getByRole('option', { name: 'Admin3' }).click();
+  await closeOpenCombobox(page);
   await page.getByTestId('dialog-create-organisation-button').click();
   await expect(page.getByText('Group has been created.').first()).toBeVisible();
 
@@ -377,6 +402,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('combobox').filter({ hasText: 'Select members' }).click();
   await page.getByRole('option', { name: 'Member4' }).click();
   await page.getByRole('option', { name: 'Member5' }).click();
+  await closeOpenCombobox(page);
   await page.getByTestId('dialog-create-organisation-button').click();
   await expect(page.getByText('Group has been created.').first()).toBeVisible();
 
@@ -385,6 +411,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('button', { name: 'Add groups' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: 'CUSTOM_GROUP_A', exact: true }).click();
+  await closeOpenCombobox(page);
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: 'Manager' }).click();
@@ -396,6 +423,7 @@ test('[ORGANISATIONS]: manage groups and members', async ({ page }) => {
   await page.getByRole('button', { name: 'Add groups' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: 'CUSTOM_GROUP_B', exact: true }).click();
+  await closeOpenCombobox(page);
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: 'Manager' }).click();
@@ -511,6 +539,7 @@ test('[ORGANISATIONS]: member invites', async ({ page }) => {
   await page.getByRole('button', { name: 'Add members' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: user2.name ?? '' }).click();
+  await closeOpenCombobox(page);
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Add Members' }).click();
 
