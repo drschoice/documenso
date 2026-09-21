@@ -251,14 +251,17 @@ export const clickV2SigningField = async (page: Page, fieldId: number, pageNumbe
 };
 
 /**
- * Click one option of a radio/checkbox field on the v2 signing canvas.
+ * Click one option of a radio field on the v2 signing canvas.
  *
- * `clickV2SigningField` aims at the centre of the field group, which for an
- * option field is the gap between its buttons - the click lands on nothing. The
- * individual buttons are `.field-option-group` nodes inside the field's own
- * group, in the order the options are declared.
+ * `clickV2SigningField` aims at the centre of the field group, which for a
+ * radio is the gap between its buttons - the click lands on nothing.
+ *
+ * The signer does not reuse the editor's node names: there is no
+ * `.field-option-group` here, only a `.radio-circle` / `.radio-dot` /
+ * `.radio-text` triple per option, painted as direct children of the field
+ * group in the order the options are declared.
  */
-export const clickV2SigningFieldOption = async (
+export const clickV2SigningRadioOption = async (
   page: Page,
   fieldId: number,
   optionIndex: number,
@@ -277,7 +280,6 @@ export const clickV2SigningFieldOption = async (
                 find: (selector: string) => Array<{
                   getClientRect: () => { x: number; y: number; width: number; height: number };
                 }>;
-                getClientRect: () => { x: number; y: number; width: number; height: number };
               }>;
             }>;
           };
@@ -286,7 +288,7 @@ export const clickV2SigningFieldOption = async (
 
       const stage = konva.stages.find((s) => s.attrs.id === `page-${pageNumber}`);
       const field = stage?.find('.field-group').find((n) => n.id() === String(fieldId));
-      const option = field?.find('.field-option-group')[optionIndex];
+      const option = field?.find('.radio-circle')[optionIndex];
 
       if (!stage || !option) {
         return null;
@@ -305,7 +307,7 @@ export const clickV2SigningFieldOption = async (
 
   if (!point) {
     throw new Error(
-      `Field ${fieldId} has no option ${optionIndex} on the v2 signing canvas for page ${pageNumber}`,
+      `Field ${fieldId} has no radio option ${optionIndex} on the v2 signing canvas for page ${pageNumber}`,
     );
   }
 

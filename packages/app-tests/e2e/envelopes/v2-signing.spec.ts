@@ -7,7 +7,7 @@ import { seedUser } from '@documenso/prisma/seed/users';
 
 import {
   clickV2SigningField,
-  clickV2SigningFieldOption,
+  clickV2SigningRadioOption,
   completeV2SigningViaTrpc,
   expectEnvelopeCompleted,
   openV2SigningPage,
@@ -173,7 +173,7 @@ test.describe('conditional visibility on the v2 signer', () => {
     await expect(status).toHaveText('');
 
     // "Married" is the first option, and the one the dependent's rule names.
-    await clickV2SigningFieldOption(page, radioField.id, 0);
+    await clickV2SigningRadioOption(page, radioField.id, 0);
 
     await expect(status).toHaveText(`Field revealed: ${dependentTextMeta.label}`);
 
