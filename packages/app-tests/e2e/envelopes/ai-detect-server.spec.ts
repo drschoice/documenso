@@ -134,6 +134,9 @@ const detectFields = async (request: APIRequestContext, body: Record<string, unk
     timeout: 100_000,
   });
 
+  // A 429 here means the suite is running without a raised rate-limit multiplier:
+  // `/api/ai/*` allows three requests a minute *per IP*, and the whole suite shares
+  // one. `test:e2e` sets the multiplier; a hand-started server needs it too.
   expect(response.status()).toBe(200);
 
   const events: StreamEvent[] = (await response.text())
