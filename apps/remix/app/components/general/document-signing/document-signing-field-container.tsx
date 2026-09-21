@@ -14,7 +14,7 @@ import { cn } from '@documenso/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
-import { useRequiredEnvelopeSigningContext } from './envelope-signing-provider';
+import { useEnvelopeSigningContext } from './envelope-signing-provider';
 
 export type DocumentSigningFieldContainerProps = {
   field: FieldWithSignature;
@@ -68,7 +68,15 @@ export const DocumentSigningFieldContainer = ({
   const { executeActionAuthProcedure, isAuthRedirectRequired } =
     useRequiredDocumentSigningAuthContext();
 
-  const { recipientFieldVisibility } = useRequiredEnvelopeSigningContext();
+  // This container is shared with the v1 signing page, which mounts
+  // `DocumentSigningProvider` but NOT `EnvelopeSigningProvider` - so the
+  // envelope signing context is genuinely absent there. Requiring it (as this
+  // did when conditional visibility landed) threw "Signing context is required"
+  // and took down the whole v1 signing page.
+  //
+  // Absent context means no client-side visibility filtering; the server still
+  // refuses to sign a hidden field, so nothing can be signed that shouldn't be.
+  const envelopeSigningContext = useEnvelopeSigningContext();
 
   const parsedFieldMeta = field.fieldMeta ? ZFieldMetaSchema.parse(field.fieldMeta) : undefined;
   const readOnlyField = parsedFieldMeta?.readOnly || false;
@@ -136,7 +144,7 @@ export const DocumentSigningFieldContainer = ({
     <FieldRootContainer
       color={getRecipientColorStyles(field.fieldMeta?.readOnly ? 'readOnly' : 0)}
       field={field}
-      hidden={recipientFieldVisibility.get(field.id) === false}
+      hidden={envelopeSigningContext?.recipientFieldVisibility.get(field.id) === false}
     >
       {!field.inserted && !loading && !readOnlyField && (
         <button

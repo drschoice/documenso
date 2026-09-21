@@ -22,6 +22,7 @@ import type {
   TCreateEnvelopeResponse,
 } from '../../../trpc/server/envelope-router/create-envelope.types';
 import type { TDistributeEnvelopeRequest } from '../../../trpc/server/envelope-router/distribute-envelope.types';
+import type { FieldTestData } from '../../constants/field-alignment-pdf';
 import { ALIGNMENT_TEST_FIELDS } from '../../constants/field-alignment-pdf';
 import { FIELD_META_TEST_FIELDS } from '../../constants/field-meta-pdf';
 import { apiSignin } from '../fixtures/authentication';
@@ -77,27 +78,39 @@ test('field placement visual regression', async ({ page, request }, testInfo) =>
 
   const formData = new FormData();
 
-  const fieldMetaFields = FIELD_META_TEST_FIELDS.map((field) => ({
-    identifier: 'field-meta',
-    type: field.type,
-    page: field.page,
-    positionX: field.positionX,
-    positionY: field.positionY,
-    width: field.width,
-    height: field.height,
-    fieldMeta: field.fieldMeta,
-  }));
+  type TCreateEnvelopeField = NonNullable<
+    NonNullable<TCreateEnvelopePayload['recipients']>[number]['fields']
+  >[number];
 
-  const alignmentFields = ALIGNMENT_TEST_FIELDS.map((field) => ({
-    identifier: 'alignment-pdf',
-    type: field.type,
-    page: field.page,
-    positionX: field.positionX,
-    positionY: field.positionY,
-    width: field.width,
-    height: field.height,
-    fieldMeta: field.fieldMeta,
-  }));
+  /**
+   * Strip the render-only keys (`customText`, `signature`) that `FieldTestData`
+   * carries for the image comparison but the create payload does not accept.
+   *
+   * `FieldTestData` is `TFieldAndMeta & {...}`, so it is a discriminated union on
+   * `type`/`fieldMeta`. Rebuilding it key-by-key inside `.map()` widens `type` to
+   * every FieldType and `fieldMeta` to every meta shape independently, which loses
+   * the correlation the payload's own union requires. The values are correct - the
+   * pairing simply is not expressible through this map - so the union is reasserted
+   * once, here, rather than at each call site.
+   */
+  const toPayloadFields = (identifier: string, fields: FieldTestData[]) =>
+    fields.map(
+      (field) =>
+        ({
+          identifier,
+          type: field.type,
+          page: field.page,
+          positionX: field.positionX,
+          positionY: field.positionY,
+          width: field.width,
+          height: field.height,
+          fieldMeta: field.fieldMeta,
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        }) as TCreateEnvelopeField,
+    );
+
+  const fieldMetaFields = toPayloadFields('field-meta', FIELD_META_TEST_FIELDS);
+  const alignmentFields = toPayloadFields('alignment-pdf', ALIGNMENT_TEST_FIELDS);
 
   const createEnvelopePayload: TCreateEnvelopePayload = {
     type: EnvelopeType.DOCUMENT,

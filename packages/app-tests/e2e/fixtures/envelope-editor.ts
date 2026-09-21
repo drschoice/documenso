@@ -5,7 +5,9 @@ import path from 'node:path';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
+import type { EnvelopeEditorConfig } from '@documenso/lib/types/envelope-editor';
 import { DEFAULT_EMBEDDED_EDITOR_CONFIG } from '@documenso/lib/types/envelope-editor';
+import { prisma } from '@documenso/prisma';
 import { seedBlankDocument } from '@documenso/prisma/seed/documents';
 import { seedBlankTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
@@ -13,6 +15,18 @@ import { seedUser } from '@documenso/prisma/seed/users';
 import { apiSignin } from './authentication';
 
 const examplePdfBuffer = fs.readFileSync(path.join(__dirname, '../../../../assets/example.pdf'));
+
+/**
+ * A three-page PDF.
+ *
+ * `example.pdf` is a single page, which silently makes any per-page behaviour
+ * untestable - "duplicate on all pages" has nowhere to copy to, and a field's
+ * page anchoring can't be observed. This is the smallest asset in the repo with
+ * more than one page.
+ */
+export const multiPagePdfBuffer = fs.readFileSync(
+  path.join(__dirname, '../../../../assets/field-font-alignment.pdf'),
+);
 
 export type TEnvelopeEditorSurface = {
   root: Page;
@@ -29,7 +43,7 @@ export type TEnvelopeEditorType = 'DOCUMENT' | 'TEMPLATE';
 
 type TEmbeddedHashCommonOptions = {
   externalId?: string;
-  features?: typeof DEFAULT_EMBEDDED_EDITOR_CONFIG;
+  features?: EnvelopeEditorConfig;
   css?: string;
   cssVars?: Record<string, string>;
   darkModeDisabled?: boolean;
@@ -81,12 +95,32 @@ export const createEmbeddedEnvelopeEditHash = ({
   });
 };
 
-export const openDocumentEnvelopeEditor = async (page: Page): Promise<TEnvelopeEditorSurface> => {
+export const openDocumentEnvelopeEditor = async (
+  page: Page,
+  options: { multiPage?: boolean } = {},
+): Promise<TEnvelopeEditorSurface> => {
   const { user, team } = await seedUser();
 
   const document = await seedBlankDocument(user, team.id, {
     internalVersion: 2,
   });
+
+  if (options.multiPage) {
+    // `seedBlankDocument` always seeds the single-page example, so swap the
+    // bytes underneath it rather than adding a second envelope item - a second
+    // item would put the fields step behind an item selector and change what is
+    // being tested.
+    const pdf = multiPagePdfBuffer.toString('base64');
+
+    const envelopeItem = await prisma.envelopeItem.findFirstOrThrow({
+      where: { envelopeId: document.id },
+    });
+
+    await prisma.documentData.update({
+      where: { id: envelopeItem.documentDataId },
+      data: { data: pdf, initialData: pdf },
+    });
+  }
 
   await apiSignin({
     page,
@@ -142,7 +176,7 @@ type OpenEmbeddedEnvelopeEditorOptions = {
   tokenNamePrefix?: string;
   externalId?: string;
   folderId?: string;
-  features?: typeof DEFAULT_EMBEDDED_EDITOR_CONFIG;
+  features?: EnvelopeEditorConfig;
   css?: string;
   cssVars?: Record<string, string>;
   darkModeDisabled?: boolean;
@@ -253,11 +287,15 @@ export const getEnvelopeItemReplaceButtons = (root: Page) =>
 export const getEnvelopeItemDropzoneInput = (root: Page) =>
   root.locator('[data-testid="envelope-item-dropzone"] input[type="file"]');
 
-export const addEnvelopeItemPdf = async (root: Page, fileName = 'embedded-envelope-item.pdf') => {
+export const addEnvelopeItemPdf = async (
+  root: Page,
+  fileName = 'embedded-envelope-item.pdf',
+  buffer: Buffer = examplePdfBuffer,
+) => {
   await getEnvelopeItemDropzoneInput(root).setInputFiles({
     name: fileName,
     mimeType: 'application/pdf',
-    buffer: examplePdfBuffer,
+    buffer,
   });
 };
 
@@ -294,6 +332,78 @@ export const clickEnvelopeEditorStep = async (
 ) => {
   await root.waitForTimeout(200);
   await root.locator(`[data-testid="envelope-editor-step-${stepId}"]`).first().click();
+};
+
+/**
+ * Wait for the editor's PDF canvas to be rendered.
+ *
+ * The Konva stage only mounts once the PDF has been fetched and rasterised,
+ * which routinely takes longer than Playwright's 5s default expect timeout -
+ * especially on the first render of a worker, or against a dev server that is
+ * still compiling the route. Every editor spec needs this wait, so it lives
+ * here with a timeout that reflects what the step actually costs.
+ */
+export const waitForEditorCanvas = async (root: Page, timeout = 30_000) => {
+  await root.locator('.konva-container canvas').first().waitFor({ state: 'visible', timeout });
+};
+
+export type TFieldButtonName =
+  | 'Signature'
+  | 'Email'
+  | 'Name'
+  | 'Initials'
+  | 'Date'
+  | 'Text'
+  | 'Number'
+  | 'Radio'
+  | 'Checkbox'
+  | 'Dropdown';
+
+/**
+ * Place a field on the PDF canvas: pick the type, then click where it goes.
+ *
+ * Beware that the newly placed field becomes the selected one, and the selected
+ * field's floating action toolbar covers roughly 30-110px directly below it. A
+ * follow-up placement that lands there will be swallowed by the toolbar, so
+ * space consecutive placements out or alternate columns.
+ */
+export const placeFieldOnPdf = async (
+  root: Page,
+  fieldName: TFieldButtonName,
+  position: { x: number; y: number },
+) => {
+  await root.getByRole('button', { name: fieldName, exact: true }).click();
+
+  await waitForEditorCanvas(root);
+  await root.locator('.konva-container canvas').first().click({ position });
+};
+
+/**
+ * Select an already-placed field so its settings form opens in the sidebar.
+ *
+ * `force` is required because the floating action toolbar of whichever field is
+ * currently selected sits over the canvas and intercepts the click.
+ */
+export const selectFieldOnCanvas = async (root: Page, position: { x: number; y: number }) => {
+  await waitForEditorCanvas(root);
+  await root.waitForTimeout(300);
+  await root.locator('.konva-container canvas').first().click({ position, force: true });
+};
+
+/**
+ * Switch which recipient new fields are assigned to, in the Add Fields step.
+ */
+export const selectRecipientInFieldsStep = async (root: Page, recipientIdentifier: string) => {
+  // Scope to the "Selected Recipient" section: the field settings form renders
+  // comboboxes of its own (textAlign, direction, numberFormat, ...), so a bare
+  // `button[role="combobox"]` matches more than one element once a field is
+  // selected.
+  const recipientSection = root
+    .locator('section')
+    .filter({ has: root.getByRole('heading', { name: 'Selected Recipient' }) });
+
+  await recipientSection.locator('button[role="combobox"]').click();
+  await root.getByText(recipientIdentifier).click();
 };
 
 export const clickAddMyselfButton = async (root: Page) => {

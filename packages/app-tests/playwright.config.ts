@@ -31,7 +31,17 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   workers: 10, // See Projects where 10 is utilized for API tests. We're not running 10 workers for UI tests.
-  maxFailures: process.env.CI ? 1 : undefined,
+  /**
+   * Inherited as `process.env.CI ? 1 : undefined`, which stopped a CI run dead at
+   * the first red test.
+   *
+   * That was tolerable when the suite was one job; it is not now that it is split
+   * across shards, because the shard that trips first reports one failure and
+   * abandons the rest of its work, so a run tells you about a single test rather
+   * than about the branch. Every failure this audit triaged needed the other
+   * failures around it to classify - the shape of the set is the signal.
+   */
+  maxFailures: undefined,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
@@ -73,7 +83,34 @@ export default defineConfig({
     },
   },
 
-  timeout: 60_000,
+  /**
+   * Raised from the inherited 60s.
+   *
+   * Two reasons, neither of them "the tests got slower". First, the multi-recipient
+   * signing flows genuinely do more work than they used to: they previously died
+   * early against a crashing v1 signing page, so they never paid for the full
+   * sign-and-submit loop three times over. Second, the e2e workflow used to ask for
+   * `warp-ubuntu-2204-x64-8x`, a label this fork cannot schedule, so it never ran at
+   * all; `ubuntu-latest` has fewer cores than that runner, which makes a budget tuned
+   * for it the wrong budget here.
+   *
+   * A passing test never spends this, so the cost falls only on tests already failing.
+   */
+  timeout: 120_000,
+
+  /**
+   * Match the action timeout.
+   *
+   * Playwright's default is 5s, which was inconsistent with `actionTimeout`
+   * above: the suite waited 15s to click something but only 5s to assert it was
+   * there. Most of this suite asserts on a Konva stage that has to fetch and
+   * rasterise a PDF first, so 5s is routinely too tight on a loaded machine and
+   * produced failures that had nothing to do with the code under test. A
+   * negative assertion only pays this cost when it is about to fail anyway.
+   */
+  expect: {
+    timeout: 15_000,
+  },
 
   /* Configure projects for major browsers */
   projects: [

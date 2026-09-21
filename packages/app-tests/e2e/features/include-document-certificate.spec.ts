@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 
 import { getDocumentByToken } from '@documenso/lib/server-only/document/get-document-by-token';
+import { DEFAULT_EMBEDDED_EDITOR_CONFIG } from '@documenso/lib/types/envelope-editor';
 import { getEnvelopeItemPdfUrl } from '@documenso/lib/utils/envelope-download';
 import { prisma } from '@documenso/prisma';
 import { seedPendingDocumentWithFullFields } from '@documenso/prisma/seed/documents';
@@ -11,6 +12,11 @@ import { seedTeam } from '@documenso/prisma/seed/teams';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
+import {
+  getEnvelopeEditorSettingsTrigger,
+  openEmbeddedEnvelopeEditor,
+  persistEmbeddedEnvelope,
+} from '../fixtures/envelope-editor';
 import { signSignaturePad } from '../fixtures/signature';
 
 test.describe('Signing Certificate Tests', () => {
@@ -390,6 +396,17 @@ test.describe('Signing Certificate Tests', () => {
     });
   };
 
+  const setOrganisationSigningCertificate = async (organisationId: string, value: boolean) => {
+    const organisation = await prisma.organisation.findFirstOrThrow({
+      where: { id: organisationId },
+    });
+
+    await prisma.organisationGlobalSettings.update({
+      where: { id: organisation.organisationGlobalSettingsId },
+      data: { includeSigningCertificate: value },
+    });
+  };
+
   const setEnvelopeSigningCertificate = async (envelopeId: string, value: boolean | null) => {
     const envelope = await prisma.envelope.findFirstOrThrow({ where: { id: envelopeId } });
 
@@ -447,6 +464,55 @@ test.describe('Signing Certificate Tests', () => {
     expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
   });
 
+  /**
+   * The setting is a three-level chain - organisation, then team, then envelope -
+   * and the tests above only ever exercise its lower two links. A team that has
+   * never opened its own settings stores `null`, so what a document does is
+   * decided entirely by the organisation. Both directions are asserted, because a
+   * test that only proved "no certificate" would still pass if sealing had
+   * stopped appending one at all.
+   */
+  const seedTeamInheritingCertificate = async (organisationValue: boolean) => {
+    const { owner, team, organisation } = await seedTeam();
+
+    const { document, recipients } = await seedPendingDocumentWithFullFields({
+      owner,
+      recipients: ['signer@example.com'],
+      fields: [FieldType.SIGNATURE],
+      teamId: team.id,
+    });
+
+    await setOrganisationSigningCertificate(organisation.id, organisationValue);
+    await setTeamSigningCertificate(team.id, null);
+    await setEnvelopeSigningCertificate(document.id, null);
+
+    // Guards the test against quietly becoming a restatement of the team-level
+    // tests if the seed or the setter ever starts writing a concrete value here.
+    const teamSettings = await prisma.teamGlobalSettings.findFirstOrThrow({
+      where: { team: { id: team.id } },
+    });
+
+    expect(teamSettings.includeSigningCertificate).toBeNull();
+
+    return { document, recipients };
+  };
+
+  test('a team that has set nothing follows its organisation turning the certificate off', async ({
+    page,
+  }) => {
+    const { document, recipients } = await seedTeamInheritingCertificate(false);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(0);
+  });
+
+  test('a team that has set nothing follows its organisation turning the certificate on', async ({
+    page,
+  }) => {
+    const { document, recipients } = await seedTeamInheritingCertificate(true);
+
+    expect(await signAndCountExtraPages(page, document.id, recipients[0])).toBe(1);
+  });
+
   test('envelope editor can toggle the signing certificate', async ({ page }) => {
     const { owner, team } = await seedTeam();
 
@@ -455,6 +521,11 @@ test.describe('Signing Certificate Tests', () => {
       recipients: ['signer@example.com'],
       fields: [FieldType.SIGNATURE],
       teamId: team.id,
+      // `seedBlankDocument` defaults to `internalVersion: 1`, and the editor route
+      // redirects anything that is not version 2 straight to `legacy_editor`, which
+      // has none of the v2 sidebar. This test asserts a v2 editor control, so it has
+      // to be seeded on v2.
+      updateDocumentOptions: { internalVersion: 2 },
     });
 
     await apiSignin({
@@ -475,7 +546,9 @@ test.describe('Signing Certificate Tests', () => {
     // Defaults to inheriting the organisation/team setting.
     expect(await readOverride()).toBeNull();
 
-    await page.getByRole('button', { name: 'Settings' }).click();
+    // Located by `title`, matching every other editor spec.
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
 
     const trigger = page.getByTestId('envelope-include-signing-certificate-trigger');
 
@@ -492,6 +565,72 @@ test.describe('Signing Certificate Tests', () => {
     await expect(async () => {
       expect(await readOverride()).toBe(false);
     }).toPass();
+  });
+
+  /**
+   * The embedded authoring surface is a separate mount with its own feature
+   * gating, and `cb9cc64b4` added both halves of that: the
+   * `allowConfigureSigningCertificate` flag and the team default passed down
+   * through the embed loader. An integrator who turns the flag off must not be
+   * shown a control their host application cannot honour.
+   */
+  test('the embedded editor gates the certificate control behind its feature flag', async ({
+    page,
+  }) => {
+    const surface = await openEmbeddedEnvelopeEditor(page, {
+      envelopeType: 'DOCUMENT',
+      mode: 'edit',
+      tokenNamePrefix: 'e2e-embed-certificate',
+    });
+
+    const trigger = page.getByTestId('envelope-include-signing-certificate-trigger');
+
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
+    await expect(trigger).toBeVisible();
+
+    await trigger.click();
+    await page.getByRole('option', { name: 'No', exact: true }).click();
+
+    await page
+      .getByRole('button', { name: /Update|Save/ })
+      .last()
+      .click();
+
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
+
+    await persistEmbeddedEnvelope(surface);
+
+    await expect(async () => {
+      const envelope = await prisma.envelope.findFirstOrThrow({
+        where: { id: surface.envelopeId },
+        include: { documentMeta: true },
+      });
+
+      expect(envelope.documentMeta.includeSigningCertificate).toBe(false);
+    }).toPass();
+  });
+
+  test('the embedded editor hides the certificate control when the flag is off', async ({
+    page,
+  }) => {
+    await openEmbeddedEnvelopeEditor(page, {
+      envelopeType: 'DOCUMENT',
+      mode: 'edit',
+      tokenNamePrefix: 'e2e-embed-no-certificate',
+      features: {
+        ...DEFAULT_EMBEDDED_EDITOR_CONFIG,
+        settings: {
+          ...DEFAULT_EMBEDDED_EDITOR_CONFIG.settings,
+          allowConfigureSigningCertificate: false,
+        },
+      },
+    });
+
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
+
+    await expect(page.getByTestId('envelope-include-signing-certificate-trigger')).toHaveCount(0);
   });
 
   test('team can toggle signing certificate setting', async ({ page }) => {

@@ -144,8 +144,13 @@ export const extractFieldInsertionValues = ({
       const errors = validateTextField(fieldValue.value, parsedTextFieldMeta, true);
 
       if (errors.length > 0) {
+        // This said "Invalid email" - copied from the EMAIL branch above - so a
+        // signer who overran a text field's character limit was told their email
+        // address was wrong. The validator already knows which rule failed and
+        // by how much, which for a comb field is the only way to learn that the
+        // cell count is the limit.
         throw new AppError(AppErrorCode.INVALID_BODY, {
-          message: 'Invalid email',
+          message: errors.join(', '),
         });
       }
 

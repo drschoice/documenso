@@ -11,9 +11,43 @@ concurrency:
 
 jobs:
   e2e_tests:
-    name: 'E2E Tests'
-    timeout-minutes: 60
-    runs-on: warp-ubuntu-2204-x64-8x
+    name: 'E2E Tests (${{ matrix.name }})'
+    timeout-minutes: 150
+    # NOTE: upstream uses the WarpBuild label `warp-ubuntu-2204-x64-8x`, which is
+    # not available to this fork - every run queued forever and was cancelled, so
+    # the suite had never actually executed here.
+    #
+    # `ubuntu-latest` has far fewer cores, and `calculateWorkers()` in the
+    # Playwright config resolves to a single worker there, so the ui project runs
+    # strictly serially however it is invoked. Serially the whole suite takes
+    # hours, which is why the work is split across shards below rather than run
+    # in one job. Point this at a larger runner if one is configured for the org;
+    # the shard count can then come down.
+    runs-on: ubuntu-latest
+    strategy:
+      # A red shard says nothing about the other five, and finding out which
+      # other areas broke is the entire point of running them.
+      fail-fast: false
+      matrix:
+        include:
+          # The api project runs at 10 workers and finishes in a couple of
+          # minutes, so it does not need splitting. `license` is serial by
+          # construction - its tests share one licence file on disk - and is
+          # small enough to ride along here.
+          - name: api
+            args: '--project=api --project=license'
+          - name: ui-1
+            args: '--project=ui --shard=1/6'
+          - name: ui-2
+            args: '--project=ui --shard=2/6'
+          - name: ui-3
+            args: '--project=ui --shard=3/6'
+          - name: ui-4
+            args: '--project=ui --shard=4/6'
+          - name: ui-5
+            args: '--project=ui --shard=5/6'
+          - name: ui-6
+            args: '--project=ui --shard=6/6'
     steps:
       - uses: actions/checkout@v4
 
@@ -22,8 +56,40 @@ jobs:
 
       - uses: ./.github/actions/node-install
 
+      # Deliberately not `npm run dx:up`, which brings up all four development
+      # services. Two of them are dead weight here and one of them is fatal:
+      #
+      # - `minio/minio` cannot be pulled anonymously on a GitHub runner
+      #   ("pull access denied ... may require 'docker login'"), and compose
+      #   aborts the whole `up` when any image fails, so nothing starts at all.
+      #   Nothing needs it either: `.env.example` sets
+      #   `NEXT_PUBLIC_UPLOAD_TRANSPORT="database"`, so uploads never touch S3.
+      # - Redis is only read by the BullMQ jobs provider, which is opt-in.
+      #
+      # What is left is also exactly the topology the suite was verified green
+      # against locally, which is the point: CI should be running the thing that
+      # was checked, not a superset of it.
       - name: Start Services
-        run: npm run dx:up
+        run: docker compose -f docker/development/compose.yml up -d database inbucket
+
+      # Compose returns as soon as the containers are created, and its
+      # healthcheck cannot help here: it shells out to `pg_isready -U
+      # ${POSTGRES_USER}`, and that variable is only set inside the container,
+      # so on a runner it expands to nothing (compose says so out loud:
+      # 'The "POSTGRES_USER" variable is not set'). Locally the containers are
+      # long-lived and the race never shows; on a cold runner the migrate step
+      # is the first thing to touch the database.
+      - name: Wait for Postgres
+        run: |
+          for _ in $(seq 1 60); do
+            if docker exec database pg_isready -U documenso -q; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres was not accepting connections after 120s" >&2
+          docker compose -f docker/development/compose.yml logs database >&2
+          exit 1
 
       - uses: ./.github/actions/playwright-install
 
@@ -39,16 +105,67 @@ jobs:
       - name: Run Playwright tests
         run: npm run ci
         env:
+          # `test:e2e` interpolates this unquoted into the `playwright test`
+          # call, which start-server-and-test then runs through a shell, so the
+          # flags arrive split rather than as one argument.
+          #
+          # Worth checking once on the first green run: each shard should report
+          # roughly a seventh of the suite. If the variable ever stopped reaching
+          # Playwright the shards would not fail - they would each quietly run
+          # the whole suite and take hours.
+          E2E_TEST_PATH: '${{ matrix.args }} --reporter=blob'
           # Needed since we use next start which will set the NODE_ENV to production
           NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: './example/cert.p12'
-          DANGEROUS_BYPASS_RATE_LIMITS: 'true'
+          # Run with rate limiting ON but scaled far out of the way, rather than
+          # bypassed. The bypass returns early from `check()`, so the middleware,
+          # the bucket upserts and the limit headers were never exercised by any
+          # test; the suite proved only that the code path could be skipped.
+          NEXT_PRIVATE_RATE_LIMIT_MULTIPLIER: '1000'
+
+      - name: Upload blob report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-report-${{ matrix.name }}
+          path: packages/app-tests/blob-report
+          retention-days: 7
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: test-results-${{ matrix.name }}
           path: 'packages/app-tests/**/test-results/*'
           retention-days: 7
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+  # Seven shards produce seven reports, which is seven places to look for the one
+  # test that failed. Stitch them back into the single HTML report the suite used
+  # to produce when it ran as one job.
+  e2e_report:
+    name: 'E2E Report'
+    if: always()
+    needs: [e2e_tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/node-install
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge into one report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

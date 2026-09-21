@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * How many times {@link useEnvelopeAutosave}'s flush will drain a payload that was
+ * queued while the previous one was still in flight.
+ */
+const MAX_FLUSH_ROUNDS = 5;
+
 export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay = 1000) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastArgsRef = useRef<T | null>(null);
@@ -49,13 +55,25 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
       timeoutRef.current = null;
     }
 
-    if (pendingPromiseRef.current) {
-      // Already running → wait for it
-      await pendingPromiseRef.current;
-      return;
-    }
+    // A save that is already running carries the payload it started with, not
+    // whatever was queued behind it while it ran. Awaiting it and returning
+    // therefore drops the newest edit on the floor at the one moment a flush is
+    // meant to guarantee the opposite - a step change, a persist, a beforeunload.
+    // So drain: wait out the in-flight save, then commit anything still queued.
+    //
+    // Bounded because a save can legitimately queue one more round (the fields
+    // save writes server ids back into the form), but nothing should queue
+    // forever; if something does, a hung flush would be worse than a lost round.
+    for (let round = 0; round < MAX_FLUSH_ROUNDS; round += 1) {
+      if (pendingPromiseRef.current) {
+        await pendingPromiseRef.current;
+        continue;
+      }
 
-    if (lastArgsRef.current) {
+      if (!lastArgsRef.current) {
+        return;
+      }
+
       const args = lastArgsRef.current;
       lastArgsRef.current = null;
 

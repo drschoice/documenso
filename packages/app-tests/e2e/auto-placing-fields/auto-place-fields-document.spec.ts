@@ -144,7 +144,11 @@ test.describe('PDF Placeholders with single recipient', () => {
     await expect(page.getByTestId('signer-email-input').first()).toHaveValue(
       'recipient.1@documenso.com',
     );
-    await expect(page.getByLabel('Name').first()).toHaveValue('Recipient 1');
+    // `e77aacc48` split the recipient name into first/middle/last inputs, so
+    // `getByLabel('Name')` now matches the first-name box ("Recipient") rather
+    // than the whole name. Assert the derived preview, which is what the editor
+    // shows as the recipient's name.
+    await expect(page.getByTestId('signer-full-name-preview').first()).toHaveText('Recipient 1');
   });
 
   test('[AUTO_PLACING_FIELDS]: should automatically place fields from PDF placeholders', async ({

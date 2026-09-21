@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   capSignatureSettings,
+  extractDerivedDocumentMeta,
   resolveDateFormat,
   resolveIncludeSigningCertificate,
   resolveLiveDocumentMeta,
@@ -134,6 +135,77 @@ describe('resolveLiveDocumentMeta', () => {
     expect(resolveLiveDocumentMeta(settings, withExtras, DocumentStatus.DRAFT)).toMatchObject({
       timezone: 'Australia/Melbourne',
       subject: 'Hello',
+    });
+  });
+});
+
+describe('extractDerivedDocumentMeta', () => {
+  /**
+   * `192642f28` / `50117eb23` made the typed-signature font configurable and
+   * bumped the default size from 18 to 24. The chain is organisation -> team ->
+   * envelope, resolved once when the document is created, and nothing covered it.
+   */
+  const orgSettings = {
+    documentLanguage: 'en',
+    documentTimezone: 'Etc/UTC',
+    documentDateFormat: 'yyyy-MM-dd',
+    typedSignatureEnabled: true,
+    uploadSignatureEnabled: true,
+    drawSignatureEnabled: true,
+    signatureFontFamily: 'Caveat',
+    signatureFontSize: 24,
+    emailId: null,
+    emailReplyTo: null,
+    emailDocumentSettings: null,
+    envelopeExpirationPeriod: null,
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  } as unknown as Parameters<typeof extractDerivedDocumentMeta>[0];
+
+  it('inherits the signature font from the organisation/team settings', () => {
+    expect(extractDerivedDocumentMeta(orgSettings, undefined)).toMatchObject({
+      signatureFontFamily: 'Caveat',
+      signatureFontSize: 24,
+    });
+  });
+
+  it('lets the envelope override the inherited font', () => {
+    expect(
+      extractDerivedDocumentMeta(orgSettings, {
+        signatureFontFamily: 'Dancing Script',
+        signatureFontSize: 30,
+      }),
+    ).toMatchObject({
+      signatureFontFamily: 'Dancing Script',
+      signatureFontSize: 30,
+    });
+  });
+
+  it('inherits when the override carries no font at all', () => {
+    // An override object that simply says nothing about the font is the real
+    // shape of "inherit" here. Null is not: unlike the team settings, where the
+    // columns are nullable and null genuinely means inherit, `DocumentMeta`
+    // declares both font columns non-nullable with defaults, so a null can
+    // never reach this function from the database.
+    expect(extractDerivedDocumentMeta(orgSettings, { subject: 'Please sign' })).toMatchObject({
+      signatureFontFamily: 'Caveat',
+      signatureFontSize: 24,
+    });
+  });
+
+  it('keeps a font size the envelope pinned even when it matches the old default', () => {
+    // 18 was the default before `192642f28`. `??` rather than `||` is what makes
+    // an explicitly chosen 18 survive instead of snapping back to the setting.
+    expect(
+      extractDerivedDocumentMeta(orgSettings, { signatureFontSize: 18 }),
+    ).toMatchObject({ signatureFontSize: 18 });
+  });
+
+  it('starts a document with no next-field navigation filter', () => {
+    // An empty filter means "every required field blocks completion", which is
+    // the behaviour `04dbd580c` only departs from when a filter is configured.
+    expect(extractDerivedDocumentMeta(orgSettings, undefined)).toMatchObject({
+      nextFieldNavigationTypes: [],
+      nextFieldNavigationLabels: [],
     });
   });
 });
