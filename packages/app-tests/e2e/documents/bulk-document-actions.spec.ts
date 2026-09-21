@@ -265,5 +265,11 @@ test('[BULK_ACTIONS]: can move documents from folder to home (root)', async ({ p
   await expect(page.getByRole('link', { name: 'Bulk Test Doc 1' })).toBeVisible();
 
   await page.goto(`/t/${sender.team.url}/documents/f/${folder.id}`);
+
+  // The folder page's own data has to be in before an absence means anything:
+  // `not.toBeVisible()` is equally satisfied by a page that has not painted.
+  // The breadcrumb resolves to the folder name only once the route's query has
+  // settled, which is the signal that the list below it is the real one.
+  await expect(page.getByTestId('folder-grid-breadcrumbs').getByText(folder.name)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Bulk Test Doc 1' })).not.toBeVisible();
 });

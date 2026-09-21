@@ -574,6 +574,12 @@ test.describe('Template Field Prefill API v2', () => {
     // Visit the signing page
     await page.goto(`${WEBAPP_BASE_URL}/sign/${documentRecipient?.token}`);
 
+    // Barrier on the signing page before asserting what is absent from it - the
+    // same heading the document-auth specs wait on. Without it the assertion
+    // below is satisfied by a page that is still loading, so it would hold even
+    // if the prefilled value were rendered a moment later.
+    await expect(page.getByRole('heading', { name: 'Sign Document' })).toBeVisible();
+
     await expect(page.getByText('This is prefilled')).not.toBeVisible();
   });
 
