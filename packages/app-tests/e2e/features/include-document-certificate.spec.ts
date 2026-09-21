@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 
 import { getDocumentByToken } from '@documenso/lib/server-only/document/get-document-by-token';
+import { DEFAULT_EMBEDDED_EDITOR_CONFIG } from '@documenso/lib/types/envelope-editor';
 import { getEnvelopeItemPdfUrl } from '@documenso/lib/utils/envelope-download';
 import { prisma } from '@documenso/prisma';
 import { seedPendingDocumentWithFullFields } from '@documenso/prisma/seed/documents';
@@ -11,7 +12,11 @@ import { seedTeam } from '@documenso/prisma/seed/teams';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
-import { getEnvelopeEditorSettingsTrigger } from '../fixtures/envelope-editor';
+import {
+  getEnvelopeEditorSettingsTrigger,
+  openEmbeddedEnvelopeEditor,
+  persistEmbeddedEnvelope,
+} from '../fixtures/envelope-editor';
 import { signSignaturePad } from '../fixtures/signature';
 
 test.describe('Signing Certificate Tests', () => {
@@ -560,6 +565,72 @@ test.describe('Signing Certificate Tests', () => {
     await expect(async () => {
       expect(await readOverride()).toBe(false);
     }).toPass();
+  });
+
+  /**
+   * The embedded authoring surface is a separate mount with its own feature
+   * gating, and `cb9cc64b4` added both halves of that: the
+   * `allowConfigureSigningCertificate` flag and the team default passed down
+   * through the embed loader. An integrator who turns the flag off must not be
+   * shown a control their host application cannot honour.
+   */
+  test('the embedded editor gates the certificate control behind its feature flag', async ({
+    page,
+  }) => {
+    const surface = await openEmbeddedEnvelopeEditor(page, {
+      envelopeType: 'DOCUMENT',
+      mode: 'edit',
+      tokenNamePrefix: 'e2e-embed-certificate',
+    });
+
+    const trigger = page.getByTestId('envelope-include-signing-certificate-trigger');
+
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
+    await expect(trigger).toBeVisible();
+
+    await trigger.click();
+    await page.getByRole('option', { name: 'No', exact: true }).click();
+
+    await page
+      .getByRole('button', { name: /Update|Save/ })
+      .last()
+      .click();
+
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
+
+    await persistEmbeddedEnvelope(surface);
+
+    await expect(async () => {
+      const envelope = await prisma.envelope.findFirstOrThrow({
+        where: { id: surface.envelopeId },
+        include: { documentMeta: true },
+      });
+
+      expect(envelope.documentMeta.includeSigningCertificate).toBe(false);
+    }).toPass();
+  });
+
+  test('the embedded editor hides the certificate control when the flag is off', async ({
+    page,
+  }) => {
+    await openEmbeddedEnvelopeEditor(page, {
+      envelopeType: 'DOCUMENT',
+      mode: 'edit',
+      tokenNamePrefix: 'e2e-embed-no-certificate',
+      features: {
+        ...DEFAULT_EMBEDDED_EDITOR_CONFIG,
+        settings: {
+          ...DEFAULT_EMBEDDED_EDITOR_CONFIG.settings,
+          allowConfigureSigningCertificate: false,
+        },
+      },
+    });
+
+    await getEnvelopeEditorSettingsTrigger(page).click();
+    await expect(page.getByRole('heading', { name: 'Document Settings' })).toBeVisible();
+
+    await expect(page.getByTestId('envelope-include-signing-certificate-trigger')).toHaveCount(0);
   });
 
   test('team can toggle signing certificate setting', async ({ page }) => {

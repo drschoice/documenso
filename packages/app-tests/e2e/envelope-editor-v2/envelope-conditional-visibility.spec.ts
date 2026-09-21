@@ -207,12 +207,125 @@ const assertVisibilityRulePersisted = async ({
   expect(metaOf(UNRELATED_LABEL)?.visibility).toBeUndefined();
 };
 
+/**
+ * `8fe252acf`. Both pick-modes freeze dragging and swallow selection clicks on
+ * every page, and picking a dependent that lives on another page is supported -
+ * so the banner was moved out of the per-page Konva renderer and hung once above
+ * the whole document view. Before that, scrolling past the trigger's own page
+ * left the canvas frozen with nothing on screen saying why or how to get out.
+ *
+ * The single-page flow above cannot tell the two arrangements apart. This one
+ * puts the dependent on page 2 and picks it from there.
+ */
+const runCrossPagePickModeFlow = async (surface: TEnvelopeEditorSurface) => {
+  const externalId = `e2e-conditional-cross-page-${nanoid()}`;
+  const root = surface.root;
+
+  await updateExternalId(surface, externalId);
+
+  await clickAddMyselfButton(root);
+  await expect(getRecipientEmailInputs(root).first()).toHaveValue(surface.userEmail);
+
+  await clickEnvelopeEditorStep(root, 'addFields');
+  await waitForEditorCanvas(root);
+
+  const secondPage = root.locator('.konva-container canvas').nth(1);
+
+  await expect(secondPage).toBeVisible();
+
+  // `placeFieldOnPdf` always targets the first canvas, so page 2 is clicked
+  // directly.
+  await root.getByRole('button', { name: 'Text', exact: true }).click();
+  await secondPage.click({ position: DEPENDENT_POSITION });
+  await root.locator('[data-testid="field-form-label"]').fill(DEPENDENT_LABEL);
+
+  // The trigger goes on page 1, and last, so it is the selected field when the
+  // conditional-visibility section is driven.
+  await placeFieldOnPdf(root, 'Radio', TRIGGER_POSITION);
+  await root.locator('[data-testid="field-form-values-0-value"]').fill(RADIO_OPTIONS[0]);
+  await root.locator('[data-testid="field-form-values-1-value"]').fill(RADIO_OPTIONS[1]);
+
+  const banner = root.locator('[data-testid="pick-mode-banner"]');
+
+  await root.locator('[data-testid="visibility-select-fields-0"]').click();
+  await expect(banner).toBeVisible();
+
+  // Scroll page 2 into view. The banner is sticky within the scroll container,
+  // so it has to survive leaving the trigger's page - that is the regression.
+  await secondPage.scrollIntoViewIfNeeded();
+  await expect(banner).toBeInViewport();
+
+  await secondPage.click({ position: DEPENDENT_POSITION, force: true });
+
+  await expect(root.locator('[data-testid="visibility-condition-0"]')).toContainText(
+    DEPENDENT_LABEL,
+  );
+
+  await root.locator('[data-testid="visibility-select-fields-0"]').click();
+  await expect(banner).toBeHidden();
+
+  return { externalId };
+};
+
+const assertCrossPageRulePersisted = async ({
+  surface,
+  externalId,
+}: {
+  surface: TEnvelopeEditorSurface;
+  externalId: string;
+}) => {
+  await expect(async () => {
+    const envelope = await prisma.envelope.findFirstOrThrow({
+      where: {
+        externalId,
+        userId: surface.userId,
+        teamId: surface.teamId,
+        type: surface.envelopeType,
+      },
+      include: { fields: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const radio = envelope.fields.find((field) => field.type === FieldType.RADIO);
+    const dependent = envelope.fields.find((field) => field.type === FieldType.TEXT);
+
+    expect(radio).toBeDefined();
+    expect(dependent).toBeDefined();
+
+    // The trigger and its dependent really are on different pages, which is the
+    // only reason this test differs from the one above.
+    expect(radio?.page).toBe(1);
+    expect(dependent?.page).toBe(2);
+
+    const radioMeta = radio?.fieldMeta as { stableId?: string } | null;
+    const dependentMeta = dependent?.fieldMeta as {
+      visibility?: {
+        rules: Array<{ operator: string; triggerFieldStableId: string; value?: string }>;
+      };
+    } | null;
+
+    expect(dependentMeta?.visibility?.rules).toHaveLength(1);
+    expect(dependentMeta?.visibility?.rules[0]).toMatchObject({
+      operator: 'equals',
+      triggerFieldStableId: radioMeta?.stableId,
+      value: RADIO_OPTIONS[0],
+    });
+  }).toPass({ timeout: 20_000 });
+};
+
 test.describe('document editor', () => {
   test('author a visibility rule through trigger pick-mode', async ({ page }) => {
     const surface = await openDocumentEnvelopeEditor(page);
     const result = await runConditionalVisibilityAuthoringFlow(surface);
 
     await assertVisibilityRulePersisted({ surface, ...result });
+  });
+
+  test('pick a dependent that lives on another page', async ({ page }) => {
+    const surface = await openDocumentEnvelopeEditor(page, { multiPage: true });
+    const result = await runCrossPagePickModeFlow(surface);
+
+    await assertCrossPageRulePersisted({ surface, ...result });
   });
 });
 

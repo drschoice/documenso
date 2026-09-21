@@ -119,6 +119,18 @@ test('[EMAIL]: an organisation invite names the sender and the document in the s
 
   // The invite still carries a link the recipient can act on.
   expect(message.body.html).toContain('/sign/');
+
+  // `b5b70d2ac` moved `<Preview>` inside `<Body>` across every template. React
+  // Email renders it as a hidden div carrying the inbox preview line, and
+  // outside the body it is not part of the document the client displays, so
+  // some clients fell back to showing the first visible text instead. Assert
+  // the ordering rather than the markup: the preview has to open after <body>.
+  const html = message.body.html;
+  const bodyStart = html.indexOf('<body');
+  const previewStart = html.search(/display\s*:\s*none/i);
+
+  expect(bodyStart).toBeGreaterThan(-1);
+  expect(previewStart).toBeGreaterThan(bodyStart);
 });
 
 test('[EMAIL]: a personal-account invite keeps the generic subject', async ({ request }) => {

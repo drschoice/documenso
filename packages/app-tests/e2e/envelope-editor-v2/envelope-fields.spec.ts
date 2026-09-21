@@ -1206,6 +1206,18 @@ const runFieldAppearanceFlow = async (
   // 3. Radio options whose labels are hidden.
   await placeFieldOnPdf(root, 'Radio', { x: RIGHT_COLUMN, y: 400 });
 
+  // Two field-meta defaults the fork changed, neither of which was asserted
+  // anywhere: `fb4346ae6` ships a new radio with two options rather than one, so
+  // there is something to choose between, and `d6c587010` made every new field
+  // required by default. Both are silent if they regress - the author just gets
+  // a different form than they expected.
+  await expect(root.locator('[data-testid="field-form-values-1-value"]')).toBeVisible();
+  await expect(root.locator('[data-testid="field-form-values-2-value"]')).toHaveCount(0);
+  await expect(root.locator('[data-testid="field-form-required"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
   await root.locator('[data-testid="field-form-values-0-value"]').fill('Visible label');
   await root.locator('[data-testid="field-form-values-1-value"]').fill('Second label');
 
