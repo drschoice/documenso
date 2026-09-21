@@ -30,6 +30,7 @@ jobs:
         run: |
           npm run test -w @documenso/lib
           npm run test -w @documenso/signing
+          npm run test -w @documenso/email
 
   typecheck:
     name: Typecheck (packages/lib)
