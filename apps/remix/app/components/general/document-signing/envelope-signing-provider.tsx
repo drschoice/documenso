@@ -578,6 +578,9 @@ export const EnvelopeSigningProvider = ({
     >
       {children}
       <div
+        // Invisible chrome: clipped to a single pixel with nothing else to
+        // address it by, and `role="status"` alone is shared with the toaster.
+        data-testid="revealed-field-announcer"
         role="status"
         aria-live="polite"
         aria-atomic="true"

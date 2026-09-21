@@ -7,6 +7,7 @@ import { seedUser } from '@documenso/prisma/seed/users';
 
 import {
   clickV2SigningField,
+  clickV2SigningFieldOption,
   completeV2SigningViaTrpc,
   expectEnvelopeCompleted,
   openV2SigningPage,
@@ -122,6 +123,68 @@ test.describe('conditional visibility on the v2 signer', () => {
 
     const persistedText = await prisma.field.findFirstOrThrow({ where: { id: textField.id } });
     expect(persistedText.inserted).toBe(false);
+  });
+
+  /**
+   * `3f2264a1a`. A field appearing out of nowhere is silent to a screen reader,
+   * so the provider announces it through a visually-hidden `role="status"`
+   * region.
+   *
+   * This has to be driven by clicking the trigger: the announcement fires on the
+   * transition from hidden to visible *within a session*
+   * (`prev.get(id) === false`), so the test above - which signs through tRPC and
+   * reloads - cannot reach it. The message also clears itself after two seconds.
+   */
+  test('revealing a dependent is announced to assistive technology', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    const seeded = await seedV2PendingEnvelope({
+      ownerUserId: user.id,
+      teamId: team.id,
+      recipients: [{ email: `v2-announce-${user.id}@example.com`, name: 'V2 Signer' }],
+      fields: [
+        {
+          type: FieldType.RADIO,
+          positionX: 10,
+          positionY: 10,
+          width: 30,
+          height: 12,
+          fieldMeta: radioMeta,
+        },
+        {
+          type: FieldType.TEXT,
+          positionX: 10,
+          positionY: 40,
+          width: 30,
+          height: 8,
+          fieldMeta: dependentTextMeta,
+        },
+      ],
+    });
+
+    const [recipient] = seeded.recipients;
+    const [radioField] = seeded.fields;
+
+    await openV2SigningPage(page, recipient.token);
+
+    const status = page.locator('[data-testid="revealed-field-announcer"]');
+
+    // Nothing has changed yet, so there is nothing to announce.
+    await expect(status).toHaveText('');
+
+    // "Married" is the first option, and the one the dependent's rule names.
+    await clickV2SigningFieldOption(page, radioField.id, 0);
+
+    await expect(status).toHaveText(`Field revealed: ${dependentTextMeta.label}`);
+
+    // The dependent really is on the canvas now, not just announced.
+    await expect(async () => {
+      expect(await getKonvaElementCountForPage(page, 1, '.field-group')).toBe(2);
+    }).toPass({ timeout: 15_000 });
+
+    // The region empties again so the next reveal is announced as a change
+    // rather than being swallowed as identical text.
+    await expect(status).toHaveText('', { timeout: 5_000 });
   });
 
   test('the server refuses to sign a field whose visibility rule is unmet', async ({ page }) => {

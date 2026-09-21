@@ -251,6 +251,70 @@ export const clickV2SigningField = async (page: Page, fieldId: number, pageNumbe
 };
 
 /**
+ * Click one option of a radio/checkbox field on the v2 signing canvas.
+ *
+ * `clickV2SigningField` aims at the centre of the field group, which for an
+ * option field is the gap between its buttons - the click lands on nothing. The
+ * individual buttons are `.field-option-group` nodes inside the field's own
+ * group, in the order the options are declared.
+ */
+export const clickV2SigningFieldOption = async (
+  page: Page,
+  fieldId: number,
+  optionIndex: number,
+  pageNumber = 1,
+) => {
+  const point = await page.evaluate(
+    ({ fieldId, optionIndex, pageNumber }) => {
+      const konva = (
+        window as unknown as {
+          Konva: {
+            stages: Array<{
+              attrs: { id?: string };
+              container: () => HTMLElement;
+              find: (selector: string) => Array<{
+                id: () => string;
+                find: (selector: string) => Array<{
+                  getClientRect: () => { x: number; y: number; width: number; height: number };
+                }>;
+                getClientRect: () => { x: number; y: number; width: number; height: number };
+              }>;
+            }>;
+          };
+        }
+      ).Konva;
+
+      const stage = konva.stages.find((s) => s.attrs.id === `page-${pageNumber}`);
+      const field = stage?.find('.field-group').find((n) => n.id() === String(fieldId));
+      const option = field?.find('.field-option-group')[optionIndex];
+
+      if (!stage || !option) {
+        return null;
+      }
+
+      const container = stage.container().getBoundingClientRect();
+      const rect = option.getClientRect();
+
+      return {
+        x: container.left + rect.x + rect.width / 2,
+        y: container.top + rect.y + rect.height / 2,
+      };
+    },
+    { fieldId, optionIndex, pageNumber },
+  );
+
+  if (!point) {
+    throw new Error(
+      `Field ${fieldId} has no option ${optionIndex} on the v2 signing canvas for page ${pageNumber}`,
+    );
+  }
+
+  await page.mouse.click(point.x, point.y);
+
+  return point;
+};
+
+/**
  * Sign a field through the public, token-authed tRPC route.
  *
  * This is the server-side counterpart to clicking the canvas: it exercises the
