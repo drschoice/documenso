@@ -454,8 +454,6 @@ export const renderGenericTextFieldElement = (
 
   // Comb ('cells' layout) text/number fields render per-character cells
   // instead of a single text box, and are never resized via the transformer.
-  const fieldMeta = field.fieldMeta;
-
   if (fieldMeta && (fieldMeta.type === 'text' || fieldMeta.type === 'number')) {
     const combCells = getCombFieldCells(fieldMeta);
 
@@ -469,7 +467,6 @@ export const renderGenericTextFieldElement = (
     }
   }
 
-  const fieldText = upsertFieldText(field, options);
   fieldGroup.add(fieldText);
 
   fieldGroup.on('transform', () => {

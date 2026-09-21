@@ -1,7 +1,9 @@
 import { DocumentInviteEmailTemplate } from '@documenso/email/templates/document-invite';
-import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
+import {
+  isEnvelopeExpirationDatePeriod,
+  resolveExpiresAt,
+} from '@documenso/lib/constants/envelope-expiration';
 import { RECIPIENT_ROLE_TO_EMAIL_TYPE, RECIPIENT_ROLES_DESCRIPTION } from '@documenso/lib/constants/recipient-roles';
-import { AppError } from '@documenso/lib/errors/app-error';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
@@ -120,8 +122,6 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
       statusCode: 400,
     });
   }
-
-  const expiresAt = resolveExpiresAt(envelope.documentMeta?.envelopeExpirationPeriod ?? null);
 
   // Refresh the expiresAt on each resent recipient.
   const expiresAt = resolveExpiresAt(

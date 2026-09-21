@@ -65,21 +65,6 @@ export const run = async ({ payload, io }: { payload: TBulkSendTemplateJobDefini
   // Process each row
   for (const [rowIndex, row] of rows.entries()) {
     try {
-      for (const [recipientIndex] of recipients.entries()) {
-        const nameKey = `recipient_${recipientIndex + 1}_name`;
-        const emailKey = `recipient_${recipientIndex + 1}_email`;
-
-        const parsed = ZRecipientRowSchema.safeParse({
-          name: row[nameKey],
-          email: row[emailKey],
-        });
-
-        if (!parsed.success) {
-          throw new Error(
-            `Invalid recipient data provided for ${emailKey}, ${nameKey}: ${parsed.error.issues?.[0]?.message}`,
-          );
-        }
-      }
 
       const { envelopeId } = await io.runTask(`create-document-${rowIndex}`, async () => {
         const envelope = await createDocumentFromTemplate({

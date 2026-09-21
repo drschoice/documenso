@@ -1,6 +1,6 @@
 import type { FieldType } from '@prisma/client';
 import { validateCheckboxField } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
-import type { TCheckboxFieldMeta as CheckboxFieldMeta, TVisibilityBlock } from '@documenso/lib/types/field-meta';
+import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { type TCheckboxFieldMeta as CheckboxFieldMeta } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import { Checkbox } from '@documenso/ui/primitives/checkbox';

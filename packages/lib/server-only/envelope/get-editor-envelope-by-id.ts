@@ -1,7 +1,6 @@
 import { EnvelopeType } from '@prisma/client';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
 import { prisma } from '@documenso/prisma';
-import type { EnvelopeType } from '@prisma/client';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { capLiveDocumentMeta, isDocumentCompleted } from '../../utils/document';

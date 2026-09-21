@@ -1,6 +1,6 @@
 import type { FieldType } from '@prisma/client';
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
-import type { TNumberFieldMeta as NumberFieldMeta, TVisibilityBlock } from '@documenso/lib/types/field-meta';
+import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { type TNumberFieldMeta as NumberFieldMeta } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import { Input } from '@documenso/ui/primitives/input';

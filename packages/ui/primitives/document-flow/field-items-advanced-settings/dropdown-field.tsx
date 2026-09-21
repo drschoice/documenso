@@ -1,5 +1,4 @@
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
-import type { TDropdownFieldMeta as DropdownFieldMeta } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';

@@ -6,7 +6,7 @@ import { isValidRedirectUrl } from '@documenso/lib/utils/is-valid-redirect-url';
 import { zEmail } from '@documenso/lib/utils/zod';
 import { DocumentMetaSchema } from '@documenso/prisma/generated/zod/modelSchema/DocumentMetaSchema';
 import { msg } from '@lingui/core/macro';
-import { DocumentDistributionMethod, DocumentSigningOrder } from '@prisma/client';
+import { DocumentDistributionMethod, DocumentSigningOrder, FieldType } from '@prisma/client';
 import { z } from 'zod';
 
 import { ZDocumentEmailSettingsSchema } from './document-email';

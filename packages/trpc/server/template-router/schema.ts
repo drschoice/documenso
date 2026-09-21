@@ -29,7 +29,7 @@ import { ZTemplateFieldFillValueSchema } from '@documenso/lib/types/template-fie
 import { zEmail } from '@documenso/lib/utils/zod';
 import { LegacyTemplateDirectLinkSchema } from '@documenso/prisma/types/template-legacy-schema';
 import { ZDocumentExternalIdSchema } from '@documenso/trpc/server/document-router/schema';
-import { DocumentSigningOrder, DocumentVisibility, TemplateType } from '@prisma/client';
+import { DocumentSigningOrder, DocumentVisibility, TemplateType, FieldType } from '@prisma/client';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';
 

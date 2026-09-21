@@ -23,7 +23,6 @@ import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentVisibility, type RecipientRole, type TeamGlobalSettings, OrganisationType } from '@prisma/client';
-import type { TeamGlobalSettings } from '@prisma/client';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { DocumentPreferencesResetDialog } from '~/components/dialogs/document-preferences-reset-dialog';

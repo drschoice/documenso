@@ -1,7 +1,6 @@
 import Konva from 'konva';
 import { useEffect, useMemo, useRef } from 'react';
 
-import type { PageRenderData } from '../providers/envelope-render-provider';
 import { SIGNATURE_FONTS } from '../../constants/signature-fonts';
 import { type PageRenderData } from '../providers/envelope-render-provider';
 

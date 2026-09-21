@@ -14,7 +14,7 @@ import {
   upsertFreeLayoutDecorations,
 } from './field-generic-items';
 import type { FieldToRender, RenderFieldElementOptions } from './field-renderer';
-import { calculateFieldPosition, calculateMultiItemPosition } from './field-renderer';
+import { calculateFieldPosition, calculateMultiItemPosition, resolveButtonSize, calculateFreeItemPosition } from './field-renderer';
 
 // Do not change any of these values without consulting with the team.
 const radioFieldPadding = 8;

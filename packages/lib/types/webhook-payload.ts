@@ -1,4 +1,4 @@
-import type { DocumentMeta, Envelope, Recipient, Field, WebhookTriggerEvents } from '@prisma/client';
+import type { DocumentMeta, Envelope, Field, Recipient } from '@prisma/client';
 import {
   DocumentDistributionMethod,
   DocumentSigningOrder,

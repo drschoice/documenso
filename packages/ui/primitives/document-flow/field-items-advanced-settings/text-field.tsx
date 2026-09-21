@@ -1,6 +1,6 @@
 import type { FieldType } from '@prisma/client';
 import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
-import type { TTextFieldMeta as TextFieldMeta, TVisibilityBlock } from '@documenso/lib/types/field-meta';
+import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { type TTextFieldMeta as TextFieldMeta } from '@documenso/lib/types/field-meta';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
