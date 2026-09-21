@@ -6,7 +6,13 @@ import path from 'node:path';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
 import { prisma } from '@documenso/prisma';
-import { DocumentStatus, EnvelopeType, FieldType, RecipientRole } from '@documenso/prisma/client';
+import {
+  DocumentStatus,
+  EnvelopeType,
+  FieldType,
+  RecipientRole,
+  SendStatus,
+} from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 import type {
   TCreateEnvelopePayload,
@@ -127,6 +133,20 @@ const distributeEnvelope = async (
   });
 
   expect(distributeRes.ok()).toBeTruthy();
+
+  // `/envelope/distribute` flips the envelope to PENDING inside its own
+  // transaction, but the recipient's `sendStatus` is set by the
+  // `send.signing.requested.email` job it merely triggers. Until that lands,
+  // `getEnvelopeItemPermissions` sees no active recipient and still allows an
+  // order change on a PENDING envelope - so a test that asserts the refusal is
+  // racing the job queue, and loses under load.
+  await expect(async () => {
+    const recipient = await prisma.recipient.findFirstOrThrow({
+      where: { envelopeId },
+    });
+
+    expect(recipient.sendStatus).toBe(SendStatus.SENT);
+  }).toPass({ timeout: 30_000 });
 };
 
 const updateEnvelopeItems = async (
