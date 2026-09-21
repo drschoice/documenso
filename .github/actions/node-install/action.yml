@@ -32,8 +32,28 @@ runs:
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
       shell: bash
-      run: |
-        npm ci --no-audit
-        npm run prisma:generate
+      run: npm ci --no-audit
+      env:
+        HUSKY: '0'
+
+    # Unconditionally, and outside the install step above.
+    #
+    # The client generates into `packages/prisma/generated`, which is gitignored
+    # and is not one of the cached paths - so on a cache hit it was never
+    # created, and the tree was left without it. Jobs that build or migrate hid
+    # this by regenerating it incidentally; the typecheck job does neither, and
+    # saw hundreds of phantom errors instead ("Cannot find module
+    # '@documenso/prisma/generated/types'", then implicit-any everywhere
+    # downstream).
+    #
+    # It takes seconds and it is the difference between a job seeing this
+    # repository and seeing a broken one.
+    #
+    # The workspace script directly rather than the root one: the root wraps it
+    # in `dotenv -e .env`, and this action runs before every caller's "Copy env"
+    # step. `prisma generate` reads the schema and needs no environment.
+    - name: Generate the Prisma client
+      shell: bash
+      run: npm run prisma:generate -w @documenso/prisma
       env:
         HUSKY: '0'
