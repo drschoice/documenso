@@ -56,13 +56,27 @@ jobs:
 
       - uses: ./.github/actions/node-install
 
+      # Deliberately not `npm run dx:up`, which brings up all four development
+      # services. Two of them are dead weight here and one of them is fatal:
+      #
+      # - `minio/minio` cannot be pulled anonymously on a GitHub runner
+      #   ("pull access denied ... may require 'docker login'"), and compose
+      #   aborts the whole `up` when any image fails, so nothing starts at all.
+      #   Nothing needs it either: `.env.example` sets
+      #   `NEXT_PUBLIC_UPLOAD_TRANSPORT="database"`, so uploads never touch S3.
+      # - Redis is only read by the BullMQ jobs provider, which is opt-in.
+      #
+      # What is left is also exactly the topology the suite was verified green
+      # against locally, which is the point: CI should be running the thing that
+      # was checked, not a superset of it.
       - name: Start Services
-        run: npm run dx:up
+        run: docker compose -f docker/development/compose.yml up -d database inbucket
 
-      # `dx:up` returns as soon as the containers are created, and the compose
+      # Compose returns as soon as the containers are created, and its
       # healthcheck cannot help here: it shells out to `pg_isready -U
       # ${POSTGRES_USER}`, and that variable is only set inside the container,
-      # so on a runner it expands to nothing. Locally the containers are
+      # so on a runner it expands to nothing (compose says so out loud:
+      # 'The "POSTGRES_USER" variable is not set'). Locally the containers are
       # long-lived and the race never shows; on a cold runner the migrate step
       # is the first thing to touch the database.
       - name: Wait for Postgres
