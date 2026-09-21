@@ -13,10 +13,6 @@ import {
   ZDateFieldMeta,
 } from '@documenso/lib/types/field-meta';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@documenso/ui/primitives/form/form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
-import type { z } from 'zod';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Calendar } from '@documenso/ui/primitives/calendar';

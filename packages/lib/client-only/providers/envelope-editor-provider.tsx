@@ -1,5 +1,5 @@
 import { IS_INSTANCE_CSC_MODE } from '@documenso/lib/constants/app';
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import {
   DEFAULT_EDITOR_CONFIG,
@@ -14,9 +14,7 @@ import type { TRecipientColor } from '@documenso/ui/lib/recipient-colors';
 import { getRecipientColor } from '@documenso/ui/lib/recipient-colors';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { useLingui } from '@lingui/react/macro';
-import { EnvelopeType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
-import type React from 'react';
-import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { EnvelopeType, type FieldType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
 import { useSearchParams } from 'react-router';
 
 import type { TDocumentEmailSettings } from '../../types/document-email';
@@ -271,11 +269,6 @@ export const EnvelopeEditorProvider = ({
       let recipients: TEditorEnvelope['recipients'] = [];
 
       const currentEnvelope = getEnvelope();
-      // Read through the ref, not the `envelope` this callback closed over: it
-      // was captured a debounce interval ago, and on an embedded surface the
-      // mapping below reads recipients out of it to carry over server-owned
-      // fields, so a stale copy reinstates a recipient that has been removed.
-      const currentEnvelope = envelopeRef.current;
 
       if (!isEmbedded) {
         const response = await setRecipientsMutation.mutateAsync({
@@ -338,9 +331,6 @@ export const EnvelopeEditorProvider = ({
       let fields: TSetEnvelopeFieldsResponse['data'] = [];
 
       const currentEnvelope = getEnvelope();
-      // As above: the captured `envelope` is a debounce interval old, and the
-      // embedded mapping reads existing fields out of it.
-      const currentEnvelope = envelopeRef.current;
 
       if (!isEmbedded) {
         const response = await setFieldsMutation.mutateAsync({

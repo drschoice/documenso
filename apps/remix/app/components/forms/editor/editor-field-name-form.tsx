@@ -11,10 +11,6 @@ import {
   ZNameFieldMeta,
 } from '@documenso/lib/types/field-meta';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
-import type { z } from 'zod';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 
 import { EditorGenericFontSizeField, EditorGenericTextAlignField } from './editor-field-generic-field-forms';

@@ -659,6 +659,7 @@ export const formatDocumentAuditLogAction = (i18n: I18n, auditLog: TDocumentAudi
       anonymous: msg`Recipient's remote signature was applied`,
       you: msg`Your remote signature was applied`,
       user: msg`${user}'s remote signature was applied`,
+    }))
     .with({ type: DOCUMENT_AUDIT_LOG_TYPE.FIELD_SKIPPED_CONDITIONAL }, () => ({
       anonymous: msg({
         message: `A conditionally hidden field was skipped`,

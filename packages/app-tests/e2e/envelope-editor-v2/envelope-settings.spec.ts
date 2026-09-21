@@ -3,8 +3,6 @@ import { DocumentDistributionMethod, DocumentVisibility } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { nanoid } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
-import { expect, type Page, test } from '@playwright/test';
-import { DocumentDistributionMethod, DocumentVisibility } from '@prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';

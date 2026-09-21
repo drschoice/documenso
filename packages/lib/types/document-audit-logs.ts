@@ -821,6 +821,10 @@ export const ZDocumentAuditLogEventDocumentRecipientCscSignedSchema = z.object({
     numItemsSigned: z.number(),
     signatureAlgorithm: z.string(),
     digestAlgorithm: z.string(),
+  }),
+});
+
+/**
  * Event: Field skipped because it was conditionally hidden at completion time.
  */
 export const ZDocumentAuditLogEventFieldSkippedConditionalSchema = z.object({

@@ -7,10 +7,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * keeps editing while a save is on the wire, their newest changes get saved
  * right after, never dropped.
  */
- * How many times {@link useEnvelopeAutosave}'s flush will drain a payload that was
- * queued while the previous one was still in flight.
- */
-const MAX_FLUSH_ROUNDS = 5;
 
 export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay = 1000) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
