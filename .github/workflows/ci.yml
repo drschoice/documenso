@@ -35,14 +35,6 @@ jobs:
   typecheck:
     name: Typecheck (packages/lib)
     runs-on: ubuntu-latest
-    # Non-blocking on purpose. `packages/lib` has five errors across three files
-    # that predate the fork point and that nothing imports: three modules left
-    # orphaned by the envelope migration, still selecting on `Field.documentId`,
-    # `Subscription.userId` and `Team.customerId`, none of which survive in the
-    # schema. Gating merges on them would make this check something people learn
-    # to ignore; deleting the dead files is the actual fix, and it is product
-    # work rather than test work.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,8 +46,38 @@ jobs:
       - name: Copy env
         run: cp .env.example .env
 
+      # `packages/lib` does not typecheck clean, and has not since before the
+      # fork: five errors across three modules the envelope migration orphaned,
+      # still selecting on `Field.documentId`, `Subscription.userId` and
+      # `Team.customerId`, none of which survive in the schema. Nothing imports
+      # them; deleting them is the fix, and it is product work.
+      #
+      # This was `continue-on-error: true` first, which was a mistake - the
+      # check still renders red on the pull request, so it is exactly the
+      # check people learn to ignore that the exemption was meant to avoid.
+      # Allow-listing the three files instead makes the job green today and an
+      # actual gate tomorrow: an error anywhere else fails it. Fixing one of
+      # the three also fails it, which is the right way round - the list is
+      # then wrong and should shrink.
       - name: Typecheck
-        run: npx tsc --noEmit -p packages/lib
+        run: |
+          KNOWN='packages/lib/server-only/field/get-completed-fields-for-document.ts
+          packages/lib/server-only/subscription/get-active-subscriptions-by-user-id.ts
+          packages/lib/server-only/team/find-organisation-invoices.ts'
+
+          npx tsc --noEmit -p packages/lib > tsc.log 2>&1 || true
+          cat tsc.log
+
+          errors=$(grep -E '\([0-9]+,[0-9]+\): error TS' tsc.log || true)
+          unexpected=$(echo "$errors" | grep -vFf <(echo "$KNOWN" | sed 's/^ *//') || true)
+
+          if [ -n "$unexpected" ]; then
+            echo "::error::typecheck errors outside the known pre-fork set"
+            echo "$unexpected"
+            exit 1
+          fi
+
+          echo "Only the known pre-fork errors are present ($(echo "$errors" | grep -c . ) of them)."
 
   build_app:
     name: Build App
