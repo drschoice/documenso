@@ -1,16 +1,5 @@
+import { IS_INSTANCE_CSC_MODE } from '@documenso/lib/constants/app';
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-
-import { useLingui } from '@lingui/react/macro';
-import {
-  EnvelopeType,
-  type FieldType,
-  Prisma,
-  ReadStatus,
-  SendStatus,
-  SigningStatus,
-} from '@prisma/client';
-import { useSearchParams } from 'react-router';
-
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import {
   DEFAULT_EDITOR_CONFIG,
@@ -24,12 +13,18 @@ import type { TUpdateEnvelopeRequest } from '@documenso/trpc/server/envelope-rou
 import type { TRecipientColor } from '@documenso/ui/lib/recipient-colors';
 import { getRecipientColor } from '@documenso/ui/lib/recipient-colors';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { useLingui } from '@lingui/react/macro';
+import { EnvelopeType, Prisma, ReadStatus, SendStatus, SigningStatus } from '@prisma/client';
+import type React from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useSearchParams } from 'react-router';
 
 import type { TDocumentEmailSettings } from '../../types/document-email';
 import { resolveRecipientNameOnCreate } from '../../utils/recipient-formatter';
 import { formatDocumentsPath, formatTemplatesPath } from '../../utils/teams';
-import { useEditorFields } from '../hooks/use-editor-fields';
+import { useAnalytics } from '../hooks/use-analytics';
 import type { TLocalField } from '../hooks/use-editor-fields';
+import { useEditorFields } from '../hooks/use-editor-fields';
 import { useEditorRecipients } from '../hooks/use-editor-recipients';
 import { useEnvelopeAutosave } from '../hooks/use-envelope-autosave';
 
@@ -90,6 +85,12 @@ type EnvelopeEditorProviderValue = {
   isEmbedded: boolean;
   isDocument: boolean;
   isTemplate: boolean;
+  /**
+   * Whether the instance is running in CSC (Cloud Signature Consortium) mode.
+   * Components can branch on this for any additional CSC-only UI gating
+   * beyond the overrides already baked into `editorConfig`.
+   */
+  isCscMode: boolean;
 
   setLocalEnvelope: (localEnvelope: Partial<TEditorEnvelope>) => void;
   updateEnvelope: (envelopeUpdates: UpdateEnvelopePayload) => void;
@@ -148,23 +149,79 @@ export const useCurrentEnvelopeEditor = () => {
 
 export const EnvelopeEditorProvider = ({
   children,
-  editorConfig = DEFAULT_EDITOR_CONFIG,
+  editorConfig: providedEditorConfig = DEFAULT_EDITOR_CONFIG,
   initialEnvelope,
   organisationEmails,
 }: EnvelopeEditorProviderProps) => {
   const { t } = useLingui();
   const { toast } = useToast();
+  const analytics = useAnalytics();
 
   const [_searchParams, setSearchParams] = useSearchParams();
 
-  const [envelope, _setEnvelope] = useState(initialEnvelope);
+  /**
+   * The envelope is kept in a ref-backed external store instead of useState so
+   * that async consumers (debounced autosave callbacks, flushAutosave, resetForms)
+   * can synchronously read the latest value via `getEnvelope`.
+   *
+   * React subscribes to the store through useSyncExternalStore, keeping renders in
+   * sync without maintaining a separate copy of the state.
+   */
+  const envelopeStoreRef = useRef(initialEnvelope);
+  const envelopeStoreSubscribersRef = useRef(new Set<() => void>());
+
+  const subscribeToEnvelopeStore = useCallback((onStoreChange: () => void) => {
+    envelopeStoreSubscribersRef.current.add(onStoreChange);
+
+    return () => {
+      envelopeStoreSubscribersRef.current.delete(onStoreChange);
+    };
+  }, []);
+
+  const getEnvelope = useCallback(() => envelopeStoreRef.current, []);
+
+  const setEnvelope = useCallback((action: React.SetStateAction<TEditorEnvelope>) => {
+    const next = typeof action === 'function' ? action(envelopeStoreRef.current) : action;
+
+    envelopeStoreRef.current = next;
+
+    for (const onStoreChange of envelopeStoreSubscribersRef.current) {
+      onStoreChange();
+    }
+  }, []);
+
+  const envelope = useSyncExternalStore(subscribeToEnvelopeStore, getEnvelope, getEnvelope);
+
   const [autosaveError, setAutosaveError] = useState<boolean>(false);
   const [visibilityPickTarget, setVisibilityPickTarget] = useState<VisibilityPickModeTarget | null>(
     null,
   );
   const [linkPickTarget, setLinkPickTarget] = useState<LinkPickModeTarget | null>(null);
 
-  const envelopeRef = useRef(initialEnvelope);
+  const isCscMode = IS_INSTANCE_CSC_MODE();
+
+  /**
+   * CSC-mode overrides applied on top of any caller-supplied editor config.
+   * TSP envelopes are forced SEQUENTIAL at send-time and the sign path has no
+   * nextSigner dictation; the assistant role's pre-fill semantics don't map
+   * onto each recipient signing their own complete PDF state. Hide all three
+   * up-front so authors don't pick options that would get silently coerced.
+   */
+  const editorConfig = useMemo<EnvelopeEditorConfig>(() => {
+    if (!isCscMode || !providedEditorConfig.recipients) {
+      return providedEditorConfig;
+    }
+
+    return {
+      ...providedEditorConfig,
+      recipients: {
+        ...providedEditorConfig.recipients,
+        allowConfigureSigningOrder: false,
+        allowConfigureDictateNextSigner: false,
+        allowAssistantRole: false,
+      },
+    };
+  }, [isCscMode, providedEditorConfig]);
 
   const externalFlushCallbacksRef = useRef<Map<string, () => Promise<void>>>(new Map());
   const pendingMutationsRef = useRef<Set<Promise<unknown>>>(new Set());
@@ -184,28 +241,6 @@ export const EnvelopeEditorProvider = ({
       pendingMutationsRef.current.delete(promise);
     });
   }, []);
-
-  /**
-   * The ref is the source of truth, and the state is its mirror for rendering.
-   *
-   * Resolving the next envelope here rather than inside the `_setEnvelope`
-   * updater is what makes `envelopeRef.current` correct *synchronously*. React
-   * does not run an updater until it renders, so a ref written from inside one
-   * still holds the previous envelope for the rest of the current task - and
-   * everything that reads the ref to escape a stale closure (the debounced
-   * autosaves, `resetForms`, `flushAutosave`'s return value) was reading the
-   * value it was trying to avoid.
-   *
-   * Chained calls in one tick stay correct because each reads the ref, which the
-   * previous call has already advanced.
-   */
-  const setEnvelope: typeof _setEnvelope = (action) => {
-    const next = typeof action === 'function' ? action(envelopeRef.current) : action;
-
-    envelopeRef.current = next;
-
-    _setEnvelope(next);
-  };
 
   const isEmbedded = editorConfig.embedded !== undefined;
 
@@ -235,6 +270,7 @@ export const EnvelopeEditorProvider = ({
     try {
       let recipients: TEditorEnvelope['recipients'] = [];
 
+      const currentEnvelope = getEnvelope();
       // Read through the ref, not the `envelope` this callback closed over: it
       // was captured a debounce interval ago, and on an embedded surface the
       // mapping below reads recipients out of it to carry over server-owned
@@ -256,26 +292,21 @@ export const EnvelopeEditorProvider = ({
       setEnvelope((prev) => ({
         ...prev,
         recipients,
-        fields: prev.fields.filter((field) =>
-          recipients.some((recipient) => recipient.id === field.recipientId),
-        ),
+        fields: prev.fields.filter((field) => recipients.some((recipient) => recipient.id === field.recipientId)),
       }));
 
       // Reset the local fields to ensure deleted recipient fields are removed.
-      //
-      // Read through the ref rather than the `envelope` captured by this
-      // debounced callback: by the time it runs, fields may have been placed or
-      // removed, and re-seeding from the stale copy resurrects fields belonging
-      // to the recipient that was just deleted.
-      editorFields.resetForm(
-        envelopeRef.current.fields.filter((field) =>
-          recipients.some((recipient) => recipient.id === field.recipientId),
-        ),
-      );
+      editorFields.resetForm(getEnvelope().fields);
 
       setAutosaveError(false);
     } catch (err) {
       console.error(err);
+
+      analytics.captureException(err, {
+        source: isEmbedded ? 'embed' : 'editor',
+        location: 'autosave_recipients',
+        envelopeId: envelope.id,
+      });
 
       setAutosaveError(true);
 
@@ -288,9 +319,7 @@ export const EnvelopeEditorProvider = ({
     }
   }, 1000);
 
-  const setRecipientsAsync = async (
-    localRecipients: TSetEnvelopeRecipientsRequest['recipients'],
-  ) => {
+  const setRecipientsAsync = async (localRecipients: TSetEnvelopeRecipientsRequest['recipients']) => {
     setRecipientsDebounced(localRecipients);
     await flushSetRecipients();
   };
@@ -308,6 +337,7 @@ export const EnvelopeEditorProvider = ({
     try {
       let fields: TSetEnvelopeFieldsResponse['data'] = [];
 
+      const currentEnvelope = getEnvelope();
       // As above: the captured `envelope` is a debounce interval old, and the
       // embedded mapping reads existing fields out of it.
       const currentEnvelope = envelopeRef.current;
@@ -344,6 +374,12 @@ export const EnvelopeEditorProvider = ({
     } catch (err) {
       console.error(err);
 
+      analytics.captureException(err, {
+        source: isEmbedded ? 'embed' : 'editor',
+        location: 'autosave_fields',
+        envelopeId: envelope.id,
+      });
+
       setAutosaveError(true);
 
       toast({
@@ -373,7 +409,7 @@ export const EnvelopeEditorProvider = ({
     try {
       const response = !isEmbedded
         ? await updateEnvelopeMutation.mutateAsync({
-            envelopeId: envelopeRef.current.id,
+            envelopeId: getEnvelope().id,
             data,
             meta,
           })
@@ -398,6 +434,12 @@ export const EnvelopeEditorProvider = ({
       setAutosaveError(false);
     } catch (err) {
       console.error(err);
+
+      analytics.captureException(err, {
+        source: isEmbedded ? 'embed' : 'editor',
+        location: 'autosave_meta',
+        envelopeId: envelope.id,
+      });
 
       setAutosaveError(true);
 
@@ -435,8 +477,7 @@ export const EnvelopeEditorProvider = ({
   };
 
   const getRecipientColorKey = useCallback(
-    (recipientId: number) =>
-      getRecipientColor(envelope.recipients.findIndex((r) => r.id === recipientId)),
+    (recipientId: number) => getRecipientColor(envelope.recipients.findIndex((r) => r.id === recipientId)),
     [envelope.recipients],
   );
 
@@ -550,12 +591,14 @@ export const EnvelopeEditorProvider = ({
   };
 
   const resetForms = () => {
+    const currentEnvelope = getEnvelope();
+
     editorRecipients.resetForm({
-      recipients: envelopeRef.current.recipients,
-      documentMeta: envelopeRef.current.documentMeta,
+      recipients: currentEnvelope.recipients,
+      documentMeta: currentEnvelope.documentMeta,
     });
 
-    editorFields.resetForm(envelopeRef.current.fields);
+    editorFields.resetForm(currentEnvelope.fields);
   };
 
   const flushAutosave = async (): Promise<TEditorEnvelope> => {
@@ -571,7 +614,7 @@ export const EnvelopeEditorProvider = ({
       await Promise.allSettled(Array.from(pendingMutationsRef.current));
     }
 
-    return envelopeRef.current;
+    return getEnvelope();
   };
 
   return (
@@ -582,6 +625,7 @@ export const EnvelopeEditorProvider = ({
         isEmbedded,
         isDocument: envelope.type === EnvelopeType.DOCUMENT,
         isTemplate: envelope.type === EnvelopeType.TEMPLATE,
+        isCscMode,
         setLocalEnvelope,
         getRecipientColorKey,
         updateEnvelope,
@@ -647,10 +691,7 @@ const mapLocalRecipientsToRecipients = ({
       documentDeletedAt: foundRecipient?.documentDeletedAt || null,
       expired: foundRecipient?.expired || null,
       signedAt: foundRecipient?.signedAt || null,
-      authOptions:
-        recipient.actionAuth.length > 0
-          ? { actionAuth: recipient.actionAuth, accessAuth: [] }
-          : null,
+      authOptions: recipient.actionAuth.length > 0 ? { actionAuth: recipient.actionAuth, accessAuth: [] } : null,
       signingOrder: recipient.signingOrder ?? null,
       rejectionReason: foundRecipient?.rejectionReason || null,
       role: recipient.role,

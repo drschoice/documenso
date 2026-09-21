@@ -14,13 +14,8 @@ import {
   upsertFieldRect,
   upsertFreeLayoutDecorations,
 } from './field-generic-items';
-import {
-  calculateFieldPosition,
-  calculateFreeItemPosition,
-  calculateMultiItemPosition,
-  resolveButtonSize,
-} from './field-renderer';
 import type { FieldToRender, RenderFieldElementOptions } from './field-renderer';
+import { calculateFieldPosition, calculateMultiItemPosition } from './field-renderer';
 
 // Do not change any of these values without consulting with the team.
 const checkboxFieldPadding = 8;
@@ -280,18 +275,17 @@ export const renderCheckboxFieldElement = (
       return;
     }
 
-    const { itemInputX, itemInputY, textX, textY, textWidth, textHeight } =
-      calculateMultiItemPosition({
-        fieldWidth,
-        fieldHeight,
-        itemCount: checkboxValues.length,
-        itemIndex: index,
-        itemSize,
-        spacingBetweenItemAndText: spacingBetweenCheckboxAndText,
-        fieldPadding: checkboxFieldPadding,
-        direction: checkboxMeta?.direction || 'vertical',
-        type: 'checkbox',
-      });
+    const { itemInputX, itemInputY, textX, textY, textWidth, textHeight } = calculateMultiItemPosition({
+      fieldWidth,
+      fieldHeight,
+      itemCount: checkboxValues.length,
+      itemIndex: index,
+      itemSize,
+      spacingBetweenItemAndText: spacingBetweenCheckboxAndText,
+      fieldPadding: checkboxFieldPadding,
+      direction: checkboxMeta?.direction || 'vertical',
+      type: 'checkbox',
+    });
 
     const square = new Konva.Rect({
       internalCheckboxIndex: index,

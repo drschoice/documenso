@@ -1,11 +1,10 @@
-import { FieldType } from '@prisma/client';
-
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TFieldName } from '@documenso/lib/types/field';
 import { getFieldNamePart } from '@documenso/lib/types/field-meta';
 import type { RecipientNameParts } from '@documenso/lib/utils/recipient-formatter';
 import { resolveRecipientNamePart } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
+import { FieldType } from '@prisma/client';
 
 import { SignFieldNameDialog } from '~/components/dialogs/sign-field-name-dialog';
 

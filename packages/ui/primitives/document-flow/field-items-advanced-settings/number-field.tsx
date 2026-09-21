@@ -1,23 +1,15 @@
-import { useState } from 'react';
-
-import { Trans, useLingui } from '@lingui/react/macro';
 import type { FieldType } from '@prisma/client';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
-import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
+import type { TNumberFieldMeta as NumberFieldMeta, TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { type TNumberFieldMeta as NumberFieldMeta } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { Switch } from '@documenso/ui/primitives/switch';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 
 import { numberFormatValues } from './constants';
 
@@ -112,10 +104,7 @@ export const NumberFieldAdvancedSettings = ({
         <Label>
           <Trans>Number format</Trans>
         </Label>
-        <Select
-          value={fieldState.numberFormat ?? ''}
-          onValueChange={(val) => handleInput('numberFormat', val)}
-        >
+        <Select value={fieldState.numberFormat ?? ''} onValueChange={(val) => handleInput('numberFormat', val)}>
           <SelectTrigger className="mt-2 w-full bg-background text-muted-foreground">
             <SelectValue placeholder={t`Field format`} />
           </SelectTrigger>
@@ -150,10 +139,7 @@ export const NumberFieldAdvancedSettings = ({
           <Trans>Text Align</Trans>
         </Label>
 
-        <Select
-          value={fieldState.textAlign}
-          onValueChange={(value) => handleInput('textAlign', value)}
-        >
+        <Select value={fieldState.textAlign} onValueChange={(value) => handleInput('textAlign', value)}>
           <SelectTrigger className="mt-2 bg-background">
             <SelectValue placeholder={t`Select text align`} />
           </SelectTrigger>

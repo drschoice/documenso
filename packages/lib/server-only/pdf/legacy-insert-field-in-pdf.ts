@@ -1,10 +1,6 @@
 // https://github.com/Hopding/pdf-lib/issues/20#issuecomment-412852821
 import type { PDFDocument } from '@cantoo/pdf-lib';
-import { RotationTypes, degrees, radiansToDegrees, rgb } from '@cantoo/pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
-import { FieldType } from '@prisma/client';
-import { P, match } from 'ts-pattern';
-
+import { degrees, RotationTypes, radiansToDegrees, rgb } from '@cantoo/pdf-lib';
 import {
   DEFAULT_HANDWRITING_FONT_SIZE,
   DEFAULT_STANDARD_FONT_SIZE,
@@ -15,6 +11,9 @@ import { getSignatureFontFile } from '@documenso/lib/constants/signature-fonts';
 import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
 import { isSignatureFieldType } from '@documenso/prisma/guards/is-signature-field';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
+import fontkit from '@pdf-lib/fontkit';
+import { FieldType } from '@prisma/client';
+import { match, P } from 'ts-pattern';
 
 import { NEXT_PRIVATE_INTERNAL_WEBAPP_URL } from '../../constants/app';
 import {
@@ -101,13 +100,7 @@ export const legacy_insertFieldInPDF = async (
     let debugY = pageHeight - fieldY - fieldHeight; // Invert Y for PDF coordinates
 
     if (pageRotationInDegrees !== 0) {
-      const adjustedPosition = adjustPositionForRotation(
-        pageWidth,
-        pageHeight,
-        debugX,
-        debugY,
-        pageRotationInDegrees,
-      );
+      const adjustedPosition = adjustPositionForRotation(pageWidth, pageHeight, debugX, debugY, pageRotationInDegrees);
 
       debugX = adjustedPosition.xPos;
       debugY = adjustedPosition.yPos;
@@ -189,9 +182,7 @@ export const legacy_insertFieldInPDF = async (
         } else {
           const signatureText = field.signature?.typedSignature ?? '';
 
-          const longestLineInTextForWidth = signatureText
-            .split('\n')
-            .sort((a, b) => b.length - a.length)[0];
+          const longestLineInTextForWidth = signatureText.split('\n').sort((a, b) => b.length - a.length)[0];
 
           let fontSize = maxFontSize;
           let textWidth = font.widthOfTextAtSize(longestLineInTextForWidth, fontSize);
@@ -369,13 +360,7 @@ export const legacy_insertFieldInPDF = async (
       textY = pageHeight - textY - textHeight;
 
       if (pageRotationInDegrees !== 0) {
-        const adjustedPosition = adjustPositionForRotation(
-          pageWidth,
-          pageHeight,
-          textX,
-          textY,
-          pageRotationInDegrees,
-        );
+        const adjustedPosition = adjustPositionForRotation(pageWidth, pageHeight, textX, textY, pageRotationInDegrees);
 
         textX = adjustedPosition.xPos;
         textY = adjustedPosition.yPos;

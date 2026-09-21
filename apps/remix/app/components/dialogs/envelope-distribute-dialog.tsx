@@ -1,21 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useLingui } from '@lingui/react/macro';
-import { Trans } from '@lingui/react/macro';
-import {
-  DocumentDistributionMethod,
-  DocumentStatus,
-  EnvelopeType,
-  FieldType,
-} from '@prisma/client';
-import { AnimatePresence, motion } from 'framer-motion';
-import { InfoIcon } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router';
-import { match } from 'ts-pattern';
-import * as z from 'zod';
-
+import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import {
@@ -23,14 +6,16 @@ import {
   isEnvelopeExpirationInPast,
 } from '@documenso/lib/constants/envelope-expiration';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
+import { AppError } from '@documenso/lib/errors/app-error';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
+import { hasOverlappingFields } from '@documenso/lib/utils/fields-overlap';
 import { getRecipientsWithMissingFields } from '@documenso/lib/utils/recipients';
 import { zEmail } from '@documenso/lib/utils/zod';
 import { trpc, trpc as trpcReact } from '@documenso/trpc/react';
 import { DocumentSendEmailMessageHelper } from '@documenso/ui/components/document/document-send-email-message-helper';
 import { ExpirationPeriodPicker } from '@documenso/ui/components/document/expiration-period-picker';
 import { cn } from '@documenso/ui/lib/utils';
-import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
+import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
 import {
   Dialog,
@@ -42,28 +27,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@documenso/ui/primitives/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
 import { SpinnerBox } from '@documenso/ui/primitives/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@documenso/ui/primitives/tabs';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { DocumentDistributionMethod, DocumentStatus, EnvelopeType } from '@prisma/client';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router';
+import { match } from 'ts-pattern';
+import * as z from 'zod';
+import { getDistributeErrorMessage } from '~/utils/toast-error-messages';
 
 const NEXT_FIELD_NAVIGATION_TYPE_OPTIONS = [
   { label: 'Signature', value: FieldType.SIGNATURE },
@@ -113,8 +96,9 @@ export const EnvelopeDistributeDialog = ({
   const { envelope, syncEnvelope, isAutosaving, autosaveError } = useCurrentEnvelopeEditor();
 
   const { toast } = useToast();
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const navigate = useNavigate();
+  const analytics = useAnalytics();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -145,16 +129,15 @@ export const EnvelopeDistributeDialog = ({
     formState: { isSubmitting },
   } = form;
 
-  const { data: emailData, isLoading: isLoadingEmails } =
-    trpc.enterprise.organisation.email.find.useQuery(
-      {
-        organisationId: organisation.id,
-        perPage: 100,
-      },
-      {
-        ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
-      },
-    );
+  const { data: emailData, isLoading: isLoadingEmails } = trpc.enterprise.organisation.email.find.useQuery(
+    {
+      organisationId: organisation.id,
+      perPage: 100,
+    },
+    {
+      ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
+    },
+  );
 
   const emails = emailData?.data || [];
 
@@ -192,11 +175,30 @@ export const EnvelopeDistributeDialog = ({
         recipientAuth: recipient.authOptions,
       });
 
-      return (
-        (auth.recipientAccessAuthRequired || auth.recipientActionAuthRequired) && !recipient.email
-      );
+      return (auth.recipientAccessAuthRequired || auth.recipientActionAuthRequired) && !recipient.email;
     });
   }, [recipientsWithIndex, envelope.authOptions]);
+
+  /**
+   * Whether any fields significantly overlap each other. This is surfaced as a
+   * non-blocking warning since overlapping fields still allow sending, but can
+   * complicate the signing process or cause fields to behave unexpectedly.
+   */
+  const hasOverlappingEnvelopeFields = useMemo(
+    () =>
+      hasOverlappingFields(
+        envelope.fields.map((field) => ({
+          id: field.id,
+          envelopeItemId: field.envelopeItemId,
+          page: field.page,
+          positionX: Number(field.positionX),
+          positionY: Number(field.positionY),
+          width: Number(field.width),
+          height: Number(field.height),
+        })),
+      ),
+    [envelope.fields],
+  );
 
   const invalidEnvelopeCode = useMemo(() => {
     if (recipientsMissingSignatureFields.length > 0) {
@@ -236,9 +238,19 @@ export const EnvelopeDistributeDialog = ({
 
       setIsOpen(false);
     } catch (err) {
+      const error = AppError.parseError(err);
+
+      analytics.captureException(err, {
+        source: 'editor',
+        location: 'distribute_document',
+        envelopeId: envelope.id,
+      });
+
+      const errorMessage = getDistributeErrorMessage(error.code);
+
       toast({
-        title: t`Something went wrong`,
-        description: t`This envelope could not be distributed at this time. Please try again.`,
+        title: i18n._(errorMessage.title),
+        description: i18n._(errorMessage.description),
         variant: 'destructive',
         duration: 7500,
       });
@@ -262,6 +274,11 @@ export const EnvelopeDistributeDialog = ({
   };
 
   useEffect(() => {
+    // Default the distribution method tab to the envelope's configured setting.
+    if (isOpen && envelope.documentMeta) {
+      setValue('meta.distributionMethod', envelope.documentMeta.distributionMethod);
+    }
+
     // Resync the whole envelope if the envelope is mid saving.
     if (isOpen && (isAutosaving || autosaveError)) {
       void handleSync();
@@ -291,6 +308,24 @@ export const EnvelopeDistributeDialog = ({
           <Form {...form}>
             <form onSubmit={handleSubmit(onFormSubmit)}>
               <fieldset disabled={isSubmitting}>
+                {hasOverlappingEnvelopeFields && (
+                  <Alert variant="warning" className="mb-4 flex flex-row items-start gap-3">
+                    <AlertTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+
+                    <div className="flex flex-col gap-1">
+                      <AlertTitle>
+                        <Trans>Overlapping fields detected</Trans>
+                      </AlertTitle>
+                      <AlertDescription>
+                        <Trans>
+                          Some fields are placed on top of each other. This may complicate the signing process or cause
+                          fields to not work as expected.
+                        </Trans>
+                      </AlertDescription>
+                    </div>
+                  </Alert>
+                )}
+
                 <Tabs
                   onValueChange={(value) =>
                     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -349,14 +384,9 @@ export const EnvelopeDistributeDialog = ({
                                       <Select
                                         {...field}
                                         value={field.value === null ? '-1' : field.value}
-                                        onValueChange={(value) =>
-                                          field.onChange(value === '-1' ? null : value)
-                                        }
+                                        onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
                                       >
-                                        <SelectTrigger
-                                          loading={isLoadingEmails}
-                                          className="bg-background"
-                                        >
+                                        <SelectTrigger loading={isLoadingEmails} className="bg-background">
                                           <SelectValue />
                                         </SelectTrigger>
 
@@ -385,8 +415,7 @@ export const EnvelopeDistributeDialog = ({
                                 <FormItem>
                                   <FormLabel>
                                     <Trans>
-                                      Reply To Email{' '}
-                                      <span className="text-muted-foreground">(Optional)</span>
+                                      Reply To Email <span className="text-muted-foreground">(Optional)</span>
                                     </Trans>
                                   </FormLabel>
 
@@ -406,8 +435,7 @@ export const EnvelopeDistributeDialog = ({
                                 <FormItem>
                                   <FormLabel>
                                     <Trans>
-                                      Subject{' '}
-                                      <span className="text-muted-foreground">(Optional)</span>
+                                      Subject <span className="text-muted-foreground">(Optional)</span>
                                     </Trans>
                                   </FormLabel>
 
@@ -426,8 +454,7 @@ export const EnvelopeDistributeDialog = ({
                                 <FormItem>
                                   <FormLabel className="flex flex-row items-center">
                                     <Trans>
-                                      Message{' '}
-                                      <span className="text-muted-foreground">(Optional)</span>
+                                      Message <span className="text-muted-foreground">(Optional)</span>
                                     </Trans>
                                     <Tooltip>
                                       <TooltipTrigger type="button">
@@ -461,15 +488,15 @@ export const EnvelopeDistributeDialog = ({
                         exit={{ opacity: 0, transition: { duration: 0.15 } }}
                         className="min-h-60 rounded-lg border"
                       >
-                        <div className="py-24 text-center text-sm text-muted-foreground">
+                        <div className="py-24 text-center text-muted-foreground text-sm">
                           <p>
                             <Trans>We won't send anything to notify recipients.</Trans>
                           </p>
 
                           <p className="mt-2">
                             <Trans>
-                              We will generate signing links for you, which you can send to the
-                              recipients through your method of choice.
+                              We will generate signing links for you, which you can send to the recipients through your
+                              method of choice.
                             </Trans>
                           </p>
                         </div>
@@ -633,7 +660,7 @@ export const EnvelopeDistributeDialog = ({
                   <AlertDescription>
                     <Trans>The following signers are missing signature fields:</Trans>
 
-                    <ul className="ml-2 mt-1 list-inside list-disc">
+                    <ul className="mt-1 ml-2 list-inside list-disc">
                       {recipientsMissingSignatureFields.map((recipient) => (
                         <li key={recipient.id}>
                           {recipient.email || recipient.name || t`Recipient ${recipient.index + 1}`}
@@ -646,7 +673,7 @@ export const EnvelopeDistributeDialog = ({
                   <AlertDescription>
                     <Trans>The following recipients require an email address:</Trans>
 
-                    <ul className="ml-2 mt-1 list-inside list-disc">
+                    <ul className="mt-1 ml-2 list-inside list-disc">
                       {recipientsMissingRequiredEmail.map((recipient) => (
                         <li key={recipient.id}>
                           {recipient.email || recipient.name || t`Recipient ${recipient.index + 1}`}

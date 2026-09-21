@@ -1,9 +1,10 @@
+import { Popover, PopoverContent } from '@documenso/ui/primitives/popover';
 import React, { forwardRef, useRef, useState } from 'react';
 
 import { Trans } from '@lingui/react/macro';
 import { PopoverAnchor } from '@radix-ui/react-popover';
-
-import { Popover, PopoverContent } from '@documenso/ui/primitives/popover';
+import type React from 'react';
+import { useRef, useState } from 'react';
 
 import { Command, CommandGroup, CommandItem } from '../../primitives/command';
 import { Input } from '../../primitives/input';
@@ -72,23 +73,19 @@ export const RecipientAutoCompleteInput = forwardRef<HTMLInputElement, CombinedP
             />
           </PopoverAnchor>
 
-          <PopoverContent
-            align="start"
-            className="w-full p-0"
-            onOpenAutoFocus={(e) => {
-              e.preventDefault();
-            }}
-          >
-            {/* Not using <CommandEmpty /> here due to some weird behaviour */}
-            {options.length === 0 && (
-              <div className="px-2 py-1.5 text-sm">
-                {loading ? (
-                  <Trans>Loading suggestions...</Trans>
-                ) : (
-                  <Trans>No suggestions found</Trans>
-                )}
-              </div>
-            )}
+        <PopoverContent
+          align="start"
+          className="w-full p-0"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+          }}
+        >
+          {/* Not using <CommandEmpty /> here due to some weird behaviour */}
+          {options.length === 0 && (
+            <div className="px-2 py-1.5 text-sm">
+              {loading ? <Trans>Loading suggestions...</Trans> : <Trans>No suggestions found</Trans>}
+            </div>
+          )}
 
             {options.length > 0 && (
               <CommandGroup className="max-h-[250px] overflow-y-auto">

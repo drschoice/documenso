@@ -1,8 +1,5 @@
 import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react/macro';
-import { Loader } from 'lucide-react';
 import { useLoaderData } from 'react-router';
-
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { IS_AI_FEATURES_CONFIGURED } from '@documenso/lib/constants/app';
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
@@ -10,6 +7,8 @@ import { resolveEmailSenderName } from '@documenso/lib/utils/email-sender-name';
 import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { useLingui } from '@lingui/react/macro';
+import { Loader } from 'lucide-react';
 
 import {
   DocumentPreferencesForm,
@@ -17,21 +16,8 @@ import {
 } from '~/components/forms/document-preferences-form';
 import { SettingsHeader } from '~/components/general/settings-header';
 import { useCurrentTeam } from '~/providers/team';
-import { appMetaTags } from '~/utils/meta';
-
-export function meta() {
-  return appMetaTags(msg`Document Preferences`);
-}
-
-export const loader = () => {
-  return {
-    isAiFeaturesConfigured: IS_AI_FEATURES_CONFIGURED(),
-  };
-};
 
 export default function TeamsSettingsPage() {
-  const { isAiFeaturesConfigured } = useLoaderData<typeof loader>();
-
   const team = useCurrentTeam();
   const organisation = useCurrentOrganisation();
 
@@ -51,16 +37,10 @@ export default function TeamsSettingsPage() {
         documentLanguage,
         documentTimezone,
         documentDateFormat,
-        includeSenderDetails,
-        emailSenderNameMode,
-        emailSenderNameCustom,
-        includeSigningCertificate,
-        includeAuditLog,
         signatureTypes,
         defaultRecipients,
         delegateDocumentOwnership,
         aiFeaturesEnabled,
-        envelopeExpirationPeriod,
       } = data;
 
       await updateTeamSettings({
@@ -70,15 +50,8 @@ export default function TeamsSettingsPage() {
           documentLanguage,
           documentTimezone,
           documentDateFormat,
-          includeSenderDetails,
-          // Null = inherit from organisation.
-          emailSenderNameMode,
-          emailSenderNameCustom: emailSenderNameCustom || null,
-          includeSigningCertificate,
-          includeAuditLog,
           defaultRecipients,
           aiFeaturesEnabled,
-          envelopeExpirationPeriod,
           ...(signatureTypes.length === 0
             ? {
                 typedSignatureEnabled: null,
@@ -90,7 +63,7 @@ export default function TeamsSettingsPage() {
                 uploadSignatureEnabled: signatureTypes.includes(DocumentSignatureType.UPLOAD),
                 drawSignatureEnabled: signatureTypes.includes(DocumentSignatureType.DRAW),
               }),
-          delegateDocumentOwnership: delegateDocumentOwnership,
+          delegateDocumentOwnership,
         },
       });
 
@@ -104,6 +77,8 @@ export default function TeamsSettingsPage() {
         description: t`We were unable to update your document preferences at this time, please try again later`,
         variant: 'destructive',
       });
+
+      throw err;
     }
   };
 
@@ -116,7 +91,7 @@ export default function TeamsSettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <SettingsHeader
         title={t`Document Preferences`}
         subtitle={t`Here you can set preferences and defaults for your team.`}
@@ -125,7 +100,6 @@ export default function TeamsSettingsPage() {
       <section>
         <DocumentPreferencesForm
           canInherit={true}
-          isAiFeaturesConfigured={isAiFeaturesConfigured}
           settings={teamWithSettings.teamSettings}
           allowedSignatureTypes={extractTeamSignatureSettings(
             teamWithSettings.organisationSettings,

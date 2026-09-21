@@ -32,10 +32,7 @@ export type TEnvelopeExpirationPeriod = z.infer<typeof ZEnvelopeExpirationPeriod
 export type TEnvelopeExpirationDurationPeriod = z.infer<typeof ZEnvelopeExpirationDurationPeriod>;
 export type TEnvelopeExpirationDatePeriod = z.infer<typeof ZEnvelopeExpirationDatePeriod>;
 
-const UNIT_TO_LUXON_KEY: Record<
-  TEnvelopeExpirationDurationPeriod['unit'],
-  keyof DurationLikeObject
-> = {
+const UNIT_TO_LUXON_KEY: Record<TEnvelopeExpirationDurationPeriod['unit'], keyof DurationLikeObject> = {
   day: 'days',
   week: 'weeks',
   month: 'months',

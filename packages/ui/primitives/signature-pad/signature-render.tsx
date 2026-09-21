@@ -1,12 +1,10 @@
+import { isBase64Image, SIGNATURE_CANVAS_DPI } from '@documenso/lib/constants/signatures';
 import { useEffect, useRef } from 'react';
 
-import {
-  DEFAULT_SIGNATURE_FONT_FAMILY,
-  getSignatureFont,
-} from '@documenso/lib/constants/signature-fonts';
-import { SIGNATURE_CANVAS_DPI, isBase64Image } from '@documenso/lib/constants/signatures';
-
+import { DEFAULT_SIGNATURE_FONT_FAMILY, getSignatureFont } from '@documenso/lib/constants/signature-fonts';
 import { cn } from '../../lib/utils';
+
+const SIGNATURE_FONT_FAMILY = 'Caveat';
 
 export type SignatureRenderProps = {
   className?: string;
@@ -55,7 +53,7 @@ export const SignatureRender = ({
 
     // Start with a base font size
     let fontSize = 18;
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
 
     // Measure 10 characters and calculate scale factor
     const characterWidth = ctx.measureText('m'.repeat(10)).width;
@@ -65,7 +63,7 @@ export const SignatureRender = ({
     fontSize = fontSize * scaleFactor;
 
     // Adjust font size if it exceeds canvas width
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
 
     const textWidth = ctx.measureText(value).width;
 
@@ -74,7 +72,7 @@ export const SignatureRender = ({
     }
 
     // Set final font and render text
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
     ctx.fillText(value, canvasWidth / 2, canvasHeight / 2);
   };
 
@@ -123,11 +121,28 @@ export const SignatureRender = ({
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (isBase64Image(value)) {
       renderImageSignature();
-    } else {
-      renderTypedSignature();
+      return;
     }
+
+    const renderWhenFontIsReady = async () => {
+      try {
+        await document.fonts?.load(`18px ${fontFamily}`);
+      } finally {
+        if (isMounted) {
+          renderTypedSignature();
+        }
+      }
+    };
+
+    void renderWhenFontIsReady();
+
+    return () => {
+      isMounted = false;
+    };
   }, [value, fontFamilyProp]);
 
   return (

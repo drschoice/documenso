@@ -1,11 +1,4 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { msg } from '@lingui/core/macro';
-import { Trans } from '@lingui/react/macro';
-import { createCallable } from 'react-call';
-import { useForm } from 'react-hook-form';
 import { match } from 'ts-pattern';
-import { z } from 'zod';
-
 import type { TFieldNamePartSchema } from '@documenso/lib/types/field-meta';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -16,14 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@documenso/ui/primitives/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { msg } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { createCallable } from 'react-call';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 const ZSignFieldNameFormSchema = z.object({
   name: z.string().min(1, { message: msg`Name is required`.id }),
@@ -69,39 +62,35 @@ export const SignFieldNameDialog = createCallable<SignFieldNameDialogProps, stri
             </DialogDescription>
           </DialogHeader>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => call.end(data.name))}>
-              <fieldset
-                className="flex h-full flex-col space-y-4"
-                disabled={form.formState.isSubmitting}
-              >
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => call.end(data.name))}>
+            <fieldset className="flex h-full flex-col space-y-4" disabled={form.formState.isSubmitting}>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => call.end(null)}>
-                    <Trans>Cancel</Trans>
-                  </Button>
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => call.end(null)}>
+                  <Trans>Cancel</Trans>
+                </Button>
 
-                  <Button type="submit">
-                    <Trans>Enter</Trans>
-                  </Button>
-                </DialogFooter>
-              </fieldset>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    );
-  },
-);
+                <Button type="submit">
+                  <Trans>Enter</Trans>
+                </Button>
+              </DialogFooter>
+            </fieldset>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+});

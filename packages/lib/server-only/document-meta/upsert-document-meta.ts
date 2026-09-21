@@ -1,18 +1,8 @@
-import {
-  type DocumentDistributionMethod,
-  type DocumentSigningOrder,
-  EnvelopeType,
-  type FieldType,
-  Prisma,
-} from '@prisma/client';
-
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import {
-  createDocumentAuditLogData,
-  diffDocumentMetaChanges,
-} from '@documenso/lib/utils/document-audit-logs';
+import { createDocumentAuditLogData, diffDocumentMetaChanges } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
+import { type DocumentDistributionMethod, type DocumentSigningOrder, EnvelopeType } from '@prisma/client';
 
 import type { TEnvelopeExpirationPeriod } from '../../constants/envelope-expiration';
 import type { SupportedLanguageCodes } from '../../constants/i18n';
@@ -20,7 +10,10 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { TDocumentEmailSettings } from '../../types/document-email';
 import { capSignatureSettings } from '../../utils/document';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
+import { assertEnvelopeMutable } from '../envelope/assert-envelope-mutable';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertCompatibleDictateNextSigner } from '../signature-level/assert-compatible-dictate-next-signer';
+import { assertCompatibleSigningOrder } from '../signature-level/assert-compatible-signing-order';
 import { getTeamSettings } from '../team/get-team-settings';
 
 export type CreateDocumentMetaOptions = {
@@ -98,6 +91,22 @@ export const updateDocumentMeta = async ({
     });
   }
 
+  await assertEnvelopeMutable(envelope);
+
+  if (signingOrder !== undefined) {
+    assertCompatibleSigningOrder({
+      signatureLevel: envelope.signatureLevel,
+      signingOrder,
+    });
+  }
+
+  if (allowDictateNextSigner !== undefined) {
+    assertCompatibleDictateNextSigner({
+      signatureLevel: envelope.signatureLevel,
+      allowDictateNextSigner,
+    });
+  }
+
   const { documentMeta: originalDocumentMeta } = envelope;
 
   // The organisation/team allowance is a cap — a document may narrow the signature types further but
@@ -132,6 +141,8 @@ export const updateDocumentMeta = async ({
   }
 
   return await prisma.$transaction(async (tx) => {
+    await assertEnvelopeMutable(envelope, tx);
+
     const upsertedDocumentMeta = await tx.documentMeta.update({
       where: {
         id: envelope.documentMetaId,

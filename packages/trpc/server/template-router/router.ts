@@ -1,19 +1,18 @@
-import type { Envelope } from '@prisma/client';
-import { DocumentDataType, EnvelopeType } from '@prisma/client';
-
 import { getServerLimits } from '@documenso/ee/server-only/limits/server';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { jobs } from '@documenso/lib/jobs/client';
-import { createDocumentData } from '@documenso/lib/server-only/document-data/create-document-data';
+import { captureServerEvent } from '@documenso/lib/server-only/analytics/capture-server-event';
 import { getDocumentWithDetailsById } from '@documenso/lib/server-only/document/get-document-with-details-by-id';
 import { sendDocument } from '@documenso/lib/server-only/document/send-document';
+import { convertToPdf } from '@documenso/lib/server-only/document-conversion';
+import { createDocumentData } from '@documenso/lib/server-only/document-data/create-document-data';
 import { createEnvelope } from '@documenso/lib/server-only/envelope/create-envelope';
 import { duplicateEnvelope } from '@documenso/lib/server-only/envelope/duplicate-envelope';
 import { updateEnvelope } from '@documenso/lib/server-only/envelope/update-envelope';
 import { createCompletedDocumentFromTemplate } from '@documenso/lib/server-only/template/create-completed-document-from-template';
 import {
-  ZCreateDocumentFromDirectTemplateResponseSchema,
   createDocumentFromDirectTemplate,
+  ZCreateDocumentFromDirectTemplateResponseSchema,
 } from '@documenso/lib/server-only/template/create-document-from-direct-template';
 import { createDocumentFromTemplate } from '@documenso/lib/server-only/template/create-document-from-template';
 import { createTemplateDirectLink } from '@documenso/lib/server-only/template/create-template-direct-link';
@@ -24,12 +23,17 @@ import { findTemplates } from '@documenso/lib/server-only/template/find-template
 import { getOrganisationTemplateById } from '@documenso/lib/server-only/template/get-organisation-template-by-id';
 import { getTemplateById } from '@documenso/lib/server-only/template/get-template-by-id';
 import { toggleTemplateDirectLink } from '@documenso/lib/server-only/template/toggle-template-direct-link';
+import { validateBulkSendCsv } from '@documenso/lib/server-only/template/validate-bulk-send-csv';
+import { fireAndForget } from '@documenso/lib/universal/fire-and-forget';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { getPresignPostUrl } from '@documenso/lib/universal/upload/server-actions';
 import { mapSecondaryIdToTemplateId } from '@documenso/lib/utils/envelope';
 import { mapFieldToLegacyField } from '@documenso/lib/utils/fields';
 import { mapRecipientToLegacyRecipient } from '@documenso/lib/utils/recipients';
 import { mapEnvelopeToTemplateLite } from '@documenso/lib/utils/templates';
+import { prisma } from '@documenso/prisma';
+import type { Envelope } from '@prisma/client';
+import { DocumentDataType, EnvelopeType } from '@prisma/client';
 
 import { ZGenericSuccessResponse, ZSuccessResponseSchema } from '../schema';
 import { authenticatedProcedure, maybeAuthenticatedProcedure, router } from '../trpc';
@@ -75,8 +79,10 @@ export const templateRouter = router({
         method: 'GET',
         path: '/template',
         summary: 'Find templates',
-        description: 'Find templates based on a search criteria',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. Find templates based on a search criteria',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZFindTemplatesRequestSchema)
@@ -120,9 +126,7 @@ export const templateRouter = router({
             useLegacyFieldInsertion: envelope.useLegacyFieldInsertion,
             team: envelope.team,
             fields: envelope.fields.map((field) => mapFieldToLegacyField(field, envelope)),
-            recipients: envelope.recipients.map((recipient) =>
-              mapRecipientToLegacyRecipient(recipient, envelope),
-            ),
+            recipients: envelope.recipients.map((recipient) => mapRecipientToLegacyRecipient(recipient, envelope)),
             templateMeta: envelope.documentMeta,
             directLink: envelope.directLink,
           };
@@ -169,9 +173,7 @@ export const templateRouter = router({
             useLegacyFieldInsertion: envelope.useLegacyFieldInsertion,
             team: envelope.team,
             fields: envelope.fields.map((field) => mapFieldToLegacyField(field, envelope)),
-            recipients: envelope.recipients.map((recipient) =>
-              mapRecipientToLegacyRecipient(recipient, envelope),
-            ),
+            recipients: envelope.recipients.map((recipient) => mapRecipientToLegacyRecipient(recipient, envelope)),
             templateMeta: envelope.documentMeta,
             directLink: envelope.directLink,
           };
@@ -208,7 +210,10 @@ export const templateRouter = router({
         method: 'GET',
         path: '/template/{templateId}',
         summary: 'Get template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZGetTemplateByIdRequestSchema)
@@ -252,8 +257,10 @@ export const templateRouter = router({
         path: '/template/create',
         contentTypes: ['multipart/form-data'],
         summary: 'Create template',
-        description: 'Create a new template',
+        description:
+          'Create a new template. Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZCreateTemplateMutationSchema)
@@ -277,9 +284,18 @@ export const templateRouter = router({
         attachments,
       } = payload;
 
-      const { id: templateDocumentDataId } = await putNormalizedPdfFileServerSide(file, {
-        flattenForm: false,
-      });
+      const pdf = await convertToPdf(file, ctx.logger);
+
+      const { id: templateDocumentDataId } = await putNormalizedPdfFileServerSide(
+        {
+          name: file.name,
+          type: 'application/pdf',
+          arrayBuffer: async () => Promise.resolve(pdf),
+        },
+        {
+          flattenForm: false,
+        },
+      );
 
       ctx.logger.info({
         input: {
@@ -332,8 +348,9 @@ export const templateRouter = router({
         path: '/template/create/beta',
         summary: 'Create template',
         description:
-          'You will need to upload the PDF to the provided URL returned. Note: Once V2 API is released, this will be removed since we will allow direct uploads, instead of using an upload URL.',
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. You will need to upload the PDF to the provided URL returned. Note: Once V2 API is released, this will be removed since we will allow direct uploads, instead of using an upload URL.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZCreateTemplateV2RequestSchema)
@@ -416,7 +433,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/update',
         summary: 'Update template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZUpdateTemplateRequestSchema)
@@ -459,7 +479,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/duplicate',
         summary: 'Duplicate template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZDuplicateTemplateMutationSchema)
@@ -495,7 +518,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/delete',
         summary: 'Delete template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide.',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZDeleteTemplateMutationSchema)
@@ -532,8 +558,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/use',
         summary: 'Use template',
-        description: 'Use the template to create a document',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. Use the template to create a document',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZCreateDocumentFromTemplateRequestSchema)
@@ -605,12 +633,11 @@ export const templateRouter = router({
         }).catch((err) => {
           console.error(err);
 
-          // Keep the code so existing consumers still match on it, but surface the underlying
-          // reason — otherwise actionable failures (a lapsed expiration date, a signer with no
-          // signature field) reach the caller as an opaque DOCUMENT_SEND_FAILED.
-          throw new AppError('DOCUMENT_SEND_FAILED', {
-            message: AppError.parseError(err).message,
-          });
+          if (err instanceof AppError) {
+            throw err;
+          }
+
+          throw new AppError('DOCUMENT_SEND_FAILED');
         });
       }
 
@@ -756,8 +783,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/direct/create',
         summary: 'Create direct link',
-        description: 'Create a direct link for a template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. Create a direct link for a template',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZCreateTemplateDirectLinkRequestSchema)
@@ -792,7 +821,7 @@ export const templateRouter = router({
         });
       }
 
-      return await createTemplateDirectLink({
+      const directLink = await createTemplateDirectLink({
         userId,
         teamId,
         id: {
@@ -801,6 +830,25 @@ export const templateRouter = router({
         },
         directRecipientId,
       });
+
+      fireAndForget(async () => {
+        const team = await prisma.team.findFirst({
+          where: { id: template.teamId },
+          select: { organisationId: true },
+        });
+
+        captureServerEvent({
+          event: 'App: Template Direct Link Enabled',
+          userId,
+          teamId: template.teamId,
+          organisationId: team?.organisationId,
+          properties: {
+            envelopeId: template.envelopeId,
+          },
+        });
+      });
+
+      return directLink;
     }),
 
   /**
@@ -812,8 +860,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/direct/delete',
         summary: 'Delete direct link',
-        description: 'Delete a direct link for a template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. Delete a direct link for a template',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZDeleteTemplateDirectLinkRequestSchema)
@@ -844,8 +894,10 @@ export const templateRouter = router({
         method: 'POST',
         path: '/template/direct/toggle',
         summary: 'Toggle direct link',
-        description: 'Enable or disable a direct link for a template',
+        description:
+          'Deprecated: this endpoint is being replaced by the Envelope API. See https://docs.documenso.com/docs/developers/api/migrate-to-envelopes for the migration guide. Enable or disable a direct link for a template',
         tags: ['Template'],
+        deprecated: true,
       },
     })
     .input(ZToggleTemplateDirectLinkRequestSchema)
@@ -868,53 +920,60 @@ export const templateRouter = router({
   /**
    * @private
    */
-  uploadBulkSend: authenticatedProcedure
-    .input(ZBulkSendTemplateMutationSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { templateId, teamId, csv, sendImmediately } = input;
-      const { user } = ctx;
+  uploadBulkSend: authenticatedProcedure.input(ZBulkSendTemplateMutationSchema).mutation(async ({ ctx, input }) => {
+    const { templateId, teamId, csv, sendImmediately } = input;
+    const { user } = ctx;
 
-      ctx.logger.info({
-        input: {
-          templateId,
-          teamId,
-        },
-      });
-
-      if (csv.length > 4 * 1024 * 1024) {
-        throw new AppError(AppErrorCode.LIMIT_EXCEEDED, {
-          message: 'File size exceeds 4MB limit',
-          statusCode: 400,
-        });
-      }
-
-      const template = await getTemplateById({
-        id: {
-          type: 'templateId',
-          id: templateId,
-        },
+    ctx.logger.info({
+      input: {
+        templateId,
         teamId,
+      },
+    });
+
+    if (csv.length > 4 * 1024 * 1024) {
+      throw new AppError(AppErrorCode.LIMIT_EXCEEDED, {
+        message: 'File size exceeds 4MB limit',
+        statusCode: 400,
+      });
+    }
+
+    const template = await getTemplateById({
+      id: {
+        type: 'templateId',
+        id: templateId,
+      },
+      teamId,
+      userId: user.id,
+    });
+
+    if (!template) {
+      throw new AppError(AppErrorCode.NOT_FOUND, {
+        message: 'Template not found',
+      });
+    }
+
+    const csvValidationResult = validateBulkSendCsv({
+      csvContent: csv,
+      recipientCount: template.recipients.length,
+    });
+
+    if (!csvValidationResult.success) {
+      return { success: false as const, error: csvValidationResult.error };
+    }
+
+    await jobs.triggerJob({
+      name: 'internal.bulk-send-template',
+      payload: {
         userId: user.id,
-      });
+        teamId,
+        templateId,
+        csvContent: csv,
+        sendImmediately,
+        requestMetadata: ctx.metadata.requestMetadata,
+      },
+    });
 
-      if (!template) {
-        throw new AppError(AppErrorCode.NOT_FOUND, {
-          message: 'Template not found',
-        });
-      }
-
-      await jobs.triggerJob({
-        name: 'internal.bulk-send-template',
-        payload: {
-          userId: user.id,
-          teamId,
-          templateId,
-          csvContent: csv,
-          sendImmediately,
-          requestMetadata: ctx.metadata.requestMetadata,
-        },
-      });
-
-      return { success: true };
-    }),
+    return { success: true as const };
+  }),
 });

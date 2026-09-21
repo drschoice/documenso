@@ -1,17 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-
+import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
+import type { ImageLoadingState, PageRenderData } from '@documenso/lib/client-only/providers/envelope-render-provider';
+import { PDF_VIEWER_PAGE_CLASSNAME } from '@documenso/lib/constants/pdf-viewer';
+import { cn } from '@documenso/ui/lib/utils';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 import { Trans, useLingui } from '@lingui/react/macro';
 import pMap from 'p-map';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
-
-import type {
-  ImageLoadingState,
-  PageRenderData,
-} from '@documenso/lib/client-only/providers/envelope-render-provider';
-import { PDF_VIEWER_PAGE_CLASSNAME } from '@documenso/lib/constants/pdf-viewer';
-import { cn } from '@documenso/ui/lib/utils';
-import { useToast } from '@documenso/ui/primitives/use-toast';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ScrollTarget } from '../virtual-list/use-virtual-list';
 import { useVirtualList } from '../virtual-list/use-virtual-list';
@@ -85,6 +82,7 @@ export default function PDFViewer({
 }: PDFViewerProps) {
   const { t } = useLingui();
   const { toast } = useToast();
+  const analytics = useAnalytics();
 
   const $el = useRef<HTMLDivElement>(null);
 
@@ -126,8 +124,7 @@ export default function PDFViewer({
           return;
         }
 
-        const loadedPdf = await pdfjsLib.getDocument({ data: result!, cMapUrl: '/static/cmaps/' })
-          .promise;
+        const loadedPdf = await pdfjsLib.getDocument({ data: result!, cMapUrl: '/static/cmaps/' }).promise;
 
         if (isCancelled) {
           await loadedPdf.destroy();
@@ -143,18 +140,15 @@ export default function PDFViewer({
         pdfRef.current = loadedPdf;
 
         // Fetch the pages
-        const pages = await pMap(
-          Array.from({ length: loadedPdf.numPages }),
-          async (_, pageIndex) => {
-            const page = await loadedPdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: 1 });
+        const pages = await pMap(Array.from({ length: loadedPdf.numPages }), async (_, pageIndex) => {
+          const page = await loadedPdf.getPage(pageIndex + 1);
+          const viewport = page.getViewport({ scale: 1 });
 
-            return {
-              width: viewport.width,
-              height: viewport.height,
-            };
-          },
-        );
+          return {
+            width: viewport.width,
+            height: viewport.height,
+          };
+        });
 
         if (isCancelled) {
           return;
@@ -170,6 +164,11 @@ export default function PDFViewer({
 
         console.error(err);
         setLoadingState('error');
+
+        analytics.captureException(err, {
+          source: 'pdf_viewer',
+          location: 'pdf_load',
+        });
 
         toast({
           title: t`Error`,
@@ -208,7 +207,7 @@ export default function PDFViewer({
   if (!data) {
     return (
       <div ref={$el} className={cn('h-full w-full', className)} {...props}>
-        <p className="py-32 text-center text-sm text-muted-foreground">
+        <p className="py-32 text-center text-muted-foreground text-sm">
           <Trans>No document found</Trans>
         </p>
       </div>
@@ -241,7 +240,7 @@ export default function PDFViewer({
 
 type VirtualizedPageListProps = {
   scrollParentRef: ScrollTarget;
-  constraintRef: React.RefObject<HTMLDivElement>;
+  constraintRef: React.RefObject<HTMLDivElement | null>;
   pages: PageMeta[];
   numPages: number;
   pdf: pdfjsLib.PDFDocumentProxy;
@@ -375,10 +374,7 @@ const PdfViewerPage = ({
   });
 
   return (
-    <div
-      className="relative w-full rounded border border-border"
-      style={{ width: scaledWidth, height: scaledHeight }}
-    >
+    <div className="relative w-full rounded border border-border" style={{ width: scaledWidth, height: scaledHeight }}>
       {CustomPageRenderer && imageLoadingState === 'loaded' && (
         <CustomPageRenderer
           pageData={{
@@ -408,6 +404,8 @@ const usePdfPageImage = ({
   scaledHeight,
   onPageRendered,
 }: PdfViewerPageProps) => {
+  const analytics = useAnalytics();
+
   const [imageLoadingState, setImageLoadingState] = useState<ImageLoadingState>('loading');
 
   const [imageUrl, setImageUrl] = useState('');
@@ -504,6 +502,12 @@ const usePdfPageImage = ({
 
         if (!isCancelled) {
           console.error(err);
+
+          analytics.captureException(err, {
+            source: 'pdf_viewer',
+            location: 'pdf_page_render',
+          });
+
           setImageLoadingState('error');
         }
       } finally {

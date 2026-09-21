@@ -1,16 +1,15 @@
-import { EnvelopeType } from '@prisma/client';
-
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { deleteDocumentField } from '@documenso/lib/server-only/field/delete-document-field';
 import { deleteTemplateField } from '@documenso/lib/server-only/field/delete-template-field';
 import { prisma } from '@documenso/prisma';
+import { EnvelopeType } from '@prisma/client';
 
 import { ZGenericSuccessResponse } from '../../schema';
 import { authenticatedProcedure } from '../../trpc';
 import {
+  deleteEnvelopeFieldMeta,
   ZDeleteEnvelopeFieldRequestSchema,
   ZDeleteEnvelopeFieldResponseSchema,
-  deleteEnvelopeFieldMeta,
 } from './delete-envelope-field.types';
 
 export const deleteEnvelopeFieldRoute = authenticatedProcedure

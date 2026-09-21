@@ -1,12 +1,3 @@
-import {
-  DocumentStatus,
-  FieldType,
-  type Prisma,
-  RecipientRole,
-  SigningStatus,
-} from '@prisma/client';
-import { match } from 'ts-pattern';
-
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { validateFieldAuth } from '@documenso/lib/server-only/document/validate-field-auth';
@@ -18,13 +9,13 @@ import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility
 import { resolveLiveDocumentMeta } from '@documenso/lib/utils/document';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
+import { assertRecipientNotExpired } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
+import { DocumentStatus, FieldType, RecipientRole, SigningStatus } from '@prisma/client';
+import { match } from 'ts-pattern';
 
 import { procedure } from '../trpc';
-import {
-  ZSignEnvelopeFieldRequestSchema,
-  ZSignEnvelopeFieldResponseSchema,
-} from './sign-envelope-field.types';
+import { ZSignEnvelopeFieldRequestSchema, ZSignEnvelopeFieldResponseSchema } from './sign-envelope-field.types';
 
 // Note that this is an unauthenticated public procedure route.
 export const signEnvelopeFieldRoute = procedure
@@ -53,8 +44,8 @@ export const signEnvelopeFieldRoute = procedure
     const field = await prisma.field.findFirst({
       where: {
         id: fieldId,
-        recipient: {
-          ...(recipient.role === RecipientRole.ASSISTANT
+        recipient:
+          recipient.role === RecipientRole.ASSISTANT
             ? {
                 signingStatus: {
                   not: SigningStatus.SIGNED,
@@ -62,11 +53,11 @@ export const signEnvelopeFieldRoute = procedure
                 signingOrder: {
                   gte: recipient.signingOrder ?? 0,
                 },
+                envelopeId: recipient.envelopeId,
               }
             : {
                 id: recipient.id,
-              }),
-        },
+              },
       },
       include: {
         envelope: {
@@ -127,10 +118,13 @@ export const signEnvelopeFieldRoute = procedure
       });
     }
 
-    if (
-      recipient.signingStatus === SigningStatus.SIGNED ||
-      field.recipient.signingStatus === SigningStatus.SIGNED
-    ) {
+    // Both are checked because an assistant may insert values into a field belonging to
+    // another recipient, and neither signing window may have closed. For every other
+    // role these reference the same recipient.
+    assertRecipientNotExpired(recipient);
+    assertRecipientNotExpired(field.recipient);
+
+    if (recipient.signingStatus === SigningStatus.SIGNED || field.recipient.signingStatus === SigningStatus.SIGNED) {
       throw new AppError(AppErrorCode.INVALID_REQUEST, {
         message: `Recipient ${recipient.id} has already signed`,
       });
@@ -395,27 +389,14 @@ export const signEnvelopeFieldRoute = procedure
                 type,
                 data: signatureImageAsBase64 || typedSignature || '',
               }))
-              .with(
-                FieldType.DATE,
-                FieldType.EMAIL,
-                FieldType.NAME,
-                FieldType.TEXT,
-                FieldType.INITIALS,
-                (type) => ({
-                  type,
-                  data: updatedField.customText,
-                }),
-              )
-              .with(
-                FieldType.NUMBER,
-                FieldType.RADIO,
-                FieldType.CHECKBOX,
-                FieldType.DROPDOWN,
-                (type) => ({
-                  type,
-                  data: updatedField.customText,
-                }),
-              )
+              .with(FieldType.DATE, FieldType.EMAIL, FieldType.NAME, FieldType.TEXT, FieldType.INITIALS, (type) => ({
+                type,
+                data: updatedField.customText,
+              }))
+              .with(FieldType.NUMBER, FieldType.RADIO, FieldType.CHECKBOX, FieldType.DROPDOWN, (type) => ({
+                type,
+                data: updatedField.customText,
+              }))
               .exhaustive(),
             fieldSecurity: derivedRecipientActionAuth
               ? {
