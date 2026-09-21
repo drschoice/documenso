@@ -12,6 +12,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unit_tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: ./.github/actions/node-install
+
+      - name: Copy env
+        run: cp .env.example .env
+
+      - name: Run unit tests
+        run: |
+          npm run test -w @documenso/lib
+          npm run test -w @documenso/signing
+
+  typecheck:
+    name: Typecheck (packages/lib)
+    runs-on: ubuntu-latest
+    # Non-blocking on purpose. `packages/lib` has five errors across three files
+    # that predate the fork point and that nothing imports: three modules left
+    # orphaned by the envelope migration, still selecting on `Field.documentId`,
+    # `Subscription.userId` and `Team.customerId`, none of which survive in the
+    # schema. Gating merges on them would make this check something people learn
+    # to ignore; deleting the dead files is the actual fix, and it is product
+    # work rather than test work.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: ./.github/actions/node-install
+
+      - name: Copy env
+        run: cp .env.example .env
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p packages/lib
+
   build_app:
     name: Build App
     runs-on: ubuntu-latest

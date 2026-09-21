@@ -9,7 +9,7 @@
     "index.ts"
   ],
   "scripts": {
-    "test": "vitest"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@google-cloud/kms": "^5.2.1",

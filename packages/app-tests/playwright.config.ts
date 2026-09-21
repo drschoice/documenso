@@ -31,7 +31,17 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   workers: 10, // See Projects where 10 is utilized for API tests. We're not running 10 workers for UI tests.
-  maxFailures: process.env.CI ? 1 : undefined,
+  /**
+   * Inherited as `process.env.CI ? 1 : undefined`, which stopped a CI run dead at
+   * the first red test.
+   *
+   * That was tolerable when the suite was one job; it is not now that it is split
+   * across shards, because the shard that trips first reports one failure and
+   * abandons the rest of its work, so a run tells you about a single test rather
+   * than about the branch. Every failure this audit triaged needed the other
+   * failures around it to classify - the shape of the set is the signal.
+   */
+  maxFailures: undefined,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
