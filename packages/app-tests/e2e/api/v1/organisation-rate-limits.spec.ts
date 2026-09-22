@@ -286,7 +286,17 @@ const expectNoOrgRateLimitHeader = (res: APIResponse) => {
 
   const values = header.split(',').map((v) => v.trim());
 
-  expect(values, `Quota rejection should not add an org X-RateLimit-Limit, got "${header}"`).toEqual(['100']);
+  // Exactly one value, not which value. The assertion used to pin this to '100',
+  // which only holds upstream: their CI runs with DANGEROUS_BYPASS_RATE_LIMITS, so
+  // the global limiter returns before setting any header and this helper exits on
+  // the `undefined` branch above. This fork tunes limits per action instead of
+  // bypassing them, so the global header is really there and carries whatever
+  // `api.v1`/`api.v2` is configured to. What the test is actually about survives:
+  // the org limiter must not append a second value of its own.
+  expect(
+    values,
+    `Quota rejection should not add an org X-RateLimit-Limit, got "${header}"`,
+  ).toHaveLength(1);
 };
 
 /** Guard against the global limiter silently masking an org assertion. */
