@@ -12,6 +12,7 @@ import {
   getRecipientNameParts,
   splitFullName,
 } from '@documenso/lib/utils/recipient-formatter';
+import {
   isAssistantLastSigner,
   isCcRecipient,
   normalizeRecipientSigningOrders,
@@ -238,6 +239,9 @@ export const EnvelopeEditorRecipientForm = () => {
         requestAnimationFrame(() => form.setFocus(`signers.${signerIndex}.email`));
       }
     }
+  };
+
+
   /**
    * Expand a full name that came from somewhere else — the signed-in user, a recipient suggestion,
    * or AI detection — into the name parts the form now edits.

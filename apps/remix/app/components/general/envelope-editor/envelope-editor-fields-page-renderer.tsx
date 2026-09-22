@@ -22,7 +22,6 @@ import {
 import { FIELD_META_DEFAULT_VALUES, getCombFieldCells } from '@documenso/lib/types/field-meta';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import {
-  convertPixelToPercentage,
   addToLinkGroup,
   getLinkGroupId,
   isLinkEligibleType,
@@ -80,6 +79,7 @@ import { EnvelopeRecipientSelectorCommand } from './envelope-recipient-selector'
 
 /** How far past a resize handle you can still grab it, in screen pixels. */
 const TRANSFORMER_ANCHOR_HIT_STROKE_PX = 24;
+
 const ADVANCED_FIELD_TYPES = new Set([
   'NUMBER',
   'RADIO',
@@ -202,6 +202,8 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
 
     return formIds;
   }, [debouncedPageFields]);
+
+  /**
    * The single field currently eligible for inline "select and type" value
    * editing on this page, if any. A live, editable, singly-selected
    * TEXT/NUMBER/EMAIL/NAME field (comb layout excluded — a rectangular overlay
@@ -786,6 +788,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     });
 
     syncOverlapHighlight(fieldGroup, overlappingFieldFormIds.has(field.formId));
+
     // Mark fields under a conditional-visibility rule with editor-only stripes.
     applyFieldStripes(field, fieldGroup, pickModeRef.current.active);
 
@@ -1093,19 +1096,19 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       }
     });
 
-    // Clicking empty stage area clears the selection. Field clicks -- including
-    // Shift+click multi-select -- are handled by each field group's own click
-    // handler in `unsafeRenderFieldOnLayer`.
-    currentStage.on('click tap', (e) => {
-      // In a pick-mode the per-field click handler owns the click (it toggles the
-      // dependent or link member). Block all selection/deselection here to avoid
-      // double-handling.
-      if (isAnyPickModeActive()) {
-        return;
-      }
+      // Clicking empty stage area clears the selection. Field clicks -- including
+      // Shift+click multi-select -- are handled by each field group's own click
+      // handler in `unsafeRenderFieldOnLayer`.
+      currentStage.on('click tap', (e) => {
+        // In a pick-mode the per-field click handler owns the click (it toggles the
+        // dependent or link member). Block all selection/deselection here to avoid
+        // double-handling.
+        if (isAnyPickModeActive()) {
+          return;
+        }
 
-      // If we are selecting with the marquee rectangle, do nothing.
-      if (selectionRectangle.visible() && selectionRectangle.width() > 0 && selectionRectangle.height() > 0) {
+        // If we are selecting with the marquee rectangle, do nothing.
+        if (selectionRectangle.visible() && selectionRectangle.width() > 0 && selectionRectangle.height() > 0) {
         return;
       }
 
@@ -1357,10 +1360,6 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     editorFields.selectedField?.formId,
   ]);
 
-  const setSelectedFields = (nodes: Konva.Node[], options?: { isAutoSelect?: boolean }) => {
-    // Any explicit (user-driven) selection shows the action toolbar; only auto-selection
-    // on field creation suppresses it.
-    setIsAutoSelectedField(Boolean(options?.isAutoSelect));
 
   /**
    * Re-apply conditional-visibility stripes and freeze field dragging whenever
@@ -1421,7 +1420,11 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
     pageLayer.current.batchDraw();
   }, [inlineEditFormId, localPageFields, selectedKonvaFieldGroups]);
 
-  const setSelectedFields = (nodes: Konva.Node[]) => {
+  const setSelectedFields = (nodes: Konva.Node[], options?: { isAutoSelect?: boolean }) => {
+    // Any explicit (user-driven) selection shows the action toolbar; only auto-selection
+    // on field creation suppresses it.
+    setIsAutoSelectedField(Boolean(options?.isAutoSelect));
+
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const fieldGroups = nodes.filter(
       (node) => node.hasName('field-group') && Boolean(node.getStage()) && Boolean(node.getParent()),
@@ -1716,6 +1719,7 @@ export const EnvelopeEditorFieldsPageRenderer = ({ pageData }: { pageData: PageR
       {selectedKonvaFieldGroups.length > 0 &&
         interactiveTransformer.current &&
         !isFieldChanging &&
+        !isAutoSelectedField &&
         !visibilityPickMode.active &&
         !linkPickMode.active && (
           <FieldActionButtons
@@ -2120,6 +2124,7 @@ const FieldActionButtons = ({
           </CommandList>
         </Command>
       </CommandDialog>
+
       {advancedSettingsField && (
         <Sheet open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
           <SheetContent position="right" size="lg" className="w-9/12 max-w-sm overflow-y-auto">

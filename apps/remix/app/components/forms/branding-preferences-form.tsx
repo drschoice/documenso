@@ -266,17 +266,17 @@ export function BrandingPreferencesForm({
                 label={<Trans>Enable Custom Branding</Trans>}
                 testId="branding-enabled"
               >
-                <FormControl>
-                  <Select
-                    {...field}
-                    value={field.value === null ? '-1' : field.value.toString()}
-                    onValueChange={(value) =>
-                      field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                    }
-                  >
-                    <SelectTrigger className="bg-background text-muted-foreground" data-testid="enable-branding">
-                      <SelectValue />
-                    </SelectTrigger>
+                <Select
+                  {...field}
+                  value={field.value === null ? '-1' : field.value.toString()}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
+                  }
+                >
+                  <FormControl>
+                      <SelectTrigger className="bg-background text-muted-foreground" data-testid="enable-branding">
+                        <SelectValue />
+                      </SelectTrigger>
                   </FormControl>
 
                   <SelectContent className="z-[9999]">

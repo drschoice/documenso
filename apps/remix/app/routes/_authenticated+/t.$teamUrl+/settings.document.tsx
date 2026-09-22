@@ -3,7 +3,6 @@ import { useLoaderData } from 'react-router';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { IS_AI_FEATURES_CONFIGURED } from '@documenso/lib/constants/app';
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
-import { resolveEmailSenderName } from '@documenso/lib/utils/email-sender-name';
 import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { useToast } from '@documenso/ui/primitives/use-toast';
@@ -104,12 +103,6 @@ export default function TeamsSettingsPage() {
           allowedSignatureTypes={extractTeamSignatureSettings(
             teamWithSettings.organisationSettings,
           )}
-          // So the "inherit" preview shows the organisation's real resolved name.
-          inheritedSenderName={resolveEmailSenderName({
-            settings: teamWithSettings.organisationSettings,
-            organisationName: organisation.name,
-            teamName: team.name,
-          })}
           onFormSubmit={onDocumentPreferencesSubmit}
         />
       </section>

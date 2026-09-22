@@ -4,8 +4,7 @@ import type { CreateDocumentAuditLogDataResponse } from '@documenso/lib/utils/do
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 import type { DocumentMeta, DocumentVisibility, TemplateType } from '@prisma/client';
-import { Prisma } from '@prisma/client';
-import { DocumentStatus, EnvelopeType, FolderType, WebhookTriggerEvents } from '@prisma/client';
+import { Prisma, DocumentStatus, EnvelopeType, FolderType, WebhookTriggerEvents } from '@prisma/client';
 import { isDeepEqual } from 'remeda';
 
 import { TEAM_DOCUMENT_VISIBILITY_MAP } from '../../constants/teams';

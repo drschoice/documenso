@@ -24,7 +24,14 @@ import {
   waitForEditorCanvas,
 } from '../fixtures/envelope-editor';
 import { expectToastTextToBeVisible } from '../fixtures/generic';
-import { getKonvaElementCountForPage, getKonvaTransformerNodeCountForPage, dragKonvaNode, expectKonvaElementCount, getAllKonvaNodeAttrs, getKonvaNodeAttrs, getKonvaTextContents } from '../fixtures/konva';
+import { getKonvaElementCountForPage, getKonvaTransformerNodeCountForPage } from '../fixtures/konva';
+import {
+  dragKonvaNode,
+  expectKonvaElementCount,
+  getAllKonvaNodeAttrs,
+  getKonvaNodeAttrs,
+  getKonvaTextContents,
+} from '../fixtures/konva';
 
 type TFieldFlowResult = {
   externalId: string;
@@ -973,6 +980,8 @@ const assertShiftClickMultiSelectPersistedInDatabase = async ({
   // Signature + Text were multi-selected via Shift+click and deleted; only Name remains.
   expect(envelope.fields).toHaveLength(1);
   expect(envelope.fields[0].type).toBe(FieldType.NAME);
+};
+
 // --- Bulk field alignment flow ---
 
 type TBulkAlignmentFlowResult = {
@@ -1674,6 +1683,11 @@ test.describe('document editor', () => {
     const result = await runChangeFieldTypeFlow(surface);
 
     await assertChangeFieldTypePersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
   test('place and configure a comb text field', async ({ page }) => {
     const surface = await openDocumentEnvelopeEditor(page);
     const result = await runCombFieldFlow(surface);
@@ -1802,6 +1816,11 @@ test.describe('template editor', () => {
     const result = await runChangeFieldTypeFlow(surface);
 
     await assertChangeFieldTypePersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
   test('place and configure a comb text field', async ({ page }) => {
     const surface = await openTemplateEnvelopeEditor(page);
     const result = await runCombFieldFlow(surface);
@@ -1909,6 +1928,11 @@ test.describe('embedded create', () => {
     await persistEmbeddedEnvelope(surface);
 
     await assertChangeFieldTypePersistedInDatabase({
+      surface,
+      ...result,
+    });
+  });
+
   // The comb layout is a fork feature and the embedded editor is a separate
   // mount of the same settings forms, with its own token-scoped persistence -
   // covered on the document and template surfaces, never here.

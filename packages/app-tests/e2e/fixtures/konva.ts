@@ -55,6 +55,9 @@ export const getKonvaTransformerNodeCountForPage = async (page: Page, pageNumber
     },
     { pageNumber },
   );
+};
+
+/**
  * Assert how many nodes match `elementSelector`, retrying until it settles.
  *
  * `getKonvaElementCountForPage` only waits for the canvas ELEMENT to exist, not

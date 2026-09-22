@@ -187,18 +187,18 @@ export const DocumentPreferencesForm = ({
                   label={<Trans>Default Document Visibility</Trans>}
                   testId="document-visibility"
                 >
-                  <FormControl>
-                    <Select
-                      {...field}
-                      value={field.value === null ? '-1' : field.value}
-                      onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                    >
-                      <SelectTrigger
-                        className="bg-background text-muted-foreground"
-                        data-testid="document-visibility-trigger"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
+                  <Select
+                    {...field}
+                    value={field.value === null ? '-1' : field.value}
+                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                  >
+                    <FormControl>
+                        <SelectTrigger
+                          className="bg-background text-muted-foreground"
+                          data-testid="document-visibility-trigger"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
                     </FormControl>
 
                     <SelectContent>
@@ -239,18 +239,18 @@ export const DocumentPreferencesForm = ({
                 label={<Trans>Default Document Language</Trans>}
                 testId="document-language"
               >
-                <FormControl>
-                  <Select
-                    {...field}
-                    value={field.value === null ? '-1' : field.value}
-                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                  >
-                    <SelectTrigger
-                      className="bg-background text-muted-foreground"
-                      data-testid="document-language-trigger"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
+                <Select
+                  {...field}
+                  value={field.value === null ? '-1' : field.value}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
+                      <SelectTrigger
+                        className="bg-background text-muted-foreground"
+                        data-testid="document-language-trigger"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
                   </FormControl>
 
                   <SelectContent>
@@ -286,14 +286,14 @@ export const DocumentPreferencesForm = ({
                 label={<Trans>Default Date Format</Trans>}
                 testId="document-date-format"
               >
-                <FormControl>
-                  <Select
-                    value={field.value === null ? '-1' : field.value}
-                    onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
-                  >
-                    <SelectTrigger data-testid="document-date-format-trigger">
-                      <SelectValue />
-                    </SelectTrigger>
+                <Select
+                  value={field.value === null ? '-1' : field.value}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
+                      <SelectTrigger data-testid="document-date-format-trigger">
+                        <SelectValue />
+                      </SelectTrigger>
                   </FormControl>
 
                   <SelectContent>
@@ -537,17 +537,17 @@ export const DocumentPreferencesForm = ({
                   label={<Trans>AI Features</Trans>}
                   testId="ai-features-enabled"
                 >
-                  <FormControl>
-                    <Select
-                      {...field}
-                      value={field.value === null ? '-1' : field.value.toString()}
-                      onValueChange={(value) =>
-                        field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                      }
-                    >
-                      <SelectTrigger className="bg-background text-muted-foreground">
-                        <SelectValue />
-                      </SelectTrigger>
+                  <Select
+                    {...field}
+                    value={field.value === null ? '-1' : field.value.toString()}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'true' ? true : value === 'false' ? false : null)
+                    }
+                  >
+                    <FormControl>
+                        <SelectTrigger className="bg-background text-muted-foreground">
+                          <SelectValue />
+                        </SelectTrigger>
                     </FormControl>
 
                     <SelectContent>
