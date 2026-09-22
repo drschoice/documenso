@@ -27,7 +27,7 @@ export default function OrganisationSettingsGeneral() {
 
   const onEmailPreferencesSubmit = async (data: TEmailPreferencesFormSchema) => {
     try {
-      const { emailId, emailReplyTo, emailDocumentSettings, includeSenderDetails } = data;
+      const { emailId, emailReplyTo, emailDocumentSettings, includeSenderDetails, emailSenderNameMode, emailSenderNameCustom } = data;
 
       await updateOrganisationSettings({
         organisationId: organisation.id,
@@ -37,6 +37,10 @@ export default function OrganisationSettingsGeneral() {
           // emailReplyToName,
           emailDocumentSettings,
           includeSenderDetails: includeSenderDetails ?? undefined,
+          // Nothing sits above the organisation to inherit from, so a null mode means
+          // "leave it alone" rather than "inherit".
+          emailSenderNameMode: emailSenderNameMode ?? undefined,
+          emailSenderNameCustom: emailSenderNameCustom ?? undefined,
         },
       });
 

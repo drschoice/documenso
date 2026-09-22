@@ -19,7 +19,7 @@ import { Input } from '@documenso/ui/primitives/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans } from '@lingui/react/macro';
-import { OrganisationType, type TeamGlobalSettings } from '@prisma/client';
+import { EmailSenderNameMode, OrganisationType, type TeamGlobalSettings } from '@prisma/client';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -32,13 +32,15 @@ const ZEmailPreferencesFormSchema = z.object({
   // emailReplyToName: z.string(),
   emailDocumentSettings: ZDocumentEmailSettingsSchema.nullable(),
   includeSenderDetails: z.boolean().nullable(),
+  emailSenderNameMode: z.nativeEnum(EmailSenderNameMode).nullable(),
+  emailSenderNameCustom: z.string().max(200).nullable(),
 });
 
 export type TEmailPreferencesFormSchema = z.infer<typeof ZEmailPreferencesFormSchema>;
 
 type SettingsSubset = Pick<
   TeamGlobalSettings,
-  'emailId' | 'emailReplyTo' | 'emailDocumentSettings' | 'includeSenderDetails'
+  'emailId' | 'emailReplyTo' | 'emailDocumentSettings' | 'includeSenderDetails' | 'emailSenderNameMode' | 'emailSenderNameCustom'
 >;
 
 export type EmailPreferencesFormProps = {
@@ -62,9 +64,14 @@ export const EmailPreferencesForm = ({ settings, onFormSubmit, canInherit }: Ema
       // emailReplyToName: settings.emailReplyToName,
       emailDocumentSettings: settings.emailDocumentSettings,
       includeSenderDetails: settings.includeSenderDetails,
+      emailSenderNameMode: settings.emailSenderNameMode,
+      emailSenderNameCustom: settings.emailSenderNameCustom ?? '',
     },
     resolver: zodResolver(ZEmailPreferencesFormSchema),
   });
+
+  // Drives the conditional custom-name input below.
+  const watchedSenderNameMode = form.watch('emailSenderNameMode');
 
   const { data: emailData, isLoading: isLoadingEmails } = trpc.enterprise.organisation.email.find.useQuery({
     organisationId: organisation.id,
@@ -233,6 +240,100 @@ export const EmailPreferencesForm = ({ settings, onFormSubmit, canInherit }: Ema
               </InheritableField>
             )}
           />
+
+          {!isPersonalOrganisation && (
+            <FormField
+              control={form.control}
+              name="emailSenderNameMode"
+              render={({ field }) => (
+                <InheritableField
+                  className="flex-1"
+                  canInherit={canInherit}
+                  isInherited={field.value === null}
+                  label={<Trans>Email Sender Name</Trans>}
+                  testId="email-sender-name-mode"
+                >
+                  <FormControl>
+                    <Select
+                      value={field.value === null ? '-1' : field.value}
+                      // Matching against the real modes avoids a type assertion, and the
+                      // "inherit" sentinel simply matches nothing and falls through to null.
+                      onValueChange={(value) =>
+                        field.onChange(
+                          Object.values(EmailSenderNameMode).find((mode) => mode === value) ?? null,
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        className="bg-background text-muted-foreground"
+                        data-testid="email-sender-name-mode-trigger"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value={EmailSenderNameMode.ORGANISATION}>
+                          <Trans>Organisation name</Trans>
+                        </SelectItem>
+
+                        <SelectItem value={EmailSenderNameMode.TEAM}>
+                          <Trans>Team name</Trans>
+                        </SelectItem>
+
+                        <SelectItem value={EmailSenderNameMode.CUSTOM}>
+                          <Trans>Custom</Trans>
+                        </SelectItem>
+
+                        {canInherit && (
+                          <SelectItem value={'-1'}>
+                            <Trans>Inherit from organisation</Trans>
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+
+                  <FormDescription>
+                    <Trans>
+                      The name recipients see in emails about your documents. Applies whether or not branding is
+                      enabled.
+                    </Trans>
+                  </FormDescription>
+                </InheritableField>
+              )}
+            />
+          )}
+
+          {!isPersonalOrganisation && watchedSenderNameMode === EmailSenderNameMode.CUSTOM && (
+            <FormField
+              control={form.control}
+              name="emailSenderNameCustom"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel required>
+                    <Trans>Custom Sender Name</Trans>
+                  </FormLabel>
+
+                  <FormControl>
+                    <Input
+                      className="bg-background"
+                      data-testid="email-sender-name-custom"
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+
+                  <FormDescription>
+                    <Trans>Leave blank to fall back to the team name. Available variables:</Trans>{' '}
+                    <code className="rounded bg-muted-foreground/20 p-1 text-xs">{'{organisation.name}'}</code>{' '}
+                    <code className="rounded bg-muted-foreground/20 p-1 text-xs">{'{team.name}'}</code>
+                  </FormDescription>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           {!isPersonalOrganisation && (
             <FormField
