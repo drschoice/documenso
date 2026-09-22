@@ -107,16 +107,30 @@ test.describe('Default Recipients', () => {
 
     await expect(page.getByTestId('signer-email-input').first()).not.toBeEmpty();
 
-    await page.getByRole('button', { name: 'Add Signer' }).click();
+    const emailInputs = page.getByTestId('signer-email-input');
+    const rowsBefore = await emailInputs.count();
 
-    // Add a regular signer using the v2 editor
-    await page.getByTestId('signer-email-input').last().fill('regular-signer@documenso.com');
+    await page.getByRole('button', { name: 'Add Signer' }).click();
+    await expect(emailInputs).toHaveCount(rowsBefore + 1);
+
+    // Not `.last()`. The editor orders the default CC recipient after the signers, so
+    // the row just added is rendered *above* it - `.last()` typed into the default
+    // recipient and left the new row blank, which is a confusing way for this to fail:
+    // the save succeeded, with the wrong recipient carrying the values.
+    // The added row is the only one with an empty email, so address it by that.
+    const newRowIndex = await emailInputs.evaluateAll((elements) =>
+      elements.findIndex((element) => element instanceof HTMLInputElement && element.value === ''),
+    );
+
+    expect(newRowIndex, 'the newly added signer row should be findable by its empty email').toBeGreaterThanOrEqual(0);
+
+    await emailInputs.nth(newRowIndex).fill('regular-signer@documenso.com');
 
     // `e77aacc48` split the single "Recipient name" box into First/Middle/Last,
     // so the old `/Recipient/` placeholder matches nothing. Address the parts by
     // their own testids and let the editor derive the full name.
-    await page.getByTestId('signer-first-name-input').last().fill('Regular');
-    await page.getByTestId('signer-last-name-input').last().fill('Signer');
+    await page.getByTestId('signer-first-name-input').nth(newRowIndex).fill('Regular');
+    await page.getByTestId('signer-last-name-input').nth(newRowIndex).fill('Signer');
 
     // Wait for autosave to complete
     await page.waitForTimeout(3000);
