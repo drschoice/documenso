@@ -34,8 +34,9 @@ test.describe('V2 envelope field insertion during signing', () => {
     const canvas = page.locator('.konva-container canvas').first();
     await expect(canvas).toBeVisible({ timeout: 30_000 });
 
-    // DATE is auto-filled, but SIGNATURE still needs manual interaction.
-    await expect(page.getByText('1 Field Remaining').first()).toBeVisible();
+    // Nothing is filled in yet: this fork leaves DATE to the signer's calendar
+    // dialog rather than stamping it on load, so it is still outstanding here.
+    await expect(page.getByText('2 Fields Remaining').first()).toBeVisible();
 
     // Set up a signature via the sidebar form.
     await page.getByTestId('signature-pad-dialog-button').click();
@@ -64,7 +65,9 @@ test.describe('V2 envelope field insertion during signing', () => {
     await canvas.click({ position: { x, y } });
     await page.waitForTimeout(500);
 
-    await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
+    // The DATE field is left untouched on purpose - it is optional, so it does not
+    // block completion, and the point of the test is that the server stamps it.
+    await expect(page.getByText('1 Field Remaining').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'Complete' }).click();
     await expect(page.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
@@ -143,8 +146,10 @@ test.describe('V2 envelope field insertion during signing', () => {
     const canvas = page.locator('.konva-container canvas').first();
     await expect(canvas).toBeVisible({ timeout: 30_000 });
 
-    // DATE and EMAIL fields are auto-filled, so only NAME and SIGNATURE remain.
-    await expect(page.getByText('2 Fields Remaining').first()).toBeVisible();
+    // EMAIL is filled server side when the envelope is sent. DATE is not - this
+    // fork hands it to the signer's calendar dialog - so DATE, NAME and SIGNATURE
+    // are all still outstanding.
+    await expect(page.getByText('3 Fields Remaining').first()).toBeVisible();
 
     // Set up a signature via the sidebar form.
     await page.getByTestId('signature-pad-dialog-button').click();
@@ -196,8 +201,8 @@ test.describe('V2 envelope field insertion during signing', () => {
       await page.waitForTimeout(500);
     }
 
-    // All fields should now be complete.
-    await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
+    // Every field the signer drives is done; DATE is left for the server to stamp.
+    await expect(page.getByText('1 Field Remaining').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'Complete' }).click();
     await expect(page.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
