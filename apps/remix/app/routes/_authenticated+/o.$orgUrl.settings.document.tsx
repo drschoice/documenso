@@ -39,7 +39,6 @@ export default function OrganisationSettingsDocumentPage() {
         signatureTypes,
         defaultRecipients,
         delegateDocumentOwnership,
-        envelopeExpirationPeriod,
         aiFeaturesEnabled,
       } = data;
 
@@ -64,9 +63,6 @@ export default function OrganisationSettingsDocumentPage() {
           uploadSignatureEnabled: signatureTypes.includes(DocumentSignatureType.UPLOAD),
           drawSignatureEnabled: signatureTypes.includes(DocumentSignatureType.DRAW),
           delegateDocumentOwnership,
-          // There is nothing above the organisation to inherit from, so "no override"
-          // means "leave it alone" rather than null.
-          envelopeExpirationPeriod: envelopeExpirationPeriod ?? undefined,
           aiFeaturesEnabled,
         },
       });

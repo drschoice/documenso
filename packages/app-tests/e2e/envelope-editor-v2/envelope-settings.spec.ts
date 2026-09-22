@@ -581,17 +581,19 @@ test.describe('fixed expiration date', () => {
     await apiSignin({
       page,
       email: user.email,
-      redirectPath: `/o/${organisation.url}/settings/document`,
+      // Upstream's "unify settings" (#3128) split the preferences pages up and the
+      // expiration default moved onto the reminders page with them - it sits next to
+      // the reminder cadence now, which is where it belongs.
+      redirectPath: `/o/${organisation.url}/settings/reminders`,
     });
 
     const modeTrigger = page
       .locator('button[role="combobox"]')
       .filter({ hasText: 'Custom duration' });
 
-    // Barrier: the page renders a spinner until the organisation query resolves.
-    // This used to wait on the form's Update button, which upstream replaced with
-    // a save bar that only appears once the form is dirty - so the picker the test
-    // is about is now the thing to wait for.
+    // Barrier: the page renders a spinner until the organisation query resolves, and
+    // its save bar only appears once the form is dirty, so the picker itself is the
+    // only thing worth waiting on.
     await expect(modeTrigger).toBeVisible();
 
     await modeTrigger.click();

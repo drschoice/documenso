@@ -39,7 +39,6 @@ export default function TeamsSettingsPage() {
         signatureTypes,
         defaultRecipients,
         delegateDocumentOwnership,
-        envelopeExpirationPeriod,
         aiFeaturesEnabled,
       } = data;
 
@@ -51,7 +50,6 @@ export default function TeamsSettingsPage() {
           documentTimezone,
           documentDateFormat,
           defaultRecipients,
-          envelopeExpirationPeriod,
           aiFeaturesEnabled,
           ...(signatureTypes.length === 0
             ? {
