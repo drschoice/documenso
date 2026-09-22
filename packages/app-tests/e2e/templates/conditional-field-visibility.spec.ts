@@ -1,3 +1,4 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 /**
  * Conditional field visibility on the *legacy* (`internalVersion: 1`) signer.
  *
@@ -99,6 +100,7 @@ async function seedConditionalDocument(ownerUserId: number, teamId: number, sign
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
       internalVersion: 1,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,

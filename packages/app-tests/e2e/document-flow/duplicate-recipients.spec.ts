@@ -3,7 +3,7 @@ import { prisma } from '@documenso/prisma';
 import { seedBlankDocument } from '@documenso/prisma/seed/documents';
 import { seedUser } from '@documenso/prisma/seed/users';
 import { expect, type Page, test } from '@playwright/test';
-import type { Document, Team } from '@prisma/client';
+import type { Envelope, Team } from '@prisma/client';
 
 import { apiSignin } from '../fixtures/authentication';
 import { signSignaturePad } from '../fixtures/signature';

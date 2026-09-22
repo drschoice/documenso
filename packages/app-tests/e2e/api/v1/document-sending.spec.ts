@@ -395,7 +395,7 @@ test.describe('Document API', () => {
         recipientId: signer.id,
         envelopeId: document.id,
         envelopeItemId: document.envelopeItems[0].id,
-        fieldMeta: { type: 'signature', fontSize: 14 },
+        fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
       },
     });
 
@@ -574,7 +574,7 @@ test.describe('Document API', () => {
                 inserted: false,
                 envelopeId: document.id,
                 envelopeItemId: document.envelopeItems[0].id,
-                fieldMeta: { type: 'signature', fontSize: 14 },
+                fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
               },
             },
           },

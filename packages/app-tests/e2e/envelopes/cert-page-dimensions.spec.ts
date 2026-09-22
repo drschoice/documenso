@@ -64,7 +64,7 @@ const signAndVerifyPageDimensions = async ({
           {
             identifier,
             type: FieldType.SIGNATURE,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
             page: 1,
             positionX: 10,
             positionY: 10,

@@ -2,6 +2,7 @@ import { createTeam } from '@documenso/lib/server-only/team/create-team';
 import { nanoid } from '@documenso/lib/universal/id';
 import { seedOrganisationMembers } from '@documenso/prisma/seed/organisations';
 import { seedUser } from '@documenso/prisma/seed/users';
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 import { apiSignin, apiSignout } from '../fixtures/authentication';

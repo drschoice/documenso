@@ -210,7 +210,7 @@ test.describe('Document API V2', () => {
           height: 1,
           customText: '',
           inserted: false,
-          fieldMeta: { type: 'signature', fontSize: 14 },
+          fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
         },
       });
 
@@ -247,7 +247,7 @@ test.describe('Document API V2', () => {
           height: 1,
           customText: '',
           inserted: false,
-          fieldMeta: { type: 'signature', fontSize: 14 },
+          fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
         },
       });
 
@@ -3559,7 +3559,7 @@ test.describe('Document API V2', () => {
             envelopeId: doc.id,
             envelopeItemId: doc.envelopeItems[0].id,
             recipientId: recipient.id,
-            fieldMeta: { type: 'signature', fontSize: 14 },
+            fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
           },
         });
 
@@ -3643,7 +3643,7 @@ test.describe('Document API V2', () => {
             height: 1,
             customText: '',
             inserted: false,
-            fieldMeta: { type: 'signature', fontSize: 14 },
+            fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
           },
         });
 

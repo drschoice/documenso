@@ -183,7 +183,7 @@ test.describe('Template Field Prefill API v2', () => {
         height: 1,
         customText: '',
         inserted: false,
-        fieldMeta: { type: 'signature', fontSize: 14 },
+        fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
       },
     });
 
@@ -466,7 +466,7 @@ test.describe('Template Field Prefill API v2', () => {
         height: 1,
         customText: '',
         inserted: false,
-        fieldMeta: { type: 'signature', fontSize: 14 },
+        fieldMeta: { type: 'signature', overflow: 'auto', fontSize: 14 },
       },
     });
 

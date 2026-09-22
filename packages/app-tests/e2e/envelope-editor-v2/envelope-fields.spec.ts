@@ -3,26 +3,7 @@ import { prisma } from '@documenso/prisma';
 import { expect, type Page, test } from '@playwright/test';
 import { FieldType } from '@prisma/client';
 
-import {
-  addEnvelopeItemPdf,
-  clickAddMyselfButton,
-  clickAddSignerButton,
-  clickEnvelopeEditorStep,
-  getEnvelopeEditorSettingsTrigger,
-  getRecipientEmailInputs,
-  getRecipientRemoveButtons,
-  openDocumentEnvelopeEditor,
-  openEmbeddedEnvelopeEditor,
-  openTemplateEnvelopeEditor,
-  persistEmbeddedEnvelope,
-  placeFieldOnPdf,
-  selectFieldOnCanvas,
-  selectRecipientInFieldsStep,
-  setRecipientEmail,
-  setRecipientName,
-  type TEnvelopeEditorSurface,
-  waitForEditorCanvas,
-} from '../fixtures/envelope-editor';
+import { addEnvelopeItemPdf, clickAddMyselfButton, clickAddSignerButton, clickEnvelopeEditorStep, getEnvelopeEditorSettingsTrigger, getRecipientEmailInputs, getRecipientRemoveButtons, openDocumentEnvelopeEditor, openEmbeddedEnvelopeEditor, openTemplateEnvelopeEditor, persistEmbeddedEnvelope, placeFieldOnPdf, selectFieldOnCanvas, selectRecipientInFieldsStep, setRecipientEmail, setRecipientName, type TEnvelopeEditorSurface, waitForEditorCanvas, type TFieldButtonName } from '../fixtures/envelope-editor';
 import { expectToastTextToBeVisible } from '../fixtures/generic';
 import { getKonvaElementCountForPage, getKonvaTransformerNodeCountForPage } from '../fixtures/konva';
 import {
@@ -765,7 +746,7 @@ type TChangeFieldTypeFlowResult = {
 const FIELD_A_POSITION = { x: 150, y: 150 };
 const FIELD_B_POSITION = { x: 150, y: 250 };
 
-const changeFieldTypeViaToolbar = async (root: Page, newTypeLabel: FieldButtonName) => {
+const changeFieldTypeViaToolbar = async (root: Page, newTypeLabel: TFieldButtonName) => {
   await expect(root.locator('button[title="Change Field Type"]')).toBeVisible();
   await root.locator('button[title="Change Field Type"]').click();
 

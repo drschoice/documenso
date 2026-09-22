@@ -74,16 +74,27 @@ test('overflow visual regression', async ({ page, request }, testInfo) => {
 
   const formData = new FormData();
 
-  const overflowFields = OVERFLOW_TEST_FIELDS.map((field) => ({
-    identifier: 'field-overflow',
-    type: field.type,
-    page: field.page,
-    positionX: field.positionX,
-    positionY: field.positionY,
-    width: field.width,
-    height: field.height,
-    fieldMeta: field.fieldMeta,
-  }));
+  /**
+   * `FieldTestData` is a discriminated union on `type`/`fieldMeta`. Rebuilding it
+   * key-by-key inside `.map()` widens each independently, which loses the
+   * correlation the create payload requires - the values are right, the pairing
+   * simply is not expressible through this map. Same assertion, and same reason,
+   * as `toPayloadFields` in `envelope-alignment.spec.ts`.
+   */
+  const overflowFields = OVERFLOW_TEST_FIELDS.map(
+    (field) =>
+      ({
+        identifier: 'field-overflow',
+        type: field.type,
+        page: field.page,
+        positionX: field.positionX,
+        positionY: field.positionY,
+        width: field.width,
+        height: field.height,
+        fieldMeta: field.fieldMeta,
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      }) as NonNullable<NonNullable<TCreateEnvelopePayload['recipients']>[number]['fields']>[number],
+  );
 
   const createEnvelopePayload: TCreateEnvelopePayload = {
     type: EnvelopeType.DOCUMENT,

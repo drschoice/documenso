@@ -165,7 +165,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 0 = TA_LEFT (short / medium / long)
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'left' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     page: 1,
     ...calculateMultiLinePosition(0, 0),
@@ -173,7 +173,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'left' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     page: 1,
     ...calculateMultiLinePosition(0, 1),
@@ -181,7 +181,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'left' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'left' },
     page: 1,
     ...calculateMultiLinePosition(0, 2),
@@ -191,7 +191,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 1 = TA_CENTER (short / medium / long)
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'center' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     page: 1,
     ...calculateMultiLinePosition(1, 0),
@@ -199,7 +199,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'center' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     page: 1,
     ...calculateMultiLinePosition(1, 1),
@@ -207,7 +207,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'center' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'center' },
     page: 1,
     ...calculateMultiLinePosition(1, 2),
@@ -217,7 +217,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 2 = TA_RIGHT (short / medium / long)
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'right' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     page: 1,
     ...calculateMultiLinePosition(2, 0),
@@ -225,7 +225,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'right' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     page: 1,
     ...calculateMultiLinePosition(2, 1),
@@ -233,7 +233,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.DATE,
-    fieldMeta: { type: 'date', textAlign: 'right' },
+    fieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'date', overflow: 'auto', textAlign: 'right' },
     page: 1,
     ...calculateMultiLinePosition(2, 2),
@@ -277,7 +277,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 0 = TA_LEFT (short / medium / long)
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'left' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     page: 2,
     ...calculateMultiLinePosition(0, 0),
@@ -285,7 +285,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'left' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     page: 2,
     ...calculateMultiLinePosition(0, 1),
@@ -293,7 +293,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'left' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'left' },
     page: 2,
     ...calculateMultiLinePosition(0, 2),
@@ -303,7 +303,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 1 = TA_CENTER (short / medium / long)
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'center' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     page: 2,
     ...calculateMultiLinePosition(1, 0),
@@ -311,7 +311,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'center' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     page: 2,
     ...calculateMultiLinePosition(1, 1),
@@ -319,7 +319,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'center' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'center' },
     page: 2,
     ...calculateMultiLinePosition(1, 2),
@@ -329,7 +329,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   // Multi-line 3×3: Row 2 = TA_RIGHT (short / medium / long)
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'right' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     page: 2,
     ...calculateMultiLinePosition(2, 0),
@@ -337,7 +337,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'right' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     page: 2,
     ...calculateMultiLinePosition(2, 1),
@@ -345,7 +345,7 @@ export const OVERFLOW_TEST_FIELDS: OverflowFieldTestData[] = [
   },
   {
     type: FieldType.EMAIL,
-    fieldMeta: { type: 'email', textAlign: 'right' },
+    fieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     seedFieldMeta: { type: 'email', overflow: 'auto', textAlign: 'right' },
     page: 2,
     ...calculateMultiLinePosition(2, 2),

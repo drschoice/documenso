@@ -1,3 +1,4 @@
+import { expectToastTextToBeVisible } from '../fixtures/generic';
 import fs from 'node:fs';
 import path from 'node:path';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';

@@ -168,7 +168,7 @@ test.describe('API V2 Envelopes', () => {
                 positionY: 0,
                 width: 0,
                 height: 0,
-                fieldMeta: { type: 'signature' },
+                fieldMeta: { type: 'signature', overflow: 'auto' },
               },
               {
                 type: FieldType.SIGNATURE,
@@ -178,7 +178,7 @@ test.describe('API V2 Envelopes', () => {
                 positionY: 0,
                 width: 0,
                 height: 0,
-                fieldMeta: { type: 'signature' },
+                fieldMeta: { type: 'signature', overflow: 'auto' },
               },
             ],
           },

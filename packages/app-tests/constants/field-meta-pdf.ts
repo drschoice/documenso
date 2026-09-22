@@ -32,7 +32,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(0, 0),
@@ -42,7 +42,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(1, 0),
@@ -52,7 +52,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(2, 0),
@@ -62,7 +62,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(3, 0),
@@ -501,7 +501,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'left',
     },
     page: 2,
@@ -512,7 +512,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'center',
     },
     page: 2,
@@ -523,7 +523,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'right',
     },
     page: 2,
@@ -534,7 +534,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       fontSize: 12,
     },
     page: 2,
@@ -545,7 +545,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       fontSize: 32,
     },
     page: 2,
