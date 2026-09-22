@@ -2,10 +2,7 @@ import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-form
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
 import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { RequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
-import {
-  fieldsContainUnsignedRequiredField,
-  fieldsContainUnsignedRequiredVisibleField,
-} from '@documenso/lib/utils/advanced-fields-helpers';
+import { fieldsContainUnsignedRequiredVisibleField } from '@documenso/lib/utils/advanced-fields-helpers';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 import {
@@ -160,19 +157,36 @@ export const completeDocumentWithToken = async ({
     },
   });
 
-  if (fieldsContainUnsignedRequiredVisibleField(fields)) {
-    // When nextFieldNavigationTypes / nextFieldNavigationLabels are configured,
-    // only fields matching the filter must be signed to complete the document.
-    // Re-check with just the navigation-filtered subset if a filter is active.
+  /**
+   * Whether any field still blocks completion.
+   *
+   * Two things narrow "required" beyond the plain flag, and both have to be
+   * applied wherever completion is gated:
+   *
+   * - conditional visibility - a required field whose rules are unmet is not
+   *   shown to the signer, so it cannot be demanded of them;
+   * - `nextFieldNavigationTypes` / `nextFieldNavigationLabels` - when the author
+   *   restricts navigation to a subset of fields, only that subset is mandatory.
+   *
+   * Kept as one predicate because completion is checked twice: once here, and
+   * again after DATE fields are auto-inserted below. The second check used to be
+   * `fieldsContainUnsignedRequiredField`, which honoured neither rule and so
+   * rejected documents the first check had already cleared.
+   */
+  const hasBlockingUnsignedFields = (candidates: typeof fields) => {
+    if (!fieldsContainUnsignedRequiredVisibleField(candidates)) {
+      return false;
+    }
+
     const navigationTypes = (envelope.documentMeta?.nextFieldNavigationTypes ?? []) as FieldType[];
     const navigationLabels = (envelope.documentMeta?.nextFieldNavigationLabels ?? []) as string[];
     const hasNavigationFilter = navigationTypes.length > 0 || navigationLabels.length > 0;
 
     if (!hasNavigationFilter) {
-      throw new Error(`Recipient ${recipient.id} has unsigned fields`);
+      return true;
     }
 
-    const filteredFields = fields.filter((field) => {
+    const filteredFields = candidates.filter((field) => {
       if (navigationTypes.includes(field.type)) {
         return true;
       }
@@ -182,9 +196,14 @@ export const completeDocumentWithToken = async ({
       return Boolean(fieldLabel && navigationLabels.includes(fieldLabel));
     });
 
-    if (fieldsContainUnsignedRequiredVisibleField(filteredFields)) {
-      throw new Error(`Recipient ${recipient.id} has unsigned fields`);
-    }
+    return fieldsContainUnsignedRequiredVisibleField(filteredFields);
+  };
+
+  if (hasBlockingUnsignedFields(fields)) {
+    throw new AppError(AppErrorCode.RECIPIENT_HAS_UNSIGNED_FIELDS, {
+      message: `Recipient ${recipient.id} has unsigned fields`,
+      statusCode: 400,
+    });
   }
 
   // Sweep: clear hidden fields and emit audit entries before marking completion.
@@ -402,7 +421,9 @@ export const completeDocumentWithToken = async ({
     });
   }
 
-  if (fieldsContainUnsignedRequiredField(fields)) {
+  // Re-check after the DATE auto-insert above, which can clear the last
+  // outstanding field.
+  if (hasBlockingUnsignedFields(fields)) {
     throw new AppError(AppErrorCode.RECIPIENT_HAS_UNSIGNED_FIELDS, {
       message: `Recipient ${recipient.id} has unsigned fields`,
       statusCode: 400,
