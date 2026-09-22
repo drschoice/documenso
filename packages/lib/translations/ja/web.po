@@ -3440,7 +3440,6 @@ msgstr "ログインを続ける"
 msgid "Continue with SSO"
 msgstr ""
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Controls how long recipients have to complete signing before the document expires. After expiration, recipients can no longer sign the document."
 msgstr "受信者が文書の有効期限切れまでに署名を完了できる期間を設定します。有効期限後は、受信者は文書に署名できなくなります。"
@@ -4033,7 +4032,6 @@ msgstr "既定のメール"
 msgid "Default Email Settings"
 msgstr "既定のメール設定"
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Default Envelope Expiration"
 msgstr "デフォルトの封筒有効期限"
@@ -6921,7 +6919,6 @@ msgstr "認証方法を継承"
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx

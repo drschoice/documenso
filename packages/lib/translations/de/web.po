@@ -3440,7 +3440,6 @@ msgstr "Weiter zum Login"
 msgid "Continue with SSO"
 msgstr ""
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Controls how long recipients have to complete signing before the document expires. After expiration, recipients can no longer sign the document."
 msgstr "Steuert, wie lange Empfänger Zeit haben, die Signatur abzuschließen, bevor das Dokument abläuft. Nach dem Ablauf können Empfänger das Dokument nicht mehr unterschreiben."
@@ -4033,7 +4032,6 @@ msgstr "Standard-E-Mail"
 msgid "Default Email Settings"
 msgstr "Standard-E-Mail-Einstellungen"
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Default Envelope Expiration"
 msgstr "Standardablauf für Umschläge"
@@ -6921,7 +6919,6 @@ msgstr "Authentifizierungsmethode erben"
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx

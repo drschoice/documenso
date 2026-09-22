@@ -3440,7 +3440,6 @@ msgstr "Przejdź do logowania"
 msgid "Continue with SSO"
 msgstr "Logowanie SSO"
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Controls how long recipients have to complete signing before the document expires. After expiration, recipients can no longer sign the document."
 msgstr "Określa, ile czasu mają odbiorcy na podpisanie dokumentu przed jego wygaśnięciem. Po tym czasie odbiorcy nie będą mogli już podpisać dokumentu."
@@ -4033,7 +4032,6 @@ msgstr "Domyślny adres e-mail"
 msgid "Default Email Settings"
 msgstr "Domyślne ustawienia adresu e-mail"
 
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Default Envelope Expiration"
 msgstr "Domyślny czas wygaśnięcia koperty"
@@ -6921,7 +6919,6 @@ msgstr "Odziedzicz metodę uwierzytelniania"
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
 #: apps/remix/app/components/forms/certificate-preferences-form.tsx
-#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx

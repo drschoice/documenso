@@ -203,12 +203,8 @@ const createFieldSignature = (field: FieldToRender, options: RenderFieldElementO
     ? getSignatureFontFamilyString(signatureFontFamily)
     : getSignatureFontFamily(textToRender);
 
-  // Centre unless the author chose otherwise. `FIELD_DEFAULT_GENERIC_ALIGN` is the
-  // default for *text*, and using it here left every unaligned signature hugging
-  // the left edge of its box - which is neither what upstream renders nor what the
-  // no-meta branch below it did.
   const resolvedTextAlign: 'left' | 'center' | 'right' =
-    fieldMeta?.type === 'signature' ? (fieldMeta.textAlign ?? 'center') : 'center';
+    fieldMeta?.type === 'signature' ? (fieldMeta.textAlign ?? FIELD_DEFAULT_GENERIC_ALIGN) : 'center';
 
   const overflowLayout = calculateOverflowLayout({
     overflowMode: resolveFieldOverflowMode(fieldMeta),

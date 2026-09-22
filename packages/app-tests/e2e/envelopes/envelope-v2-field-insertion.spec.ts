@@ -17,7 +17,20 @@ test.describe('V2 envelope field insertion during signing', () => {
       recipients: [{ email: 'signer-date@test.documenso.com', name: 'Date Signer' }],
       fieldsPerRecipient: [
         [
-          { type: FieldType.DATE, page: 1, positionX: 5, positionY: 5, width: 5, height: 5 },
+          {
+            type: FieldType.DATE,
+            page: 1,
+            positionX: 5,
+            positionY: 5,
+            width: 5,
+            height: 5,
+            // Optional on purpose. This fork makes fields required by default and hands
+            // DATE to the signer's calendar dialog, so a *required* date is one the
+            // signer has to open - the Complete button stays "Next Field" until they do.
+            // The server-side stamp this test is about only applies to a date nobody
+            // filled in, which is precisely the optional case.
+            fieldMeta: { type: 'date', required: false },
+          },
           { type: FieldType.SIGNATURE, page: 1, positionX: 5, positionY: 15, width: 5, height: 5 },
         ],
       ],
@@ -117,7 +130,20 @@ test.describe('V2 envelope field insertion during signing', () => {
       recipients: [{ email: recipientEmail, name: 'Multi Signer' }],
       fieldsPerRecipient: [
         [
-          { type: FieldType.DATE, page: 1, positionX: 5, positionY: 5, width: 5, height: 5 },
+          {
+            type: FieldType.DATE,
+            page: 1,
+            positionX: 5,
+            positionY: 5,
+            width: 5,
+            height: 5,
+            // Optional on purpose. This fork makes fields required by default and hands
+            // DATE to the signer's calendar dialog, so a *required* date is one the
+            // signer has to open - the Complete button stays "Next Field" until they do.
+            // The server-side stamp this test is about only applies to a date nobody
+            // filled in, which is precisely the optional case.
+            fieldMeta: { type: 'date', required: false },
+          },
           { type: FieldType.EMAIL, page: 1, positionX: 5, positionY: 10, width: 5, height: 5 },
           { type: FieldType.NAME, page: 1, positionX: 5, positionY: 15, width: 5, height: 5 },
           {
