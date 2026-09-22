@@ -344,7 +344,11 @@ test('[WEBHOOKS]: cannot see unrelated webhooks', async ({ page }) => {
   // Verify user1 can see their webhook logs
   // The webhook call should be visible in the table
   await expect(page.getByText(webhookCall1.id)).toBeVisible();
-  await expect(page.getByText('200')).toBeVisible(); // Response code
+
+  // Exact: getByText substring-matches, and a cuid is base36 - roughly one call id
+  // in five contains "200" somewhere, which made this resolve to two elements and
+  // fail at random.
+  await expect(page.getByText('200', { exact: true })).toBeVisible(); // Response code
 
   // Sign out and sign in as user2
   await apiSignout({ page });
