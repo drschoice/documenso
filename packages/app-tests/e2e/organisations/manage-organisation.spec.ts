@@ -13,10 +13,16 @@ import { expectTextToBeVisible, expectTextToNotBeVisible, openDropdownMenu } fro
  *
  * These pickers are multi-select, so they stay open after a choice - by design,
  * you are meant to pick several - and the popover then covers the dialog footer
- * and swallows the click on Next/Create/Update. Escape closes the popover, but
- * with none open it would close the dialog itself, so only press it when one is
- * actually showing. The role picker in the same dialogs is single-select and
- * closes on its own, which is why this is not applied after every option click.
+ * and swallows the click on Next/Create/Update. The role picker in the same
+ * dialogs is single-select and closes on its own, which is why this is not
+ * applied after every option click.
+ *
+ * Dismissal is a click on the dialog's own heading, not Escape. Upstream replaced
+ * these pickers with MultiSelect, whose Escape handler calls `input.blur()` and so
+ * only fires while its input has focus - which clicking an option does not restore.
+ * It does register a mousedown-outside listener while open, so the heading closes it
+ * and has nothing else bound to it. Several call sites below already did this by hand
+ * and kept passing; the two that relied on Escape alone did not.
  */
 const closeOpenCombobox = async (page: Page) => {
   const option = page.getByRole('option').first();
@@ -25,7 +31,7 @@ const closeOpenCombobox = async (page: Page) => {
     return;
   }
 
-  await page.keyboard.press('Escape');
+  await page.getByRole('dialog').getByRole('heading').first().click();
   await expect(option).toBeHidden();
 };
 
