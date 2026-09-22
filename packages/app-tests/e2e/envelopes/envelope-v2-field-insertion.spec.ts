@@ -1,7 +1,7 @@
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
 import { prisma } from '@documenso/prisma';
-import { expect, test } from '@playwright/test';
+import { type Locator, type Page, expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 import { DateTime } from 'luxon';
 
@@ -9,28 +9,43 @@ import { apiSeedPendingDocument } from '../fixtures/api-seeds';
 
 const PDF_PAGE_SELECTOR = 'img[data-page-number]';
 
+/**
+ * Sign the DATE field through the calendar dialog.
+ *
+ * DATE is not in ADVANCED_FIELD_TYPES_WITH_OPTIONAL_SETTING, so `isRequiredField`
+ * reports it required whatever its meta says - there is no way to make a date
+ * optional. Upstream gets away with never touching it because their signing page
+ * marks every date inserted and read-only on load; this fork replaced that with a
+ * picker (`21551a2ff`), so the signer has to open it before the document can be
+ * completed. The dialog opens on today and Confirm accepts it, which is the same
+ * value upstream's auto-insert would have written.
+ */
+const signDateFieldViaDialog = async (page: Page, canvas: Locator, field: { positionX: unknown; positionY: unknown; width: unknown; height: unknown }) => {
+  const box = await canvas.boundingBox();
+
+  if (!box) {
+    throw new Error('Canvas bounding box not found');
+  }
+
+  await canvas.click({
+    position: {
+      x: (Number(field.positionX) / 100) * box.width + ((Number(field.width) / 100) * box.width) / 2,
+      y: (Number(field.positionY) / 100) * box.height + ((Number(field.height) / 100) * box.height) / 2,
+    },
+  });
+
+  await page.getByRole('button', { name: 'Confirm' }).click();
+};
+
 test.describe('V2 envelope field insertion during signing', () => {
-  test('date fields are auto-inserted when completing a V2 envelope', async ({ page, request }) => {
+  test('date fields are signed through the picker and persist when completing a V2 envelope', async ({ page, request }) => {
     const now = DateTime.now().setZone(DEFAULT_DOCUMENT_TIME_ZONE);
 
     const { envelope, distributeResult } = await apiSeedPendingDocument(request, {
       recipients: [{ email: 'signer-date@test.documenso.com', name: 'Date Signer' }],
       fieldsPerRecipient: [
         [
-          {
-            type: FieldType.DATE,
-            page: 1,
-            positionX: 5,
-            positionY: 5,
-            width: 5,
-            height: 5,
-            // Optional on purpose. This fork makes fields required by default and hands
-            // DATE to the signer's calendar dialog, so a *required* date is one the
-            // signer has to open - the Complete button stays "Next Field" until they do.
-            // The server-side stamp this test is about only applies to a date nobody
-            // filled in, which is precisely the optional case.
-            fieldMeta: { type: 'date', required: false },
-          },
+          { type: FieldType.DATE, page: 1, positionX: 5, positionY: 5, width: 5, height: 5 },
           { type: FieldType.SIGNATURE, page: 1, positionX: 5, positionY: 15, width: 5, height: 5 },
         ],
       ],
@@ -78,9 +93,18 @@ test.describe('V2 envelope field insertion during signing', () => {
     await canvas.click({ position: { x, y } });
     await page.waitForTimeout(500);
 
-    // The DATE field is left untouched on purpose - it is optional, so it does not
-    // block completion, and the point of the test is that the server stamps it.
+    // The date still has to be signed - see signDateFieldViaDialog.
     await expect(page.getByText('1 Field Remaining').first()).toBeVisible({ timeout: 10_000 });
+
+    const dateFieldToSign = envelope.fields.find((f) => f.type === FieldType.DATE);
+
+    if (!dateFieldToSign) {
+      throw new Error('Date field not found');
+    }
+
+    await signDateFieldViaDialog(page, canvas, dateFieldToSign);
+
+    await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'Complete' }).click();
     await expect(page.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
@@ -100,13 +124,16 @@ test.describe('V2 envelope field insertion during signing', () => {
     expect(dateField.inserted).toBe(true);
     expect(dateField.customText).toBeTruthy();
 
-    // Verify the inserted date is close to now (within 2 minutes).
+    // The calendar picker records the day the signer chose, normalised to midday, where
+    // upstream's auto-insert wrote a live timestamp. The day is what a date field means,
+    // so that is what is asserted; a to-the-minute comparison would only be testing that
+    // the picker had stamped a clock reading it has no reason to carry.
     const insertedDate = DateTime.fromFormat(dateField.customText, DEFAULT_DOCUMENT_DATE_FORMAT, {
       zone: DEFAULT_DOCUMENT_TIME_ZONE,
     });
 
     expect(insertedDate.isValid).toBe(true);
-    expect(Math.abs(insertedDate.diff(now, 'minutes').minutes)).toBeLessThanOrEqual(2);
+    expect(insertedDate.toFormat('yyyy-MM-dd')).toBe(now.toFormat('yyyy-MM-dd'));
 
     // Verify the document reached COMPLETED status.
     await expect(async () => {
@@ -118,7 +145,7 @@ test.describe('V2 envelope field insertion during signing', () => {
     }).toPass();
   });
 
-  test('date and email fields are inserted when completing a V2 envelope with multiple field types', async ({
+  test('email is auto-inserted and date is picked when completing a V2 envelope with multiple field types', async ({
     page,
     request,
   }) => {
@@ -130,20 +157,7 @@ test.describe('V2 envelope field insertion during signing', () => {
       recipients: [{ email: recipientEmail, name: 'Multi Signer' }],
       fieldsPerRecipient: [
         [
-          {
-            type: FieldType.DATE,
-            page: 1,
-            positionX: 5,
-            positionY: 5,
-            width: 5,
-            height: 5,
-            // Optional on purpose. This fork makes fields required by default and hands
-            // DATE to the signer's calendar dialog, so a *required* date is one the
-            // signer has to open - the Complete button stays "Next Field" until they do.
-            // The server-side stamp this test is about only applies to a date nobody
-            // filled in, which is precisely the optional case.
-            fieldMeta: { type: 'date', required: false },
-          },
+          { type: FieldType.DATE, page: 1, positionX: 5, positionY: 5, width: 5, height: 5 },
           { type: FieldType.EMAIL, page: 1, positionX: 5, positionY: 10, width: 5, height: 5 },
           { type: FieldType.NAME, page: 1, positionX: 5, positionY: 15, width: 5, height: 5 },
           {
@@ -192,7 +206,8 @@ test.describe('V2 envelope field insertion during signing', () => {
       throw new Error('Canvas bounding box not found');
     }
 
-    // Only NAME and SIGNATURE fields need manual interaction (DATE and EMAIL are auto-filled).
+    // EMAIL is filled server side when the envelope is sent. DATE is signed through the
+    // calendar dialog below, which needs its own handling, so it is excluded here too.
     const manualFields = fields.filter((f) => f.type !== FieldType.DATE && f.type !== FieldType.EMAIL);
 
     for (const field of manualFields) {
@@ -227,8 +242,18 @@ test.describe('V2 envelope field insertion during signing', () => {
       await page.waitForTimeout(500);
     }
 
-    // Every field the signer drives is done; DATE is left for the server to stamp.
+    // Everything but the date is done.
     await expect(page.getByText('1 Field Remaining').first()).toBeVisible({ timeout: 10_000 });
+
+    const dateFieldToSign = fields.find((f) => f.type === FieldType.DATE);
+
+    if (!dateFieldToSign) {
+      throw new Error('Date field not found');
+    }
+
+    await signDateFieldViaDialog(page, canvas, dateFieldToSign);
+
+    await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'Complete' }).click();
     await expect(page.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
@@ -253,7 +278,7 @@ test.describe('V2 envelope field insertion during signing', () => {
     });
 
     expect(insertedDate.isValid).toBe(true);
-    expect(Math.abs(insertedDate.diff(now, 'minutes').minutes)).toBeLessThanOrEqual(2);
+    expect(insertedDate.toFormat('yyyy-MM-dd')).toBe(now.toFormat('yyyy-MM-dd'));
 
     // Verify the email field was inserted with the recipient's email.
     const emailField = await prisma.field.findFirstOrThrow({
