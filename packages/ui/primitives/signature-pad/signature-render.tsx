@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { DEFAULT_SIGNATURE_FONT_FAMILY, getSignatureFont } from '@documenso/lib/constants/signature-fonts';
 import { cn } from '../../lib/utils';
 
-const SIGNATURE_FONT_FAMILY = 'Caveat';
 
 export type SignatureRenderProps = {
   className?: string;
@@ -26,6 +25,11 @@ export const SignatureRender = ({
   const $el = useRef<HTMLCanvasElement>(null);
   const $imageData = useRef<ImageData | null>(null);
 
+  // The org/team signature font, resolved once: both the canvas draws and the
+  // `document.fonts.load` wait below must ask for the same family, or the wait
+  // resolves against a font that is never used.
+  const fontFamily = getSignatureFont(fontFamilyProp ?? DEFAULT_SIGNATURE_FONT_FAMILY).family;
+
   const renderTypedSignature = () => {
     if (!$el.current) {
       return;
@@ -41,7 +45,6 @@ export const SignatureRender = ({
 
     const canvasWidth = $el.current.width;
     const canvasHeight = $el.current.height;
-    const fontFamily = getSignatureFont(fontFamilyProp ?? DEFAULT_SIGNATURE_FONT_FAMILY).family;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.textAlign = 'center';
@@ -53,7 +56,7 @@ export const SignatureRender = ({
 
     // Start with a base font size
     let fontSize = 18;
-    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
 
     // Measure 10 characters and calculate scale factor
     const characterWidth = ctx.measureText('m'.repeat(10)).width;
@@ -63,7 +66,7 @@ export const SignatureRender = ({
     fontSize = fontSize * scaleFactor;
 
     // Adjust font size if it exceeds canvas width
-    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
 
     const textWidth = ctx.measureText(value).width;
 
@@ -72,7 +75,7 @@ export const SignatureRender = ({
     }
 
     // Set final font and render text
-    ctx.font = `${fontSize}px ${SIGNATURE_FONT_FAMILY}`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
     ctx.fillText(value, canvasWidth / 2, canvasHeight / 2);
   };
 

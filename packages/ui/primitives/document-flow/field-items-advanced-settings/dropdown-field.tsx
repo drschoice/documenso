@@ -1,3 +1,4 @@
+import type { TVisibilityBlock } from '@documenso/lib/types/field-meta';
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
 import { Button } from '@documenso/ui/primitives/button';
 import { Input } from '@documenso/ui/primitives/input';

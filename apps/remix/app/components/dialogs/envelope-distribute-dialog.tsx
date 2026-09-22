@@ -38,7 +38,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitive
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { DocumentDistributionMethod, DocumentStatus, EnvelopeType } from '@prisma/client';
+import { DocumentDistributionMethod, DocumentStatus, EnvelopeType, FieldType } from '@prisma/client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';

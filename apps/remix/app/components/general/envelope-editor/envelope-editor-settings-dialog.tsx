@@ -61,14 +61,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
-import {
-  DocumentDistributionMethod,
-  DocumentVisibility,
-  EnvelopeType,
-  RecipientRole,
-  SendStatus,
-  TemplateType,
-} from '@prisma/client';
+import { DocumentDistributionMethod, DocumentVisibility, EnvelopeType, RecipientRole, SendStatus, TemplateType, FieldType } from '@prisma/client';
 import type * as DialogPrimitive from '@radix-ui/react-dialog';
 import { BellRingIcon, InfoIcon, MailIcon, SettingsIcon, ShieldIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';

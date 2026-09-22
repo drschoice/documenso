@@ -1,4 +1,4 @@
-import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
+import { DEFAULT_DOCUMENT_DATE_FORMAT, isValidDateFormat } from '@documenso/lib/constants/date-formats';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
 import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
 import { Button } from '@documenso/ui/primitives/button';

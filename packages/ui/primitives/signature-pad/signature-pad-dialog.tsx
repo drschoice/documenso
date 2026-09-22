@@ -1,3 +1,4 @@
+import { DialogTitle } from '../dialog';
 import { parseMessageDescriptor } from '@documenso/lib/utils/i18n';
 import { Dialog, DialogClose, DialogContent, DialogFooter } from '@documenso/ui/primitives/dialog';
 

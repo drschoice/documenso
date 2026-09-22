@@ -3,7 +3,7 @@ import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
 import { RadioGroup, RadioGroupItem } from '@documenso/ui/primitives/radio-group';
 import { SignaturePadDialog } from '@documenso/ui/primitives/signature-pad/signature-pad-dialog';
-import { Plural, Trans } from '@lingui/react/macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { RecipientRole } from '@prisma/client';
 import { useMemo } from 'react';
 

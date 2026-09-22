@@ -16,7 +16,7 @@ import { createSpinner } from '@documenso/lib/universal/field-renderer/field-gen
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
+import { extractInitials, getRecipientNameParts } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
 import { EnvelopeRecipientFieldTooltip } from '@documenso/ui/components/document/envelope-recipient-field-tooltip';
 import { EnvelopeFieldToolTip } from '@documenso/ui/components/field/envelope-field-tooltip';
@@ -378,8 +378,11 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           // stored parts. Otherwise use the parts the signer is editing in the sidebar.
           const localRecipient =
             recipient.role === RecipientRole.ASSISTANT
-              ? selectedAssistantRecipient
-              : { ...recipient, ...nameParts, name: fullName };
+              ? selectedAssistantRecipient && {
+                  ...getRecipientNameParts(selectedAssistantRecipient),
+                  name: selectedAssistantRecipient.name,
+                }
+              : { ...nameParts, name: fullName.current };
 
           void handleNameFieldClick({ field, name: localFullName, recipient: localRecipient })
             .then(async (payload) => {
@@ -561,11 +564,6 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         console.error('Unable to render one or more fields belonging to other recipients.');
         console.error(err);
       }
-    }
-
-    // Render current recipient fields.
-    for (const field of localPageFields) {
-      renderFieldOnLayer(field);
     }
   };
 

@@ -4,7 +4,6 @@ import { canExecuteOrganisationAction, isPersonalLayout } from '@documenso/lib/u
 import type { SanitizeBrandingCssWarning } from '@documenso/lib/utils/sanitize-branding-css';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
-import { putFile } from '@documenso/lib/universal/upload/put-file';
 import { trpc } from '@documenso/trpc/react';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';

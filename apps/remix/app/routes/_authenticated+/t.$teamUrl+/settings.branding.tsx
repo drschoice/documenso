@@ -3,7 +3,6 @@ import { IS_BILLING_ENABLED, IS_DOCUMENSO_CLOUD } from '@documenso/lib/constants
 import { canExecuteOrganisationAction } from '@documenso/lib/utils/organisations';
 import type { SanitizeBrandingCssWarning } from '@documenso/lib/utils/sanitize-branding-css';
 import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
-import { putFile } from '@documenso/lib/universal/upload/put-file';
 import { trpc } from '@documenso/trpc/react';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';

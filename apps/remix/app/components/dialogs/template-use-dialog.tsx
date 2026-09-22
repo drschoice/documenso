@@ -45,7 +45,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { DocumentDistributionMethod, DocumentSigningOrder } from '@prisma/client';
+import { DocumentDistributionMethod, DocumentSigningOrder, FieldType } from '@prisma/client';
 import { FileTextIcon, InfoIcon, Plus, UploadCloudIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';

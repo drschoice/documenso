@@ -94,6 +94,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
       createdAt: new Date(),
       avatarImageId: null,
       organisationId: '',
+      teamEmail: null,
       currentTeamRole: TeamMemberRole.MEMBER,
       preferences: {
         aiFeaturesEnabled: teamSettings.aiFeaturesEnabled,

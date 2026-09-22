@@ -170,6 +170,9 @@ export function BrandingPreferencesForm({
       brandingUrl: '',
       brandingCompanyDetails: '',
       brandingColors: {},
+      // Resetting branding also drops back to the inherited signature font.
+      signatureFontFamily: null,
+      signatureFontSize: null,
       brandingCss: '',
     };
 

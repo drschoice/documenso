@@ -17,7 +17,7 @@ import { trpc } from '@documenso/trpc/react';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
 import { EnvelopeType, type Field, FieldType, type Recipient, RecipientRole, SigningStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { prop, sortBy } from 'remeda';
 
 export type EnvelopeSigningContextValue = {
