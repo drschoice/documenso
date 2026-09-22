@@ -584,11 +584,15 @@ test.describe('fixed expiration date', () => {
       redirectPath: `/o/${organisation.url}/settings/document`,
     });
 
-    await expect(page.getByRole('button', { name: 'Update' }).first()).toBeVisible();
-
     const modeTrigger = page
       .locator('button[role="combobox"]')
       .filter({ hasText: 'Custom duration' });
+
+    // Barrier: the page renders a spinner until the organisation query resolves.
+    // This used to wait on the form's Update button, which upstream replaced with
+    // a save bar that only appears once the form is dirty - so the picker the test
+    // is about is now the thing to wait for.
+    await expect(modeTrigger).toBeVisible();
 
     await modeTrigger.click();
 

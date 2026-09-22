@@ -53,6 +53,7 @@ export type TDocumentPreferencesFormSchema = {
   signatureTypes: DocumentSignatureType[];
   defaultRecipients: TDefaultRecipients | null;
   delegateDocumentOwnership: boolean | null;
+  envelopeExpirationPeriod: TEnvelopeExpirationPeriod | null;
   aiFeaturesEnabled: boolean | null;
 };
 
@@ -67,6 +68,7 @@ type SettingsSubset = Pick<
   | 'drawSignatureEnabled'
   | 'defaultRecipients'
   | 'delegateDocumentOwnership'
+  | 'envelopeExpirationPeriod'
   | 'aiFeaturesEnabled'
 >;
 
@@ -94,6 +96,9 @@ const getDocumentPreferencesFormValues = (settings: SettingsSubset): TDocumentPr
     signatureTypes: extractTeamSignatureSettings({ ...settings }),
     defaultRecipients: settings.defaultRecipients ? ZDefaultRecipientsSchema.parse(settings.defaultRecipients) : null,
     delegateDocumentOwnership: settings.delegateDocumentOwnership,
+    envelopeExpirationPeriod: settings.envelopeExpirationPeriod
+      ? ZEnvelopeExpirationPeriod.parse(settings.envelopeExpirationPeriod)
+      : null,
     aiFeaturesEnabled: settings.aiFeaturesEnabled,
   };
 };
@@ -130,6 +135,7 @@ export const DocumentPreferencesForm = ({
     }),
     defaultRecipients: ZDefaultRecipientsSchema.nullable(),
     delegateDocumentOwnership: z.boolean().nullable(),
+    envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullable(),
     aiFeaturesEnabled: z.boolean().nullable(),
   });
 
@@ -521,6 +527,35 @@ export const DocumentPreferencesForm = ({
                 <FormDescription>
                   <Trans>Enable team API tokens to delegate document ownership to another team member.</Trans>
                 </FormDescription>
+              </InheritableField>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="envelopeExpirationPeriod"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Default Envelope Expiration</Trans>}
+                testId="envelope-expiration-period"
+              >
+                <ExpirationPeriodPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  inheritLabel={canInherit ? t`Inherit from organisation` : undefined}
+                />
+
+                <FormDescription>
+                  <Trans>
+                    Controls how long recipients have to complete signing before the document
+                    expires. After expiration, recipients can no longer sign the document.
+                  </Trans>
+                </FormDescription>
+
+                <FormMessage />
               </InheritableField>
             )}
           />
