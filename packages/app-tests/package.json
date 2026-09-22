@@ -7,7 +7,7 @@
   "scripts": {
     "test:dev": "NODE_OPTIONS='--import tsx' playwright test",
     "test-ui:dev": "NODE_OPTIONS='--import tsx' playwright test --ui",
-    "test:e2e": "NODE_OPTIONS='--import tsx' NODE_ENV=test NEXT_PRIVATE_LOGGER_FILE_PATH=./logs.json NEXT_PRIVATE_AI_STUB_MODEL=true NEXT_PRIVATE_RATE_LIMIT_MULTIPLIER=1000 start-server-and-test \"npm run start -w @documenso/remix\" http://localhost:3000 \"playwright test $E2E_TEST_PATH\""
+    "test:e2e": "NODE_OPTIONS='--import tsx' NODE_ENV=test NEXT_PRIVATE_LOGGER_FILE_PATH=./logs.json NEXT_PRIVATE_AI_STUB_MODEL=true NEXT_PRIVATE_RATE_LIMIT_API_V1_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_API_V2_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_API_TRPC_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_API_FILE_UPLOAD_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_API_AI_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_AUTH_LOGIN_MAX=100000 NEXT_PRIVATE_RATE_LIMIT_AUTH_LOGIN_GLOBAL_MAX=100000 start-server-and-test \"npm run start -w @documenso/remix\" http://localhost:3000 \"playwright test $E2E_TEST_PATH\""
   },
   "keywords": [],
   "author": "",
