@@ -3885,6 +3885,10 @@ msgstr "Currently branding can only be configured for Teams and above plans."
 msgid "Currently email domains can only be configured for Platform and above plans."
 msgstr "Currently email domains can only be configured for Platform and above plans."
 
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Custom"
+msgstr "Custom"
+
 #. placeholder {0}: (field.value.size / (1024 * 1024)).toFixed(2)
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Custom {0} MB file"
@@ -3917,6 +3921,10 @@ msgstr "Custom Organization Groups"
 #: apps/remix/app/components/general/settings-org-switcher.tsx
 msgid "Custom Plan"
 msgstr "Custom Plan"
+
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Custom Sender Name"
+msgstr "Custom Sender Name"
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "Customise the colours used on your signing pages."
@@ -5468,6 +5476,10 @@ msgstr "Email resent"
 msgid "Email Sender"
 msgstr "Email Sender"
 
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Email Sender Name"
+msgstr "Email Sender Name"
+
 #: apps/remix/app/components/general/organisations/organisation-quota-banner.tsx
 msgid "Email sending has been temporarily paused"
 msgstr "Email sending has been temporarily paused"
@@ -6925,6 +6937,7 @@ msgstr "Inherit authentication method"
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
+#: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 #: apps/remix/app/components/forms/reminder-preferences-form.tsx
 msgid "Inherit from organisation"
@@ -7311,6 +7324,10 @@ msgstr "Learn more"
 #: apps/remix/app/components/tables/user-organisations-table.tsx
 msgid "Leave"
 msgstr "Leave"
+
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Leave blank to fall back to the team name. Available variables:"
+msgstr "Leave blank to fall back to the team name. Available variables:"
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
@@ -8584,6 +8601,10 @@ msgstr "Organization Member"
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.members.tsx
 msgid "Organisation Members"
 msgstr "Organization Members"
+
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Organisation name"
+msgstr "Organisation name"
 
 #: apps/remix/app/components/dialogs/admin-organisation-create-dialog.tsx
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
@@ -11727,6 +11748,10 @@ msgstr "Team members have been added."
 msgid "Team Memberships"
 msgstr "Team Memberships"
 
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "Team name"
+msgstr "Team name"
+
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/forms/team-update-form.tsx
 #: apps/remix/app/components/tables/organisation-insights-table.tsx
@@ -12247,6 +12272,10 @@ msgstr "The image must be smaller than 5MB."
 #: apps/remix/app/components/general/admin-license-card.tsx
 msgid "The license key has been copied to your clipboard"
 msgstr "The license key has been copied to your clipboard"
+
+#: apps/remix/app/components/forms/email-preferences-form.tsx
+msgid "The name recipients see in emails about your documents. Applies whether or not branding is enabled."
+msgstr "The name recipients see in emails about your documents. Applies whether or not branding is enabled."
 
 #. placeholder {0}: form.watch('name')
 #. placeholder {1}: form.watch('email')
