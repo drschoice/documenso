@@ -1,3 +1,4 @@
+import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
 import { msg } from '@lingui/core/macro';
 import { useLoaderData } from 'react-router';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
@@ -39,6 +40,8 @@ export default function TeamsSettingsPage() {
         signatureTypes,
         defaultRecipients,
         delegateDocumentOwnership,
+        signatureFontFamily,
+        signatureFontSize,
         aiFeaturesEnabled,
       } = data;
 
@@ -50,6 +53,11 @@ export default function TeamsSettingsPage() {
           documentTimezone,
           documentDateFormat,
           defaultRecipients,
+          // The form keeps this as a plain string since the Select only offers curated
+          // families; the tRPC input narrows it to the union and validates it server-side.
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          signatureFontFamily: signatureFontFamily as SignatureFontFamily | null,
+          signatureFontSize,
           aiFeaturesEnabled,
           ...(signatureTypes.length === 0
             ? {
@@ -100,6 +108,8 @@ export default function TeamsSettingsPage() {
         <DocumentPreferencesForm
           canInherit={true}
           settings={teamWithSettings.teamSettings}
+          inheritedFontFamily={teamWithSettings.derivedSettings.signatureFontFamily}
+          inheritedFontSize={teamWithSettings.derivedSettings.signatureFontSize}
           allowedSignatureTypes={extractTeamSignatureSettings(
             teamWithSettings.organisationSettings,
           )}

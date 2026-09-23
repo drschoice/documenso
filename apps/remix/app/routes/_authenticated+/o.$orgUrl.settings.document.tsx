@@ -1,3 +1,4 @@
+import type { SignatureFontFamily } from '@documenso/lib/constants/signature-fonts';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
 import { trpc } from '@documenso/trpc/react';
@@ -39,6 +40,8 @@ export default function OrganisationSettingsDocumentPage() {
         signatureTypes,
         defaultRecipients,
         delegateDocumentOwnership,
+        signatureFontFamily,
+        signatureFontSize,
         aiFeaturesEnabled,
       } = data;
 
@@ -63,6 +66,10 @@ export default function OrganisationSettingsDocumentPage() {
           uploadSignatureEnabled: signatureTypes.includes(DocumentSignatureType.UPLOAD),
           drawSignatureEnabled: signatureTypes.includes(DocumentSignatureType.DRAW),
           delegateDocumentOwnership,
+          // Nothing above the organisation to inherit from, so null means "leave it alone".
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          signatureFontFamily: (signatureFontFamily as SignatureFontFamily | null) ?? undefined,
+          signatureFontSize: signatureFontSize ?? undefined,
           aiFeaturesEnabled,
         },
       });

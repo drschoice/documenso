@@ -34,6 +34,15 @@ import { Input } from '@documenso/ui/primitives/input';
 import { useOptionalCurrentTeam } from '~/providers/team';
 import { DefaultRecipientsMultiSelectCombobox } from '../general/default-recipients-multiselect-combobox';
 import { FormStickySaveBar } from './form-sticky-save-bar';
+import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
+import {
+  DEFAULT_SIGNATURE_FONT_FAMILY,
+  MAX_SIGNATURE_FONT_SIZE,
+  MIN_SIGNATURE_FONT_SIZE,
+  SIGNATURE_FONTS,
+  getSignatureFontFamilyString,
+} from '@documenso/lib/constants/signature-fonts';
+
 import { InheritableField } from './inheritable-field';
 
 /**
@@ -53,6 +62,8 @@ export type TDocumentPreferencesFormSchema = {
   signatureTypes: DocumentSignatureType[];
   defaultRecipients: TDefaultRecipients | null;
   delegateDocumentOwnership: boolean | null;
+  signatureFontFamily: string | null;
+  signatureFontSize: number | null;
   aiFeaturesEnabled: boolean | null;
 };
 
@@ -67,6 +78,8 @@ type SettingsSubset = Pick<
   | 'drawSignatureEnabled'
   | 'defaultRecipients'
   | 'delegateDocumentOwnership'
+  | 'signatureFontFamily'
+  | 'signatureFontSize'
   | 'aiFeaturesEnabled'
 >;
 
@@ -74,6 +87,19 @@ export type DocumentPreferencesFormProps = {
   settings: SettingsSubset;
   canInherit: boolean;
   onFormSubmit: (data: TDocumentPreferencesFormSchema) => Promise<void>;
+
+  /**
+   * The effective font this context would inherit when `signatureFontFamily` is null (i.e. the
+   * organisation's resolved font for a team). Used to preview the "Inherit from organisation" choice
+   * in the real inherited font rather than the hardcoded default.
+   */
+  inheritedFontFamily?: string | null;
+  /**
+   * The effective font size this context would inherit when `signatureFontSize` is null (i.e. the
+   * organisation's resolved size for a team). Used as the placeholder/preview for the "inherit"
+   * (blank) choice rather than the hardcoded default.
+   */
+  inheritedFontSize?: number | null;
 
   /**
    * The signature types the organisation permits. A team may only narrow this list further, so the
@@ -94,6 +120,8 @@ const getDocumentPreferencesFormValues = (settings: SettingsSubset): TDocumentPr
     signatureTypes: extractTeamSignatureSettings({ ...settings }),
     defaultRecipients: settings.defaultRecipients ? ZDefaultRecipientsSchema.parse(settings.defaultRecipients) : null,
     delegateDocumentOwnership: settings.delegateDocumentOwnership,
+    signatureFontFamily: settings.signatureFontFamily ?? null,
+    signatureFontSize: settings.signatureFontSize ?? null,
     aiFeaturesEnabled: settings.aiFeaturesEnabled,
   };
 };
@@ -103,6 +131,8 @@ export const DocumentPreferencesForm = ({
   onFormSubmit,
   canInherit,
   allowedSignatureTypes,
+  inheritedFontFamily,
+  inheritedFontSize,
 }: DocumentPreferencesFormProps) => {
   const { _ } = useLingui();
   const { organisations } = useSession();
@@ -130,6 +160,17 @@ export const DocumentPreferencesForm = ({
     }),
     defaultRecipients: ZDefaultRecipientsSchema.nullable(),
     delegateDocumentOwnership: z.boolean().nullable(),
+    // Null = inherit from organisation (team only). The allowed values are validated server-side by
+    // the tRPC input (`ZSignatureFontFamilySchema`); kept as a plain string here since the `Select`
+    // only offers curated families.
+    signatureFontFamily: z.string().nullable(),
+    // Null = inherit from organisation (team only). Same bounds as the per-field `fieldMeta.fontSize`.
+    signatureFontSize: z
+      .number()
+      .int()
+      .min(MIN_SIGNATURE_FONT_SIZE)
+      .max(MAX_SIGNATURE_FONT_SIZE)
+      .nullable(),
     aiFeaturesEnabled: z.boolean().nullable(),
   });
 
@@ -141,10 +182,22 @@ export const DocumentPreferencesForm = ({
     aiFeaturesEnabled: isAiFeaturesConfigured ? baseResetValues.aiFeaturesEnabled : defaultValues.aiFeaturesEnabled,
   };
 
+  const { user } = useSession();
+
+  const signaturePreviewName = user?.name?.trim() || t`Jane Doe`;
+
   const form = useForm<TDocumentPreferencesFormSchema>({
     defaultValues,
     resolver: zodResolver(ZDocumentPreferencesFormSchema),
   });
+
+  const watchedSignatureFontFamily = form.watch('signatureFontFamily');
+  const watchedSignatureFontSize = form.watch('signatureFontSize');
+
+  // Resolve the values the signature preview should render with, applying the same inherit/default
+  // fallbacks the server uses at document creation.
+  const previewFontFamily = watchedSignatureFontFamily ?? inheritedFontFamily;
+  const previewFontSize = watchedSignatureFontSize ?? inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
 
   // Parse both sides through the schema so we compare canonical representations
   const parsedCurrentValues = ZDocumentPreferencesFormSchema.safeParse(defaultValues);
@@ -520,6 +573,111 @@ export const DocumentPreferencesForm = ({
 
                 <FormDescription>
                   <Trans>Enable team API tokens to delegate document ownership to another team member.</Trans>
+                </FormDescription>
+              </InheritableField>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="signatureFontFamily"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font</Trans>}
+                testId="signature-font-family"
+              >
+                <Select
+                  value={field.value ?? (canInherit ? '-1' : DEFAULT_SIGNATURE_FONT_FAMILY)}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      className="bg-background"
+                      data-testid="signature-font"
+                      style={{ fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily) }}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+
+                  <SelectContent className="z-[9999]">
+                    {canInherit && (
+                      <SelectItem value="-1">
+                        <Trans>Inherit from organisation</Trans>
+                      </SelectItem>
+                    )}
+
+                    {SIGNATURE_FONTS.map((signatureFont) => (
+                      <SelectItem
+                        key={signatureFont.family}
+                        value={signatureFont.family}
+                        className="text-xl"
+                        style={{ fontFamily: `'${signatureFont.family}', ${signatureFont.cssFallback}` }}
+                      >
+                        {signatureFont.family}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+                  <span
+                    className="text-black dark:text-white"
+                    style={{
+                      fontFamily: getSignatureFontFamilyString(previewFontFamily),
+                      fontSize: `${previewFontSize}px`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {signaturePreviewName}
+                  </span>
+                </div>
+
+                <FormDescription>
+                  <Trans>
+                    The font used for typed signatures. Applies to documents created after this change - already-created
+                    documents keep their original font.
+                  </Trans>
+                </FormDescription>
+              </InheritableField>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="signatureFontSize"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font Size</Trans>}
+                testId="signature-font-size-field"
+              >
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={MIN_SIGNATURE_FONT_SIZE}
+                    max={MAX_SIGNATURE_FONT_SIZE}
+                    className="bg-background"
+                    data-testid="signature-font-size"
+                    placeholder={
+                      canInherit ? (inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE).toString() : undefined
+                    }
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)}
+                  />
+                </FormControl>
+
+                <FormDescription>
+                  <Trans>
+                    The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed
+                    signatures. A per-field size set in the editor overrides this. Applies to documents created after
+                    this change.
+                  </Trans>
                 </FormDescription>
               </InheritableField>
             )}

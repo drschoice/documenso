@@ -6939,6 +6939,7 @@ msgstr "Authenticatiemethode overnemen"
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
@@ -7158,7 +7159,7 @@ msgstr ""
 msgid "Italian"
 msgstr "Italiaans"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Jane Doe"
 msgstr ""
 
@@ -11015,6 +11016,14 @@ msgstr "Registreren met OIDC"
 msgid "Signature"
 msgstr "Handtekening"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font"
+msgstr ""
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font Size"
+msgstr ""
+
 #: apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx
 #: packages/lib/server-only/pdf/render-certificate.ts
 msgid "Signature ID"
@@ -12087,6 +12096,10 @@ msgstr ""
 msgid "The default email to use when sending emails to recipients"
 msgstr "Het standaarde-mailadres dat wordt gebruikt bij het verzenden van e-mails naar ontvangers"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed signatures. A per-field size set in the editor overrides this. Applies to documents created after this change."
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-delete-dialog.tsx
 msgid "The deletion will run in the background, and can take up to a few minutes to complete. Do not re-run this deletion."
 msgstr "De verwijdering wordt op de achtergrond uitgevoerd en kan enkele minuten duren. Voer deze verwijdering niet opnieuw uit."
@@ -12265,6 +12278,10 @@ msgstr "De volgende ondertekenaars missen handtekeningvelden:"
 #: packages/email/templates/team-delete.tsx
 msgid "The following team has been deleted. You will no longer be able to access this team and its documents"
 msgstr "Het volgende team is verwijderd. Je hebt geen toegang meer tot dit team en de documenten."
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The font used for typed signatures. Applies to documents created after this change - already-created documents keep their original font."
+msgstr ""
 
 #: packages/ui/primitives/signature-pad/signature-pad-upload.tsx
 msgid "The image could not be loaded. Please try again."

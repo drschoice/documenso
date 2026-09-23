@@ -6939,6 +6939,7 @@ msgstr "继承认证方式"
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
@@ -7158,7 +7159,7 @@ msgstr ""
 msgid "Italian"
 msgstr "意大利语"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Jane Doe"
 msgstr ""
 
@@ -11015,6 +11016,14 @@ msgstr "使用 OIDC 注册"
 msgid "Signature"
 msgstr "签名"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font"
+msgstr ""
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font Size"
+msgstr ""
+
 #: apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx
 #: packages/lib/server-only/pdf/render-certificate.ts
 msgid "Signature ID"
@@ -12087,6 +12096,10 @@ msgstr ""
 msgid "The default email to use when sending emails to recipients"
 msgstr "向收件人发送邮件时使用的默认邮箱"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed signatures. A per-field size set in the editor overrides this. Applies to documents created after this change."
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-delete-dialog.tsx
 msgid "The deletion will run in the background, and can take up to a few minutes to complete. Do not re-run this deletion."
 msgstr "删除过程将在后台运行，可能需要几分钟才能完成。请不要重新执行此删除操作。"
@@ -12265,6 +12278,10 @@ msgstr "以下签署人缺少签名字段："
 #: packages/email/templates/team-delete.tsx
 msgid "The following team has been deleted. You will no longer be able to access this team and its documents"
 msgstr "以下团队已被删除。您将无法再访问该团队及其文档"
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The font used for typed signatures. Applies to documents created after this change - already-created documents keep their original font."
+msgstr ""
 
 #: packages/ui/primitives/signature-pad/signature-pad-upload.tsx
 msgid "The image could not be loaded. Please try again."

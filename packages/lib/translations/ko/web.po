@@ -6939,6 +6939,7 @@ msgstr "인증 방식 상속"
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/document-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
 #: apps/remix/app/components/forms/email-preferences-form.tsx
@@ -7158,7 +7159,7 @@ msgstr ""
 msgid "Italian"
 msgstr "이탈리아어"
 
-#: apps/remix/app/components/forms/branding-preferences-form.tsx
+#: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Jane Doe"
 msgstr ""
 
@@ -11015,6 +11016,14 @@ msgstr "OIDC로 가입"
 msgid "Signature"
 msgstr "서명"
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font"
+msgstr ""
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "Signature Font Size"
+msgstr ""
+
 #: apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx
 #: packages/lib/server-only/pdf/render-certificate.ts
 msgid "Signature ID"
@@ -12087,6 +12096,10 @@ msgstr ""
 msgid "The default email to use when sending emails to recipients"
 msgstr "수신자에게 이메일을 보낼 때 사용할 기본 이메일입니다."
 
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed signatures. A per-field size set in the editor overrides this. Applies to documents created after this change."
+msgstr ""
+
 #: apps/remix/app/components/dialogs/admin-organisation-delete-dialog.tsx
 msgid "The deletion will run in the background, and can take up to a few minutes to complete. Do not re-run this deletion."
 msgstr "삭제는 백그라운드에서 실행되며 완료까지 몇 분 정도 걸릴 수 있습니다. 이 삭제 작업을 다시 실행하지 마세요."
@@ -12265,6 +12278,10 @@ msgstr "다음 서명자에게는 서명 필드가 없습니다:"
 #: packages/email/templates/team-delete.tsx
 msgid "The following team has been deleted. You will no longer be able to access this team and its documents"
 msgstr "다음 팀이 삭제되었습니다. 더 이상 이 팀과 그 문서에 접근할 수 없습니다."
+
+#: apps/remix/app/components/forms/document-preferences-form.tsx
+msgid "The font used for typed signatures. Applies to documents created after this change - already-created documents keep their original font."
+msgstr ""
 
 #: packages/ui/primitives/signature-pad/signature-pad-upload.tsx
 msgid "The image could not be loaded. Please try again."

@@ -55,8 +55,6 @@ export default function OrganisationSettingsBrandingPage() {
         brandingLogo,
         brandingUrl,
         brandingCompanyDetails,
-        signatureFontFamily,
-        signatureFontSize,
         brandingColors,
         brandingCss,
       } = data;
@@ -83,9 +81,7 @@ export default function OrganisationSettingsBrandingPage() {
           brandingColors,
           brandingCss,
           // Validated against the curated set by the tRPC input schema.
-          signatureFontFamily: (signatureFontFamily as SignatureFontFamily | null) ?? undefined,
           // Null (blank) leaves the organisation size unchanged; the org has no value to inherit.
-          signatureFontSize: signatureFontSize ?? undefined,
         },
       });
 
