@@ -694,6 +694,111 @@ export function BrandingPreferencesForm({
             </div>
           )}
 
+          <FormField
+            control={form.control}
+            name="signatureFontFamily"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font</Trans>}
+                testId="signature-font-family"
+              >
+                <Select
+                  value={field.value ?? (canInherit ? '-1' : DEFAULT_SIGNATURE_FONT_FAMILY)}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      className="bg-background"
+                      data-testid="signature-font"
+                      style={{ fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily) }}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+
+                  <SelectContent className="z-[9999]">
+                    {canInherit && (
+                      <SelectItem value="-1">
+                        <Trans>Inherit from organisation</Trans>
+                      </SelectItem>
+                    )}
+
+                    {SIGNATURE_FONTS.map((signatureFont) => (
+                      <SelectItem
+                        key={signatureFont.family}
+                        value={signatureFont.family}
+                        className="text-xl"
+                        style={{ fontFamily: `'${signatureFont.family}', ${signatureFont.cssFallback}` }}
+                      >
+                        {signatureFont.family}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+                  <span
+                    className="text-black dark:text-white"
+                    style={{
+                      fontFamily: getSignatureFontFamilyString(previewFontFamily),
+                      fontSize: `${previewFontSize}px`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {signaturePreviewName}
+                  </span>
+                </div>
+
+                <FormDescription>
+                  <Trans>
+                    The font used for typed signatures. Applies to documents created after this change - already-created
+                    documents keep their original font.
+                  </Trans>
+                </FormDescription>
+              </InheritableField>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="signatureFontSize"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font Size</Trans>}
+                testId="signature-font-size"
+              >
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={MIN_SIGNATURE_FONT_SIZE}
+                    max={MAX_SIGNATURE_FONT_SIZE}
+                    className="bg-background"
+                    data-testid="signature-font-size"
+                    placeholder={
+                      canInherit ? (inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE).toString() : undefined
+                    }
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)}
+                  />
+                </FormControl>
+
+                <FormDescription>
+                  <Trans>
+                    The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed
+                    signatures. A per-field size set in the editor overrides this. Applies to documents created after
+                    this change.
+                  </Trans>
+                </FormDescription>
+              </InheritableField>
+            )}
+          />
+
           <FormStickySaveBar
             isDirty={hasUnsavedChanges}
             isSubmitting={form.formState.isSubmitting}
