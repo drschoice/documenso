@@ -1,3 +1,4 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 /**
  * Server-side AI field detection: the code wrapped *around* the model call.
  *
@@ -27,12 +28,7 @@ import { buildAiStubDirective } from '@documenso/lib/server-only/ai/stub-model';
 import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increment-id';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
-import {
-  DocumentDataType,
-  DocumentSource,
-  DocumentStatus,
-  EnvelopeType,
-} from '@documenso/prisma/client';
+import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
@@ -76,6 +72,7 @@ const seedAiDraftEnvelope = async (ownerUserId: number, teamId: number, items: S
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
       internalVersion: 2,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,

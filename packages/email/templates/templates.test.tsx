@@ -20,6 +20,10 @@ import { describe, expect, it } from 'vitest';
 
 import { renderWithI18N } from '../render';
 import { AccessAuth2FAEmailTemplate } from './access-auth-2fa';
+import { AdminUserCreatedTemplate } from './admin-user-created';
+import { DocumentReminderEmailTemplate } from './document-reminder';
+import { OrganisationDeleteEmailTemplate } from './organisation-delete';
+import { OrganisationLimitAlertEmailTemplate } from './organisation-limit-alert';
 import { BulkSendCompleteEmail } from './bulk-send-complete';
 import { ConfirmEmailTemplate } from './confirm-email';
 import { ConfirmTeamEmailTemplate } from './confirm-team-email';
@@ -69,6 +73,39 @@ const TEMPLATES: { name: string; element: ReactElement }[] = [
         userEmail="lucas@documenso.com"
         userName="Lucas Smith"
         expiresInMinutes={10}
+      />
+    ),
+  },
+  {
+    name: 'admin-user-created',
+    element: <AdminUserCreatedTemplate resetPasswordLink={`${BASE_URL}/reset-password`} />,
+  },
+  {
+    name: 'document-reminder',
+    element: (
+      <DocumentReminderEmailTemplate
+        recipientName="Lucas Smith"
+        documentName="Open Source Pledge.pdf"
+        signDocumentLink={`${BASE_URL}/sign/token`}
+        role={RecipientRole.SIGNER}
+      />
+    ),
+  },
+  {
+    name: 'organisation-delete',
+    element: (
+      <OrganisationDeleteEmailTemplate assetBaseUrl={ASSET_BASE_URL} organisationName="Documenso" />
+    ),
+  },
+  {
+    name: 'organisation-limit-alert',
+    element: (
+      <OrganisationLimitAlertEmailTemplate
+        assetBaseUrl={ASSET_BASE_URL}
+        organisationName="Documenso"
+        counter="document"
+        kind="quotaNearing"
+        period="month"
       />
     ),
   },

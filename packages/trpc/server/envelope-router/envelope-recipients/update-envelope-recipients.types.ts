@@ -1,15 +1,7 @@
+import { ZRecipientAccessAuthTypesSchema, ZRecipientActionAuthTypesSchema } from '@documenso/lib/types/document-auth';
+import { ZRecipientEmailSchema, ZRecipientLiteSchema, ZRecipientNamePartsRequestSchema } from '@documenso/lib/types/recipient';
 import { RecipientRole } from '@prisma/client';
 import { z } from 'zod';
-
-import {
-  ZRecipientAccessAuthTypesSchema,
-  ZRecipientActionAuthTypesSchema,
-} from '@documenso/lib/types/document-auth';
-import {
-  ZRecipientEmailSchema,
-  ZRecipientLiteSchema,
-  ZRecipientNamePartsRequestSchema,
-} from '@documenso/lib/types/recipient';
 
 import type { TrpcRouteMeta } from '../../trpc';
 
@@ -43,9 +35,5 @@ export const ZUpdateEnvelopeRecipientsResponseSchema = z.object({
   data: ZRecipientLiteSchema.array(),
 });
 
-export type TUpdateEnvelopeRecipientsRequest = z.infer<
-  typeof ZUpdateEnvelopeRecipientsRequestSchema
->;
-export type TUpdateEnvelopeRecipientsResponse = z.infer<
-  typeof ZUpdateEnvelopeRecipientsResponseSchema
->;
+export type TUpdateEnvelopeRecipientsRequest = z.infer<typeof ZUpdateEnvelopeRecipientsRequestSchema>;
+export type TUpdateEnvelopeRecipientsResponse = z.infer<typeof ZUpdateEnvelopeRecipientsResponseSchema>;

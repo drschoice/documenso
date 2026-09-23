@@ -1,32 +1,24 @@
-import { useEffect } from 'react';
-
+import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
+import { FIELD_SIGNATURE_META_DEFAULT_VALUES, type TSignatureFieldMeta, ZSignatureFieldMeta, FIELD_DEFAULT_GENERIC_ALIGN } from '@documenso/lib/types/field-meta';
+import { Form } from '@documenso/ui/primitives/form/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans } from '@lingui/react/macro';
+import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
-import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
-import {
-  FIELD_DEFAULT_GENERIC_ALIGN,
-  type TSignatureFieldMeta,
-  ZSignatureFieldMeta,
-} from '@documenso/lib/types/field-meta';
-import { Form } from '@documenso/ui/primitives/form/form';
-
-import {
-  EditorGenericFontSizeField,
-  EditorGenericTextAlignField,
-} from './editor-field-generic-field-forms';
+import { EditorGenericFontSizeField, EditorGenericTextAlignField } from './editor-field-generic-field-forms';
 
 const ZSignatureFieldFormSchema = ZSignatureFieldMeta.pick({
   fontSize: true,
+  overflow: true,
   textAlign: true,
 });
 
 type TSignatureFieldFormSchema = z.infer<typeof ZSignatureFieldFormSchema>;
 
 type EditorFieldSignatureFormProps = {
-  value: TSignatureFieldMeta | undefined;
+  value: z.input<typeof ZSignatureFieldMeta> | undefined;
   onValueChange: (value: TSignatureFieldMeta) => void;
 };
 
@@ -40,6 +32,7 @@ export const EditorFieldSignatureForm = ({
     resolver: zodResolver(ZSignatureFieldFormSchema),
     mode: 'onChange',
     defaultValues: {
+      overflow: value.overflow || FIELD_SIGNATURE_META_DEFAULT_VALUES.overflow,
       fontSize: value.fontSize || DEFAULT_SIGNATURE_TEXT_FONT_SIZE,
       textAlign: value.textAlign ?? FIELD_DEFAULT_GENERIC_ALIGN,
     },
@@ -69,7 +62,7 @@ export const EditorFieldSignatureForm = ({
         <fieldset className="flex flex-col gap-2">
           <div>
             <EditorGenericFontSizeField formControl={form.control} />
-            <p className="text-muted-foreground mt-0.5 text-xs">
+            <p className="mt-0.5 text-muted-foreground text-xs">
               <Trans>The typed signature font size</Trans>
             </p>
           </div>

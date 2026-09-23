@@ -1,18 +1,19 @@
-import { useLayoutEffect, useState } from 'react';
-
-import { Trans } from '@lingui/react/macro';
 import { TeamMemberRole } from '@prisma/client';
-import { Outlet, useLoaderData } from 'react-router';
-
 import { APP_I18N_OPTIONS } from '@documenso/lib/constants/i18n';
+import { captureServerEvent } from '@documenso/lib/server-only/analytics/capture-server-event';
 import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embedding-presign/verify-embedding-presign-token';
 import { getOrganisationClaimByTeamId } from '@documenso/lib/server-only/organisation/get-organisation-claims';
 import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settings';
 import { ZBaseEmbedAuthoringSchema } from '@documenso/lib/types/embed-authoring-base-schema';
+import { fireAndForget } from '@documenso/lib/universal/fire-and-forget';
 import { dynamicActivate } from '@documenso/lib/utils/i18n';
+import { prisma } from '@documenso/prisma';
 import { TrpcProvider } from '@documenso/trpc/react';
 import type { OrganisationSession } from '@documenso/trpc/server/organisation-router/get-organisation-session.types';
 import { Spinner } from '@documenso/ui/primitives/spinner';
+import { Trans } from '@lingui/react/macro';
+import { useLayoutEffect, useState } from 'react';
+import { Outlet, useLoaderData } from 'react-router';
 
 import { TeamProvider } from '~/providers/team';
 import { injectCss } from '~/utils/css-vars';
@@ -46,6 +47,39 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
     allowEmbedAuthoringWhiteLabel = organisationClaim.flags.embedAuthoringWhiteLabel ?? false;
 
+    // Derive the kind of authoring session from the child route path, e.g.
+    // /embed/v1/authoring/document/create -> resource 'document', mode 'create'.
+    // Completed and error pages are not new sessions and are skipped.
+    const [resource, mode] = url.pathname.split('/').filter(Boolean).slice(3);
+
+    const isAuthoringSession =
+      (resource === 'document' || resource === 'template') && (mode === 'create' || mode === 'edit');
+
+    if (isAuthoringSession) {
+      fireAndForget(async () => {
+        const team = await prisma.team.findFirst({
+          where: {
+            id: result.teamId,
+          },
+          select: {
+            organisationId: true,
+          },
+        });
+
+        captureServerEvent({
+          event: 'App: Embed Session Started',
+          userId: result.userId,
+          organisationId: team?.organisationId,
+          teamId: result.teamId,
+          properties: {
+            type: 'authoring',
+            version: 'v1',
+            resource,
+            mode,
+          },
+        });
+      });
+    }
     // The authoring components below read the organisation's document
     // preferences - the date format they seed with, the signature types they
     // are allowed to offer - through `useCurrentTeam`, which throws outside a
@@ -60,6 +94,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
       createdAt: new Date(),
       avatarImageId: null,
       organisationId: '',
+      teamEmail: null,
       currentTeamRole: TeamMemberRole.MEMBER,
       preferences: {
         aiFeaturesEnabled: teamSettings.aiFeaturesEnabled,
@@ -90,9 +125,7 @@ export default function AuthoringLayout() {
     try {
       const hash = window.location.hash.slice(1);
 
-      const result = ZBaseEmbedAuthoringSchema.safeParse(
-        JSON.parse(decodeURIComponent(atob(hash))),
-      );
+      const result = ZBaseEmbedAuthoringSchema.safeParse(JSON.parse(decodeURIComponent(atob(hash))));
 
       if (!result.success) {
         setHasFinishedInit(true);

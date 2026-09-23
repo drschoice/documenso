@@ -117,10 +117,10 @@ jobs:
           # Needed since we use next start which will set the NODE_ENV to production
           NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: './example/cert.p12'
           # Run with rate limiting ON but scaled far out of the way, rather than
-          # bypassed. The bypass returns early from `check()`, so the middleware,
-          # the bucket upserts and the limit headers were never exercised by any
-          # test; the suite proved only that the code path could be skipped.
-          NEXT_PRIVATE_RATE_LIMIT_MULTIPLIER: '1000'
+          # Rate limits stay on, but `test:e2e` raises the specific limiters the suite
+          # hammers rather than multiplying every one. A blanket multiplier also scales
+          # the per-organisation limits, which upstream's `organisation-rate-limits`
+          # specs set to small numbers and assert are enforced - it made them unfailable.
 
       - name: Upload blob report
         uses: actions/upload-artifact@v4

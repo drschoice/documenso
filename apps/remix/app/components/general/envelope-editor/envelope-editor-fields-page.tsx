@@ -1,22 +1,14 @@
+import { useDebouncedValue } from '@documenso/lib/client-only/hooks/use-debounced-value';
 import { useEffect, useMemo, useRef, useState } from 'react';
-
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import {
-  AlignCenterIcon,
-  AlignLeftIcon,
-  AlignRightIcon,
-  FileTextIcon,
-  PencilIcon,
-  SparklesIcon,
-} from 'lucide-react';
+import { AlignCenterIcon, AlignLeftIcon, AlignRightIcon, FileTextIcon, PencilIcon, SparklesIcon, AlertTriangleIcon } from 'lucide-react';
 import { useRevalidator, useSearchParams } from 'react-router';
 import { isDeepEqual } from 'remeda';
 import { match } from 'ts-pattern';
-
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentEnvelopeRender } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
@@ -46,6 +38,7 @@ import {
   renameValueInRules,
 } from '@documenso/lib/universal/field-visibility/authoring';
 import { getEnvelopeItemPermissions } from '@documenso/lib/utils/envelope';
+import { getOverlappingFieldPairs } from '@documenso/lib/utils/fields-overlap';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
 import { trpc } from '@documenso/trpc/react';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
@@ -76,6 +69,7 @@ import { useCurrentTeam } from '~/providers/team';
 
 import { EnvelopeEditorFieldDragDrop } from './envelope-editor-fields-drag-drop';
 import { EnvelopeEditorFieldsPageRenderer } from './envelope-editor-fields-page-renderer';
+import { EnvelopeEditorInvalidDirectTemplateAlert } from './envelope-editor-invalid-direct-template-alert';
 import { EnvelopeEditorPageThumbnails } from './envelope-editor-page-thumbnails';
 import { EnvelopeEditorPickModeBanner } from './envelope-editor-pick-mode-banner';
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
@@ -178,7 +172,7 @@ export const EnvelopeEditorFieldsPage = () => {
     registerPendingMutation,
   } = useCurrentEnvelopeEditor();
 
-  const { currentEnvelopeItem } = useCurrentEnvelopeRender();
+  const { currentEnvelopeItem, setCurrentEnvelopeItem } = useCurrentEnvelopeRender();
 
   const { _ } = useLingui();
 
@@ -258,10 +252,54 @@ export const EnvelopeEditorFieldsPage = () => {
     [envelope, envelope.recipients],
   );
 
-  const selectedField = useMemo(
-    () => structuredClone(editorFields.selectedField),
-    [editorFields.selectedField],
+  const selectedField = useMemo(() => structuredClone(editorFields.selectedField), [editorFields.selectedField]);
+
+  /**
+   * Debounce the fields used for overlap detection so we don't recompute on every
+   * small drag/resize movement, which is expensive on large field counts and can
+   * bog down lower-end devices.
+   */
+  const debouncedLocalFields = useDebouncedValue(editorFields.localFields, 300);
+
+  /**
+   * Fields that significantly overlap each other. Overlapping fields render poorly in
+   * the editor and can behave unexpectedly during signing, so we warn the author here.
+   */
+  const overlappingFieldPairs = useMemo(
+    () =>
+      getOverlappingFieldPairs(
+        debouncedLocalFields.map((field) => ({
+          id: field.formId,
+          envelopeItemId: field.envelopeItemId,
+          page: field.page,
+          positionX: field.positionX,
+          positionY: field.positionY,
+          width: field.width,
+          height: field.height,
+        })),
+      ),
+    [debouncedLocalFields],
   );
+
+  const handleReviewOverlappingField = () => {
+    const firstPair = overlappingFieldPairs[0];
+
+    if (!firstPair) {
+      return;
+    }
+
+    const targetField = editorFields.localFields.find((field) => field.formId === firstPair.fieldA.id);
+
+    if (!targetField) {
+      return;
+    }
+
+    if (targetField.envelopeItemId !== currentEnvelopeItem?.id) {
+      setCurrentEnvelopeItem(targetField.envelopeItemId);
+    }
+
+    editorFields.setSelectedField(targetField.formId);
+  };
 
   const updateSelectedFieldMeta = (fieldMeta: TFieldMetaSchema) => {
     if (!selectedField) {
@@ -506,8 +544,7 @@ export const EnvelopeEditorFieldsPage = () => {
    */
   useEffect(() => {
     const firstSelectableRecipient = envelope.recipients.find(
-      (recipient) =>
-        recipient.role === RecipientRole.SIGNER || recipient.role === RecipientRole.APPROVER,
+      (recipient) => recipient.role === RecipientRole.SIGNER || recipient.role === RecipientRole.APPROVER,
     );
 
     editorFields.setSelectedRecipient(firstSelectableRecipient?.id ?? null);
@@ -557,10 +594,9 @@ export const EnvelopeEditorFieldsPage = () => {
               ? (item) => (
                   <div className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
                     <div
-                      className={cn(
-                        'h-2 w-2 rounded-full transition-opacity duration-150 group-hover:opacity-0',
-                        { 'bg-green-500': currentEnvelopeItem?.id === item.id },
-                      )}
+                      className={cn('h-2 w-2 rounded-full transition-opacity duration-150 group-hover:opacity-0', {
+                        'bg-green-500': currentEnvelopeItem?.id === item.id,
+                      })}
                     />
                     <EnvelopeItemEditDialog
                       envelopeItem={item}
@@ -581,6 +617,7 @@ export const EnvelopeEditorFieldsPage = () => {
           }
         />
 
+        <EnvelopeEditorInvalidDirectTemplateAlert />
         <EnvelopeEditorPickModeBanner />
 
         {/* Document View */}
@@ -605,6 +642,29 @@ export const EnvelopeEditorFieldsPage = () => {
             </Alert>
           )}
 
+          {overlappingFieldPairs.length > 0 && (
+            <Alert
+              variant="warning"
+              className="mt-20 mb-4 flex w-full max-w-[800px] flex-row items-center justify-between space-y-0 rounded-sm"
+            >
+              <div className="flex flex-row items-start gap-3">
+                <AlertTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+
+                <div className="flex flex-col gap-1">
+                  <AlertTitle>
+                    <Trans>Overlapping fields detected</Trans>
+                  </AlertTitle>
+                  <AlertDescription>
+                    <Trans>
+                      Some fields are placed on top of each other. This may complicate the signing process or cause
+                      fields to not work as expected.
+                    </Trans>
+                  </AlertDescription>
+                </div>
+              </div>
+            </Alert>
+          )}
+
           {currentEnvelopeItem !== null ? (
             <EnvelopePdfViewer
               customPageRenderer={EnvelopeEditorFieldsPageRenderer}
@@ -616,10 +676,10 @@ export const EnvelopeEditorFieldsPage = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-32">
               <FileTextIcon className="h-10 w-10 text-muted-foreground" />
-              <p className="mt-1 text-sm text-foreground">
+              <p className="mt-1 text-foreground text-sm">
                 <Trans>No documents found</Trans>
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-muted-foreground text-sm">
                 <Trans>Please upload a document to continue</Trans>
               </p>
             </div>
@@ -629,18 +689,16 @@ export const EnvelopeEditorFieldsPage = () => {
 
       {/* Right Section - Form Fields Panel */}
       {currentEnvelopeItem && envelope.recipients.length > 0 && (
-        <div className="sticky top-0 h-full w-80 flex-shrink-0 overflow-y-auto border-l border-border bg-background py-4">
+        <div className="sticky top-0 h-full w-80 flex-shrink-0 overflow-y-auto border-border border-l bg-background py-4">
           {/* Recipient selector section. */}
           <section className="px-4">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">
+            <h3 className="mb-2 font-semibold text-foreground text-sm">
               <Trans>Selected Recipient</Trans>
             </h3>
 
             <EnvelopeRecipientSelector
               selectedRecipient={editorFields.selectedRecipient}
-              onSelectedRecipientChange={(recipient) =>
-                editorFields.setSelectedRecipient(recipient.id)
-              }
+              onSelectedRecipientChange={(recipient) => editorFields.setSelectedRecipient(recipient.id)}
               recipients={envelope.recipients}
               fields={envelope.fields}
               className="w-full"
@@ -652,8 +710,7 @@ export const EnvelopeEditorFieldsPage = () => {
                 <Alert className="mt-4" variant="warning">
                   <AlertDescription>
                     <Trans>
-                      This recipient can no longer be modified as they have signed a field, or
-                      completed the document.
+                      This recipient can no longer be modified as they have signed a field, or completed the document.
                     </Trans>
                   </AlertDescription>
                 </Alert>
@@ -664,7 +721,7 @@ export const EnvelopeEditorFieldsPage = () => {
 
           {/* Add fields section. */}
           <section className="px-4">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">
+            <h3 className="mb-2 font-semibold text-foreground text-sm">
               <Trans>Add Fields</Trans>
             </h3>
 
@@ -732,7 +789,7 @@ export const EnvelopeEditorFieldsPage = () => {
                       : undefined
                   }
                 >
-                  <SparklesIcon className="-ml-1 mr-2 h-4 w-4" />
+                  <SparklesIcon className="mr-2 -ml-1 h-4 w-4" />
                   <Trans>Detect with AI</Trans>
                 </Button>
 
@@ -767,11 +824,11 @@ export const EnvelopeEditorFieldsPage = () => {
                 {searchParams.get('devmode') && (
                   <>
                     <div className="px-4">
-                      <h3 className="mb-3 text-sm font-semibold text-foreground">
+                      <h3 className="mb-3 font-semibold text-foreground text-sm">
                         <Trans>Developer Mode</Trans>
                       </h3>
 
-                      <div className="space-y-2 rounded-md border border-border bg-muted/50 p-3 text-sm text-foreground">
+                      <div className="space-y-2 rounded-md border border-border bg-muted/50 p-3 text-foreground text-sm">
                         {selectedField.id && (
                           <p>
                             <span className="min-w-12 text-muted-foreground">
@@ -817,10 +874,8 @@ export const EnvelopeEditorFieldsPage = () => {
                   </>
                 )}
 
-                <div className="px-4 [&_label]:text-xs [&_label]:text-foreground/70">
-                  <h3 className="text-sm font-semibold">
-                    {_(FieldSettingsTypeTranslations[selectedField.type])}
-                  </h3>
+                <div className="px-4 [&_label]:text-foreground/70 [&_label]:text-xs">
+                  <h3 className="font-semibold text-sm">{_(FieldSettingsTypeTranslations[selectedField.type])}</h3>
 
                   {match(selectedField.type)
                     .with(FieldType.SIGNATURE, () => (

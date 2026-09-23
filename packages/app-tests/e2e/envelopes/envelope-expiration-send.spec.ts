@@ -1,9 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
-import { expect, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
 import { prisma } from '@documenso/prisma';
@@ -15,6 +13,7 @@ import type {
   TCreateEnvelopeResponse,
 } from '@documenso/trpc/server/envelope-router/create-envelope.types';
 import type { TDistributeEnvelopeRequest } from '@documenso/trpc/server/envelope-router/distribute-envelope.types';
+import { expect, test } from '@playwright/test';
 
 import { apiSignin } from '../fixtures/authentication';
 import { openDropdownMenu } from '../fixtures/generic';
@@ -26,9 +25,7 @@ const examplePdf = fs.readFileSync(path.join(__dirname, '../../../../assets/exam
 
 test.describe.configure({ mode: 'parallel' });
 
-test('[ENVELOPE_EXPIRATION]: sending document sets expiresAt on recipients', async ({
-  request,
-}) => {
+test('[ENVELOPE_EXPIRATION]: sending document sets expiresAt on recipients', async ({ request }) => {
   const { user, team } = await seedUser();
 
   const { token } = await createApiToken({
@@ -54,7 +51,7 @@ test('[ENVELOPE_EXPIRATION]: sending document sets expiresAt on recipients', asy
             positionY: 10,
             width: 10,
             height: 5,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
           },
         ],
       },
@@ -100,9 +97,7 @@ test('[ENVELOPE_EXPIRATION]: sending document sets expiresAt on recipients', asy
   expect(diffDays).toBeLessThan(61);
 });
 
-test('[ENVELOPE_EXPIRATION]: sending document with custom org expiration period', async ({
-  request,
-}) => {
+test('[ENVELOPE_EXPIRATION]: sending document with custom org expiration period', async ({ request }) => {
   const { user, organisation, team } = await seedUser();
 
   // Set org expiration to 7 days.
@@ -134,7 +129,7 @@ test('[ENVELOPE_EXPIRATION]: sending document with custom org expiration period'
             positionY: 10,
             width: 10,
             height: 5,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
           },
         ],
       },
@@ -210,7 +205,7 @@ test('[ENVELOPE_EXPIRATION]: sending document with expiration disabled', async (
             positionY: 10,
             width: 10,
             height: 5,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
           },
         ],
       },
@@ -277,7 +272,7 @@ test('[ENVELOPE_EXPIRATION]: resending refreshes expiresAt', async ({ page }) =>
   await page.getByLabel('test.documenso.com').first().click();
   await page.getByRole('button', { name: 'Send reminder' }).click();
 
-  await expect(page.getByText('Document re-sent', { exact: true })).toBeVisible({
+  await expect(page.getByText('Document resent', { exact: true })).toBeVisible({
     timeout: 10_000,
   });
 
@@ -314,7 +309,7 @@ const seedEnvelopeForExpiry = async (
             positionY: 10,
             width: 10,
             height: 5,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
           },
         ],
       },

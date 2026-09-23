@@ -1,23 +1,16 @@
-import { type Page, expect, test } from '@playwright/test';
-import path from 'path';
-
 import { prisma } from '@documenso/prisma';
 import { RecipientRole } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
+import { expect, type Page, test } from '@playwright/test';
+import path from 'path';
 
 import { apiSignin } from '../fixtures/authentication';
 
 const FIXTURES_DIR = path.join(__dirname, '../../../assets/fixtures/auto-placement');
 
-const SINGLE_PLACEHOLDER_PDF_PATH = path.join(
-  FIXTURES_DIR,
-  'project-proposal-single-recipient.pdf',
-);
+const SINGLE_PLACEHOLDER_PDF_PATH = path.join(FIXTURES_DIR, 'project-proposal-single-recipient.pdf');
 
-const MULTIPLE_PLACEHOLDER_PDF_PATH = path.join(
-  FIXTURES_DIR,
-  'project-proposal-multiple-fields-and-recipients.pdf',
-);
+const MULTIPLE_PLACEHOLDER_PDF_PATH = path.join(FIXTURES_DIR, 'project-proposal-multiple-fields-and-recipients.pdf');
 
 const NO_RECIPIENT_PDF_PATH = path.join(FIXTURES_DIR, 'no-recipient-placeholders.pdf');
 
@@ -89,9 +82,7 @@ const uploadPdf = async (page: Page, team: { url: string }, pdfPath: string) => 
 };
 
 test.describe('PDF Placeholders with single recipient', () => {
-  test('[AUTO_PLACING_FIELDS]: should create placeholder recipients even with default recipients', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should create placeholder recipients even with default recipients', async ({ page }) => {
     const { user, team } = await seedUser();
 
     await setTeamDefaultRecipients(team.id, [
@@ -115,9 +106,7 @@ test.describe('PDF Placeholders with single recipient', () => {
         where: { envelopeId },
       });
 
-      const placeholderRecipient = recipients.find(
-        (recipient) => recipient.email === 'recipient.1@documenso.com',
-      );
+      const placeholderRecipient = recipients.find((recipient) => recipient.email === 'recipient.1@documenso.com');
 
       const defaultRecipient = recipients.find((recipient) => recipient.email === user.email);
 
@@ -133,9 +122,7 @@ test.describe('PDF Placeholders with single recipient', () => {
     }).toPass();
   });
 
-  test('[AUTO_PLACING_FIELDS]: should automatically create recipients from PDF placeholders', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should automatically create recipients from PDF placeholders', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     await uploadPdf(page, team, SINGLE_PLACEHOLDER_PDF_PATH);
 
@@ -151,9 +138,7 @@ test.describe('PDF Placeholders with single recipient', () => {
     await expect(page.getByTestId('signer-full-name-preview').first()).toHaveText('Recipient 1');
   });
 
-  test('[AUTO_PLACING_FIELDS]: should automatically place fields from PDF placeholders', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should automatically place fields from PDF placeholders', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, SINGLE_PLACEHOLDER_PDF_PATH);
 
@@ -168,9 +153,7 @@ test.describe('PDF Placeholders with single recipient', () => {
     }).toPass();
   });
 
-  test('[AUTO_PLACING_FIELDS]: should automatically configure fields from PDF placeholders', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should automatically configure fields from PDF placeholders', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, SINGLE_PLACEHOLDER_PDF_PATH);
 
@@ -191,26 +174,18 @@ test.describe('PDF Placeholders with single recipient', () => {
 });
 
 test.describe('PDF Placeholders with multiple recipients', () => {
-  test('[AUTO_PLACING_FIELDS]: should automatically create recipients from PDF placeholders', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should automatically create recipients from PDF placeholders', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, MULTIPLE_PLACEHOLDER_PDF_PATH);
 
     // V2 editor shows recipients on the upload page.
     await expect(page.getByRole('heading', { name: 'Recipients' })).toBeVisible();
 
-    await expect(page.getByTestId('signer-email-input').first()).toHaveValue(
-      'recipient.1@documenso.com',
-    );
+    await expect(page.getByTestId('signer-email-input').first()).toHaveValue('recipient.1@documenso.com');
 
-    await expect(page.getByTestId('signer-email-input').nth(1)).toHaveValue(
-      'recipient.2@documenso.com',
-    );
+    await expect(page.getByTestId('signer-email-input').nth(1)).toHaveValue('recipient.2@documenso.com');
 
-    await expect(page.getByTestId('signer-email-input').nth(2)).toHaveValue(
-      'recipient.3@documenso.com',
-    );
+    await expect(page.getByTestId('signer-email-input').nth(2)).toHaveValue('recipient.3@documenso.com');
 
     // Verify recipients via the database for name validation since the v2 editor
     // only shows the "Name" label on the first recipient row.
@@ -227,9 +202,7 @@ test.describe('PDF Placeholders with multiple recipients', () => {
     }).toPass();
   });
 
-  test('[AUTO_PLACING_FIELDS]: should automatically create fields from PDF placeholders', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should automatically create fields from PDF placeholders', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, MULTIPLE_PLACEHOLDER_PDF_PATH);
 
@@ -248,9 +221,7 @@ test.describe('PDF Placeholders with multiple recipients', () => {
 });
 
 test.describe('PDF Placeholders without recipient identifier', () => {
-  test('[AUTO_PLACING_FIELDS]: should skip placeholders without a recipient identifier', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should skip placeholders without a recipient identifier', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, NO_RECIPIENT_PDF_PATH);
 
@@ -281,9 +252,7 @@ test.describe('PDF Placeholders without recipient identifier', () => {
 });
 
 test.describe('PDF Placeholders with invalid field types', () => {
-  test('[AUTO_PLACING_FIELDS]: should skip invalid field types and process valid ones', async ({
-    page,
-  }) => {
+  test('[AUTO_PLACING_FIELDS]: should skip invalid field types and process valid ones', async ({ page }) => {
     const { team } = await setupUserAndSignIn(page);
     const envelopeId = await uploadPdf(page, team, INVALID_FIELD_TYPE_PDF_PATH);
 

@@ -1,13 +1,11 @@
-import { type Page, expect, test } from '@playwright/test';
-import { FieldType } from '@prisma/client';
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { nanoid } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
+import { expect, type Page, test } from '@playwright/test';
+import { FieldType } from '@prisma/client';
 
 import {
-  type TEnvelopeEditorSurface,
   addEnvelopeItemPdf,
   clickAddMyselfButton,
   clickEnvelopeEditorStep,
@@ -20,6 +18,7 @@ import {
   persistEmbeddedEnvelope,
   setRecipientEmail,
   setRecipientName,
+  type TEnvelopeEditorSurface,
 } from '../fixtures/envelope-editor';
 import { getKonvaElementCountForPage } from '../fixtures/konva';
 
@@ -38,9 +37,7 @@ type TestFilePayload = {
 
 const examplePdfBuffer = fs.readFileSync(path.join(__dirname, '../../../../assets/example.pdf'));
 
-const multiPagePdfBuffer = fs.readFileSync(
-  path.join(__dirname, '../../../../assets/field-font-alignment.pdf'),
-);
+const multiPagePdfBuffer = fs.readFileSync(path.join(__dirname, '../../../../assets/field-font-alignment.pdf'));
 
 const createPdfPayload = (name: string, buffer: Buffer = examplePdfBuffer): TestFilePayload => ({
   name,
@@ -78,10 +75,7 @@ const replaceEnvelopeItemPdf = async (
 
   // Listen for the file chooser event before clicking so the native dialog
   // is intercepted and never actually shown to the user.
-  const [fileChooser] = await Promise.all([
-    root.waitForEvent('filechooser'),
-    replaceButton.click(),
-  ]);
+  const [fileChooser] = await Promise.all([root.waitForEvent('filechooser'), replaceButton.click()]);
 
   await fileChooser.setFiles(file);
 
@@ -100,18 +94,12 @@ const replaceEnvelopeItemPdf = async (
 };
 
 const assertPdfPageCount = async (root: Page, expectedCount: number) => {
-  await expect(root.locator('[data-pdf-content]').first()).toHaveAttribute(
-    'data-page-count',
-    String(expectedCount),
-    { timeout: 15000 },
-  );
+  await expect(root.locator('[data-pdf-content]').first()).toHaveAttribute('data-page-count', String(expectedCount), {
+    timeout: 15000,
+  });
 };
 
-const placeFieldOnPdf = async (
-  root: Page,
-  fieldName: 'Signature' | 'Text',
-  position: { x: number; y: number },
-) => {
+const placeFieldOnPdf = async (root: Page, fieldName: 'Signature' | 'Text', position: { x: number; y: number }) => {
   await root.getByRole('button', { name: fieldName, exact: true }).click();
 
   const canvas = root.locator('.konva-container canvas').first();
@@ -173,9 +161,7 @@ type BasicReplaceFlowResult = {
   originalDocumentDataId: string | null;
 };
 
-const runBasicReplaceFlow = async (
-  surface: TEnvelopeEditorSurface,
-): Promise<BasicReplaceFlowResult> => {
+const runBasicReplaceFlow = async (surface: TEnvelopeEditorSurface): Promise<BasicReplaceFlowResult> => {
   const { root, isEmbedded } = surface;
   const externalId = `e2e-replace-${nanoid()}`;
 
@@ -314,9 +300,7 @@ const uploadMultiPagePdf = async (root: Page) => {
   });
 };
 
-const runFieldCleanupReplaceFlow = async (
-  surface: TEnvelopeEditorSurface,
-): Promise<FieldCleanupFlowResult> => {
+const runFieldCleanupReplaceFlow = async (surface: TEnvelopeEditorSurface): Promise<FieldCleanupFlowResult> => {
   const { root, isEmbedded } = surface;
   const externalId = `e2e-replace-fields-${nanoid()}`;
 

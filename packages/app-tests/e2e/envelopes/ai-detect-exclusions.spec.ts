@@ -1,3 +1,4 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 /**
  * E2E test for AI field detection per-item exclusions.
  *
@@ -14,12 +15,7 @@ import { type Page, expect, test } from '@playwright/test';
 import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increment-id';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
-import {
-  DocumentDataType,
-  DocumentSource,
-  DocumentStatus,
-  EnvelopeType,
-} from '@documenso/prisma/client';
+import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
@@ -57,6 +53,7 @@ async function seedDraftEnvelope(
       // The editor route sends anything that is not version 2 to `legacy_editor`,
       // which has neither the step rail nor the AI sidebar this test drives.
       internalVersion: 2,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,
