@@ -158,10 +158,23 @@ jobs:
         with:
           path: all-blob-reports
           pattern: blob-report-*
-          merge-multiple: true
+
+      # Every shard writes `report.zip`: Playwright only appends a shard index
+      # when `--shard` actually reaches it, and it does not, because turbo strips
+      # E2E_TEST_PATH before `test:e2e` sees it. `merge-multiple` would flatten
+      # all seven identically named files onto one path and corrupt the result,
+      # so each artifact lands in its own directory and is renamed on the way in.
+      - name: Collect blob reports under unique names
+        run: |
+          mkdir -p merged-blob-reports
+          for dir in all-blob-reports/*/; do
+            [ -f "$dir/report.zip" ] || continue
+            cp "$dir/report.zip" "merged-blob-reports/$(basename "$dir").zip"
+          done
+          ls -l merged-blob-reports
 
       - name: Merge into one report
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
+        run: npx playwright merge-reports --reporter html ./merged-blob-reports
 
       - uses: actions/upload-artifact@v4
         if: always()
