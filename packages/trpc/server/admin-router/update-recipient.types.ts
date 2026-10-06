@@ -1,7 +1,6 @@
-import { z } from 'zod';
-
 import { ZRecipientNamePartsRequestSchema } from '@documenso/lib/types/recipient';
 import { zEmail } from '@documenso/lib/utils/zod';
+import { z } from 'zod';
 
 export const ZUpdateRecipientRequestSchema = z.object({
   id: z.number().min(1),

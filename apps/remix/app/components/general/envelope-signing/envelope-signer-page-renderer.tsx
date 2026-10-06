@@ -1,18 +1,4 @@
-import { useEffect, useMemo } from 'react';
-
-import { Trans, useLingui } from '@lingui/react/macro';
-import {
-  type Field,
-  FieldType,
-  type Recipient,
-  RecipientRole,
-  type Signature,
-  SigningStatus,
-} from '@prisma/client';
-import type Konva from 'konva';
-import type { KonvaEventObject } from 'konva/lib/Node';
-import { match } from 'ts-pattern';
-
+import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { usePageRenderer } from '@documenso/lib/client-only/hooks/use-page-renderer';
 import {
   type PageRenderData,
@@ -24,16 +10,23 @@ import { isBase64Image } from '@documenso/lib/constants/signatures';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
 import type { TEnvelope } from '@documenso/lib/types/envelope';
 import { ZFullFieldSchema } from '@documenso/lib/types/field';
+import { createFieldCanvasStyleCache, type FieldCanvasStyleCache } from '@documenso/lib/universal/field-renderer/field-canvas-style';
 import { isFullNameField } from '@documenso/lib/types/field-meta';
 import { createSpinner } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
+import { extractInitials, getRecipientNameParts } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
 import { EnvelopeRecipientFieldTooltip } from '@documenso/ui/components/document/envelope-recipient-field-tooltip';
 import { EnvelopeFieldToolTip } from '@documenso/ui/components/field/envelope-field-tooltip';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { type Field, FieldType, type Recipient, RecipientRole, type Signature, SigningStatus } from '@prisma/client';
+import type Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
+import { useEffect, useMemo, useRef } from 'react';
+import { match } from 'ts-pattern';
 
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { handleCheckboxFieldClick } from '~/utils/field-signing/checkbox-field';
@@ -61,6 +54,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
   const { executeActionAuthProcedure } = useRequiredDocumentSigningAuthContext();
   const { toast } = useToast();
+  const analytics = useAnalytics();
 
   const {
     envelopeData,
@@ -71,17 +65,31 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     recipientFieldsRemainingForNavigation,
     showPendingFieldTooltip,
     signField: signFieldInternal,
-    email,
+    email: emailState,
     setEmail,
-    fullName,
+    fullName: fullNameState,
     setFullName,
     nameParts,
-    signature,
+    signature: signatureState,
     setSignature,
     selectedAssistantRecipientFields,
     selectedAssistantRecipient,
     isDirectTemplate,
   } = useRequiredEnvelopeSigningContext();
+
+  // Note: We're using refs here due to the closure within the signField function.
+  const fullName = useRef(fullNameState);
+  const email = useRef(emailState);
+  const signature = useRef(signatureState);
+
+  useEffect(() => {
+    fullName.current = fullNameState;
+    email.current = emailState;
+    signature.current = signatureState;
+  }, [fullNameState, emailState, signatureState]);
+
+  const cachedRenderFields = useRef<Map<number, Field & { signature?: Signature | null }>>(new Map());
+  const prevShowPendingFieldTooltip = useRef(showPendingFieldTooltip);
 
   const { onFieldSigned, onFieldUnsigned } = useEmbedSigningContext() || {};
 
@@ -160,7 +168,10 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       });
   }, [envelope.recipients, recipient.id, localPageFields, pageNumber, currentEnvelopeItem?.id]);
 
-  const unsafeRenderFieldOnLayer = (unparsedField: Field & { signature?: Signature | null }) => {
+  const unsafeRenderFieldOnLayer = (
+    unparsedField: Field & { signature?: Signature | null },
+    fieldCanvasStyleCache: FieldCanvasStyleCache,
+  ) => {
     if (!pageLayer.current) {
       console.error('Layer not loaded yet');
       return;
@@ -168,12 +179,11 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
     const fieldToRender = ZFullFieldSchema.parse(unparsedField);
 
-    const color = fieldToRender.fieldMeta?.readOnly
-      ? 'readOnly'
-      : showPendingFieldTooltip &&
-          recipientFieldsRemainingForNavigation.some((f) => f.id === fieldToRender.id)
-        ? 'orange'
-        : 'green';
+      const isValidating =
+        showPendingFieldTooltip &&
+        recipientFieldsRemainingForNavigation.some((f) => f.id === fieldToRender.id);
+
+      const color = fieldToRender.fieldMeta?.readOnly ? 'readOnly' : isValidating ? 'orange' : 'green';
 
     const { fieldGroup } = renderField({
       scale,
@@ -185,6 +195,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         height: Number(fieldToRender.height),
         positionX: Number(fieldToRender.positionX),
         positionY: Number(fieldToRender.positionY),
+        isValidating,
         signature: unparsedField.signature,
       },
       translations: getClientSideFieldTranslations(i18n),
@@ -192,6 +203,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       pageHeight: unscaledViewport.height,
       color,
       mode: 'sign',
+      fieldCanvasStyleCache,
       signatureFontFamily: envelope.documentMeta.signatureFontFamily,
       signatureFontSize: envelope.documentMeta.signatureFontSize,
     });
@@ -200,7 +212,9 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       const currentTarget = e.currentTarget as Konva.Group;
       const target = e.target as Konva.Shape;
 
-      const { width: fieldWidth, height: fieldHeight } = fieldGroup.getClientRect();
+      const fieldRect = fieldGroup.findOne('.field-rect');
+      const fieldWidth = fieldRect ? fieldRect.width() : fieldGroup.width();
+      const fieldHeight = fieldRect ? fieldRect.height() : fieldGroup.height();
 
       const foundField = localPageFields.find((f) => f.id === unparsedField.id);
       const foundLoadingGroup = currentTarget.findOne('.loading-spinner-group');
@@ -209,8 +223,8 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         return;
       }
 
-      let localEmail: string | null = email;
-      let localFullName: string | null = fullName;
+      let localEmail: string | null = email.current;
+      let localFullName: string | null = fullName.current;
       let placeholderEmail: string | null = null;
 
       if (recipient.role === RecipientRole.ASSISTANT) {
@@ -220,7 +234,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
       // Allows us let the user set a different email than their current logged in email.
       if (isDirectTemplate) {
-        placeholderEmail = sessionData?.user?.email || email || recipient.email;
+        placeholderEmail = sessionData?.user?.email || email.current || recipient.email;
 
         if (!placeholderEmail || placeholderEmail === DIRECT_TEMPLATE_RECIPIENT_EMAIL) {
           placeholderEmail = null;
@@ -256,7 +270,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
             return;
           }
 
-          handleCheckboxFieldClick({ field, clickedCheckboxIndex })
+          void handleCheckboxFieldClick({ field, clickedCheckboxIndex })
             .then(async (payload) => {
               if (payload) {
                 spinnerParent.add(loadingSpinnerGroup);
@@ -281,8 +295,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           spinnerParent.add(loadingSpinnerGroup);
 
           // Uncheck the value if it's already pressed.
-          const value =
-            field.inserted && selectedRadioIndex === fieldCustomText ? null : selectedRadioIndex;
+          const value = field.inserted && selectedRadioIndex === fieldCustomText ? null : selectedRadioIndex;
 
           void signField(field.id, {
             type: FieldType.RADIO,
@@ -295,7 +308,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * NUMBER FIELD.
          */
         .with({ type: FieldType.NUMBER }, (field) => {
-          handleNumberFieldClick({ field, number: null })
+          void handleNumberFieldClick({ field, number: null })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
@@ -310,7 +323,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * TEXT FIELD.
          */
         .with({ type: FieldType.TEXT }, (field) => {
-          handleTextFieldClick({ field, text: null })
+          void handleTextFieldClick({ field, text: null })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
@@ -325,7 +338,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * EMAIL FIELD.
          */
         .with({ type: FieldType.EMAIL }, (field) => {
-          handleEmailFieldClick({ field, email: localEmail, placeholderEmail })
+          void handleEmailFieldClick({ field, email: localEmail, placeholderEmail })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
@@ -346,7 +359,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         .with({ type: FieldType.INITIALS }, (field) => {
           const initials = localFullName ? extractInitials(localFullName) : null;
 
-          handleInitialsFieldClick({ field, initials })
+          void handleInitialsFieldClick({ field, initials })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
@@ -365,10 +378,13 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           // stored parts. Otherwise use the parts the signer is editing in the sidebar.
           const localRecipient =
             recipient.role === RecipientRole.ASSISTANT
-              ? selectedAssistantRecipient
-              : { ...recipient, ...nameParts, name: fullName };
+              ? selectedAssistantRecipient && {
+                  ...getRecipientNameParts(selectedAssistantRecipient),
+                  name: selectedAssistantRecipient.name,
+                }
+              : { ...nameParts, name: fullName.current };
 
-          handleNameFieldClick({ field, name: localFullName, recipient: localRecipient })
+          void handleNameFieldClick({ field, name: localFullName, recipient: localRecipient })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
@@ -390,14 +406,12 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * DROPDOWN FIELD.
          */
         .with({ type: FieldType.DROPDOWN }, (field) => {
-          handleDropdownFieldClick({ field, text: null })
+          void handleDropdownFieldClick({ field, text: null })
             .then(async (payload) => {
               if (payload) {
                 fieldGroup.add(loadingSpinnerGroup);
                 await signField(field.id, payload);
               }
-
-              loadingSpinnerGroup.destroy();
             })
             .finally(() => {
               loadingSpinnerGroup.destroy();
@@ -424,33 +438,35 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * SIGNATURE FIELD.
          */
         .with({ type: FieldType.SIGNATURE }, (field) => {
-          handleSignatureFieldClick({
+          void handleSignatureFieldClick({
             field,
-            fullName,
-            signature,
+            fullName: fullName.current,
+            signature: signature.current,
             typedSignatureEnabled: envelope.documentMeta.typedSignatureEnabled,
             uploadSignatureEnabled: envelope.documentMeta.uploadSignatureEnabled,
             drawSignatureEnabled: envelope.documentMeta.drawSignatureEnabled,
             signatureFontFamily: envelope.documentMeta.signatureFontFamily,
           })
             .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
+              if (!payload) {
+                return;
+              }
 
-                if (payload.value) {
-                  void executeActionAuthProcedure({
-                    onReauthFormSubmit: async (authOptions) => {
-                      await signField(field.id, payload, authOptions);
+              fieldGroup.add(loadingSpinnerGroup);
 
-                      loadingSpinnerGroup.destroy();
-                    },
-                    actionTarget: field.type,
-                  });
+              if (payload.value) {
+                await executeActionAuthProcedure({
+                  onReauthFormSubmit: async (authOptions) => {
+                    await signField(field.id, payload, authOptions);
 
-                  setSignature(payload.value);
-                } else {
-                  await signField(field.id, payload);
-                }
+                    loadingSpinnerGroup.destroy();
+                  },
+                  actionTarget: field.type,
+                });
+
+                setSignature(payload.value);
+              } else {
+                await signField(field.id, payload);
               }
             })
             .finally(() => {
@@ -464,11 +480,22 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     fieldGroup.on('pointerdown', handleFieldGroupClick);
   };
 
-  const renderFieldOnLayer = (unparsedField: Field & { signature?: Signature | null }) => {
+  const renderFieldOnLayer = (
+    unparsedField: Field & { signature?: Signature | null },
+    fieldCanvasStyleCache: FieldCanvasStyleCache,
+  ) => {
     try {
-      unsafeRenderFieldOnLayer(unparsedField);
+      unsafeRenderFieldOnLayer(unparsedField, fieldCanvasStyleCache);
     } catch (err) {
       console.error(err);
+
+      analytics.captureException(err, {
+        source: 'signing',
+        location: 'page_render',
+        recipientId: recipient.id,
+        envelopeId: envelope.id,
+      });
+
       setRenderError(true);
     }
   };
@@ -479,8 +506,25 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       return;
     }
 
-    // Render other recipient fields first so the current recipient's fields end up
-    // above them in the layer's z-order.
+    const fieldCanvasStyleCache = createFieldCanvasStyleCache();
+
+    // Render current recipient fields which have changed or are not currently rendered.
+    for (const field of localPageFields) {
+      const existingCachedField = cachedRenderFields.current.get(field.id);
+      const isFieldCurrentlyRendered = pageLayer.current.findOne(`#${field.id}`);
+
+      if (
+        !isFieldCurrentlyRendered ||
+        !existingCachedField ||
+        existingCachedField.inserted !== field.inserted ||
+        existingCachedField.customText !== field.customText
+      ) {
+        renderFieldOnLayer(field, fieldCanvasStyleCache);
+        cachedRenderFields.current.set(field.id, field);
+      }
+    }
+
+    // Render other recipient signed and inserted fields.
     for (const field of localPageOtherRecipientFields) {
       try {
         // Only recipients who have fully signed have their values shown. Everyone
@@ -510,31 +554,20 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           color: 'readOnly',
           editable: false,
           mode: 'sign',
+          fieldCanvasStyleCache,
           signatureFontFamily: envelope.documentMeta.signatureFontFamily,
           signatureFontSize: envelope.documentMeta.signatureFontSize,
         });
 
-        // Konva dispatches a click to the topmost hit shape only, so without this a
-        // greyed field overlapping one of the current recipient's fields would
-        // swallow the pointerdown and make it impossible to sign.
         fieldGroup.listening(false);
       } catch (err) {
         console.error('Unable to render one or more fields belonging to other recipients.');
         console.error(err);
       }
     }
-
-    // Render current recipient fields.
-    for (const field of localPageFields) {
-      renderFieldOnLayer(field);
-    }
   };
 
-  const signField = async (
-    fieldId: number,
-    payload: TSignEnvelopeFieldValue,
-    authOptions?: TRecipientActionAuth,
-  ) => {
+  const signField = async (fieldId: number, payload: TSignEnvelopeFieldValue, authOptions?: TRecipientActionAuth) => {
     try {
       const { inserted } = await signFieldInternal(fieldId, payload, authOptions);
 
@@ -551,6 +584,14 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       }
     } catch (err) {
       console.error(err);
+
+      analytics.captureException(err, {
+        source: 'signing',
+        location: 'sign_field',
+        fieldType: payload.type,
+        recipientId: recipient.id,
+        envelopeId: envelope.id,
+      });
 
       toast({
         title: t`Error`,
@@ -578,6 +619,14 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       return;
     }
 
+    // When the pending-field tooltip toggles, all unsigned required fields need to
+    // be re-rendered so their stroke color updates (green <-> orange). Field-level
+    // properties like `inserted` and `customText` haven't changed, so the cache
+    // would otherwise skip them — clear it to force a fresh render.
+    if (prevShowPendingFieldTooltip.current !== showPendingFieldTooltip) {
+      cachedRenderFields.current.clear();
+      prevShowPendingFieldTooltip.current = showPendingFieldTooltip;
+    }
     // Destroy groups for fields that are no longer in localPageFields (e.g. hidden
     // by a conditional visibility rule). Without this, groups for hidden fields stay
     // on the canvas and newly-visible fields (whose groups were previously added and
@@ -618,6 +667,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
     // Rerender the whole page.
     pageLayer.current.destroyChildren();
+    cachedRenderFields.current.clear();
 
     renderFields();
 

@@ -1,5 +1,4 @@
 import { EnvelopeType, type Prisma } from '@prisma/client';
-
 import { prisma } from '@documenso/prisma';
 
 import { TEAM_DOCUMENT_VISIBILITY_MAP } from '../../constants/teams';
@@ -147,12 +146,7 @@ export type GetEnvelopeWhereInputOptions = {
  *
  * NOTE: Be extremely careful when modifying this function. Needs at minimum two reviewers to approve any changes.
  */
-export const getEnvelopeWhereInput = async ({
-  id,
-  userId,
-  teamId,
-  type,
-}: GetEnvelopeWhereInputOptions) => {
+export const getEnvelopeWhereInput = async ({ id, userId, teamId, type }: GetEnvelopeWhereInputOptions) => {
   // Backup validation incase something goes wrong.
   if (!id.id || !userId || !teamId || type === undefined) {
     console.error(`[CRTICAL ERROR]: MUST NEVER HAPPEN`);

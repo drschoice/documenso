@@ -1,13 +1,4 @@
 import { useMemo } from 'react';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { msg } from '@lingui/core/macro';
-import { Plural, useLingui } from '@lingui/react/macro';
-import { Trans } from '@lingui/react/macro';
-import { createCallable } from 'react-call';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-
 import type { TTextFieldMeta } from '@documenso/lib/types/field-meta';
 import { getCombFieldCells } from '@documenso/lib/types/field-meta';
 import { cn } from '@documenso/ui/lib/utils';
@@ -20,22 +11,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@documenso/ui/primitives/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Textarea } from '@documenso/ui/primitives/textarea';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { msg } from '@lingui/core/macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
+import { createCallable } from 'react-call';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 export type SignFieldTextDialogProps = {
   fieldMeta?: TTextFieldMeta;
 };
 
-export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, string | null>(
-  ({ call, fieldMeta }) => {
-    const { t } = useLingui();
+export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, string | null>(({ call, fieldMeta }) => {
+  const { t } = useLingui();
 
     // The cell count is the effective character limit for comb fields.
     const combCellCount = getCombFieldCells(fieldMeta)?.length ?? 0;
@@ -73,16 +63,16 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, stri
       },
     });
 
-    return (
-      <Dialog open={true} onOpenChange={(value) => (!value ? call.end(null) : null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{fieldMeta?.label || <Trans>Enter Text</Trans>}</DialogTitle>
+  return (
+    <Dialog open={true} onOpenChange={(value) => (!value ? call.end(null) : null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{fieldMeta?.label || <Trans>Enter Text</Trans>}</DialogTitle>
 
-            <DialogDescription className="mt-4">
-              <Trans>Please enter a value</Trans>
-            </DialogDescription>
-          </DialogHeader>
+          <DialogDescription className="mt-4">
+            <Trans>Please enter a value</Trans>
+          </DialogDescription>
+        </DialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => call.end(data.text))}>
@@ -129,20 +119,19 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, stri
                   )}
                 />
 
-                <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => call.end(null)}>
-                    <Trans>Cancel</Trans>
-                  </Button>
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => call.end(null)}>
+                  <Trans>Cancel</Trans>
+                </Button>
 
-                  <Button type="submit">
-                    <Trans>Enter</Trans>
-                  </Button>
-                </DialogFooter>
-              </fieldset>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    );
-  },
-);
+                <Button type="submit">
+                  <Trans>Enter</Trans>
+                </Button>
+              </DialogFooter>
+            </fieldset>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+});

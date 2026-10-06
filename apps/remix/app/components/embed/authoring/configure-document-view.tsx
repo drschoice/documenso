@@ -1,28 +1,16 @@
+import { DEFAULT_DOCUMENT_DATE_FORMAT, isValidDateFormat } from '@documenso/lib/constants/date-formats';
+import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
+import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
+import { Button } from '@documenso/ui/primitives/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
+import { Input } from '@documenso/ui/primitives/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans } from '@lingui/react/macro';
 import { DocumentDistributionMethod, DocumentSigningOrder, RecipientRole } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import { useForm } from 'react-hook-form';
 
-import {
-  DEFAULT_DOCUMENT_DATE_FORMAT,
-  isValidDateFormat,
-} from '@documenso/lib/constants/date-formats';
-import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
-import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
-import { Button } from '@documenso/ui/primitives/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
-import { Input } from '@documenso/ui/primitives/input';
-
 import { useCurrentTeam } from '~/providers/team';
-
 import { ConfigureDocumentAdvancedSettings } from './configure-document-advanced-settings';
 import { useConfigureDocument } from './configure-document-context';
 import { ConfigureDocumentRecipients } from './configure-document-recipients';
@@ -55,9 +43,7 @@ export const ConfigureDocumentView = ({
     : DEFAULT_DOCUMENT_DATE_FORMAT;
 
   const form = useForm<TConfigureEmbedFormSchema>({
-    resolver: zodResolver(
-      type === 'template' ? ZConfigureTemplateEmbedFormSchema : ZConfigureEmbedFormSchema,
-    ),
+    resolver: zodResolver(type === 'template' ? ZConfigureTemplateEmbedFormSchema : ZConfigureEmbedFormSchema),
     defaultValues: {
       title: defaultValues?.title || '',
       signers: defaultValues?.signers || [
@@ -73,8 +59,7 @@ export const ConfigureDocumentView = ({
       meta: {
         subject: defaultValues?.meta?.subject || '',
         message: defaultValues?.meta?.message || '',
-        distributionMethod:
-          defaultValues?.meta?.distributionMethod || DocumentDistributionMethod.EMAIL,
+        distributionMethod: defaultValues?.meta?.distributionMethod || DocumentDistributionMethod.EMAIL,
         emailSettings: defaultValues?.meta?.emailSettings || ZDocumentEmailSettingsSchema.parse({}),
         // Defaults to the organisation/team format rather than the global one, so an embedded
         // author who never opens the date picker still gets what the organisation configured.
@@ -100,7 +85,7 @@ export const ConfigureDocumentView = ({
   return (
     <div className="flex w-full flex-col space-y-8">
       <div>
-        <h2 className="mb-1 text-xl font-semibold text-foreground">
+        <h2 className="mb-1 font-semibold text-foreground text-xl">
           {isTemplate ? <Trans>Configure Template</Trans> : <Trans>Configure Document</Trans>}
         </h2>
 
@@ -138,12 +123,7 @@ export const ConfigureDocumentView = ({
           <ConfigureDocumentAdvancedSettings control={control} isSubmitting={isSubmitting} />
 
           <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={onFormSubmit}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto"
-            >
+            <Button type="button" onClick={onFormSubmit} disabled={isSubmitting} className="w-full sm:w-auto">
               <Trans>Continue</Trans>
             </Button>
           </div>

@@ -1,16 +1,6 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 import { type Page, expect } from '@playwright/test';
-import {
-  DocumentDataType,
-  DocumentSource,
-  DocumentStatus,
-  EnvelopeType,
-  type FieldType,
-  Prisma,
-  ReadStatus,
-  RecipientRole,
-  SendStatus,
-  SigningStatus,
-} from '@prisma/client';
+import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType, Prisma, ReadStatus, RecipientRole, SendStatus, SigningStatus, type FieldType } from '@prisma/client';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -105,6 +95,7 @@ export const seedV2PendingEnvelope = async ({
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
       internalVersion: 2,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,

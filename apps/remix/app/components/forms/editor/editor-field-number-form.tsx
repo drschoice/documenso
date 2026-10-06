@@ -1,10 +1,3 @@
-import { useEffect } from 'react';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Trans, useLingui } from '@lingui/react/macro';
-import { useForm, useWatch } from 'react-hook-form';
-import type { z } from 'zod';
-
 import {
   DEFAULT_FIELD_FONT_SIZE,
   FIELD_DEFAULT_GENERIC_ALIGN,
@@ -17,23 +10,15 @@ import {
   ZNumberFieldMeta,
 } from '@documenso/lib/types/field-meta';
 import { numberFormatValues } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { Separator } from '@documenso/ui/primitives/separator';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { useEffect, useRef } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import type { z } from 'zod';
 
 import {
   EditorGenericCellCountField,
@@ -158,6 +143,19 @@ export const EditorFieldNumberForm = ({
   });
 
   /**
+   * Set when the effect below copies an incoming meta into this form, and cleared by the
+   * push-up effect at the bottom when it skips the resulting change.
+   *
+   * Without it the two effects sit permanently one step out of phase. They run in the same
+   * commit, so on the render where the overlay delivers a new value the resync calls
+   * `setValue` while the push-up effect still holds the *previous* `formValues` - and
+   * pushes that stale value straight back into the meta. The overlay corrects it, which
+   * re-runs the resync, which re-runs the push... Each pass re-arms the editor's 2s
+   * autosave debounce, so it never elapses and the field is never saved at all.
+   */
+  const isResyncingRef = useRef(false);
+
+  /**
    * The inline "select the field and type" overlay writes the value, `readOnly`
    * and `required` straight into the field meta without going through this form.
    * React Hook Form seeds itself from `value` once, at mount, so its copy then
@@ -174,14 +172,17 @@ export const EditorFieldNumberForm = ({
 
     if (form.getValues('value') !== nextValue) {
       form.setValue('value', nextValue);
+      isResyncingRef.current = true;
     }
 
     if (form.getValues('readOnly') !== nextReadOnly) {
       form.setValue('readOnly', nextReadOnly);
+      isResyncingRef.current = true;
     }
 
     if (form.getValues('required') !== nextRequired) {
       form.setValue('required', nextRequired);
+      isResyncingRef.current = true;
     }
   }, [value.value, value.readOnly, value.required]);
 
@@ -201,6 +202,13 @@ export const EditorFieldNumberForm = ({
 
   // Dupecode/Inefficient: Done because native isValid won't work for our usecase.
   useEffect(() => {
+    // A resync just wrote the incoming meta into this form. Pushing now would send back
+    // the snapshot from before it landed; the next render carries the settled values.
+    if (isResyncingRef.current) {
+      isResyncingRef.current = false;
+      return;
+    }
+
     const validatedFormValues = ZNumberFieldFormSchema.safeParse(formValues);
 
     if (formValues.readOnly && !formValues.value) {
@@ -275,12 +283,7 @@ export const EditorFieldNumberForm = ({
                   <Trans>Value</Trans>
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    data-testid="field-form-value"
-                    className="bg-background"
-                    placeholder={t`Value`}
-                    {...field}
-                  />
+                  <Input data-testid="field-form-value" className="bg-background" placeholder={t`Value`} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -340,11 +343,11 @@ export const EditorFieldNumberForm = ({
 
           {/* Validation section */}
           <section className="space-y-2">
-            <div className="-mx-4 mb-4 mt-2">
+            <div className="-mx-4 mt-2 mb-4">
               <Separator />
             </div>
 
-            <p className="text-sm font-medium">
+            <p className="font-medium text-sm">
               <Trans>Validation</Trans>
             </p>
 
@@ -364,9 +367,7 @@ export const EditorFieldNumberForm = ({
                         placeholder={t`E.g. 0`}
                         {...field}
                         value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === '' ? null : e.target.value)
-                        }
+                        onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -389,9 +390,7 @@ export const EditorFieldNumberForm = ({
                         placeholder={t`E.g. 100`}
                         {...field}
                         value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === '' ? null : e.target.value)
-                        }
+                        onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />

@@ -1,77 +1,55 @@
+import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
+import { useSession } from '@documenso/lib/client-only/providers/session';
+import { IS_AI_FEATURES_CONFIGURED } from '@documenso/lib/constants/app';
+import { DATE_FORMATS } from '@documenso/lib/constants/date-formats';
+import { DOCUMENT_SIGNATURE_TYPES, DocumentSignatureType } from '@documenso/lib/constants/document';
+import { isValidLanguageCode, SUPPORTED_LANGUAGE_CODES, SUPPORTED_LANGUAGES } from '@documenso/lib/constants/i18n';
+import { TIME_ZONES } from '@documenso/lib/constants/time-zones';
+import type { TDefaultRecipients } from '@documenso/lib/types/default-recipients';
+import { ZDefaultRecipientsSchema } from '@documenso/lib/types/default-recipients';
+import { type TDocumentMetaDateFormat, ZDocumentMetaDateFormatSchema } from '@documenso/lib/types/document-meta';
+import { generateDefaultOrganisationSettings, isPersonalLayout } from '@documenso/lib/utils/organisations';
+import { recipientAbbreviation } from '@documenso/lib/utils/recipient-formatter';
+import { extractTeamSignatureSettings, generateDefaultTeamSettings } from '@documenso/lib/utils/teams';
+import { DocumentSignatureSettingsTooltip } from '@documenso/ui/components/document/document-signature-settings-tooltip';
+import { RecipientRoleSelect } from '@documenso/ui/components/recipient/recipient-role-select';
+import { AvatarWithText } from '@documenso/ui/primitives/avatar';
+import { Combobox } from '@documenso/ui/primitives/combobox';
+import { Form, FormControl, FormDescription, FormField, FormMessage } from '@documenso/ui/primitives/form/form';
+import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import type { EmailSenderNameMode, TeamGlobalSettings } from '@prisma/client';
-import { DocumentVisibility, OrganisationType, type RecipientRole } from '@prisma/client';
+import { DocumentVisibility, type RecipientRole, type TeamGlobalSettings, OrganisationType } from '@prisma/client';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-
-import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
-import { useSession } from '@documenso/lib/client-only/providers/session';
-import { DATE_FORMATS } from '@documenso/lib/constants/date-formats';
-import { DOCUMENT_SIGNATURE_TYPES, DocumentSignatureType } from '@documenso/lib/constants/document';
-import {
-  type TEnvelopeExpirationPeriod,
-  ZEnvelopeExpirationPeriod,
-} from '@documenso/lib/constants/envelope-expiration';
-import {
-  SUPPORTED_LANGUAGES,
-  SUPPORTED_LANGUAGE_CODES,
-  isValidLanguageCode,
-} from '@documenso/lib/constants/i18n';
-import { TIME_ZONES } from '@documenso/lib/constants/time-zones';
-import type { TDefaultRecipients } from '@documenso/lib/types/default-recipients';
-import { ZDefaultRecipientsSchema } from '@documenso/lib/types/default-recipients';
-import {
-  type TDocumentMetaDateFormat,
-  ZDocumentMetaDateFormatSchema,
-} from '@documenso/lib/types/document-meta';
-import { resolveEmailSenderName } from '@documenso/lib/utils/email-sender-name';
-import { isPersonalLayout } from '@documenso/lib/utils/organisations';
-import { recipientAbbreviation } from '@documenso/lib/utils/recipient-formatter';
-import { extractTeamSignatureSettings } from '@documenso/lib/utils/teams';
-import { DocumentSignatureSettingsTooltip } from '@documenso/ui/components/document/document-signature-settings-tooltip';
+import { DocumentPreferencesResetDialog } from '~/components/dialogs/document-preferences-reset-dialog';
+import { type TEnvelopeExpirationPeriod, ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
 import { ExpirationPeriodPicker } from '@documenso/ui/components/document/expiration-period-picker';
-import { RecipientRoleSelect } from '@documenso/ui/components/recipient/recipient-role-select';
 import { Alert } from '@documenso/ui/primitives/alert';
-import { AvatarWithText } from '@documenso/ui/primitives/avatar';
 import { Button } from '@documenso/ui/primitives/button';
-import { Combobox } from '@documenso/ui/primitives/combobox';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
-import { MultiSelectCombobox } from '@documenso/ui/primitives/multi-select-combobox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
-
 import { useOptionalCurrentTeam } from '~/providers/team';
-
 import { DefaultRecipientsMultiSelectCombobox } from '../general/default-recipients-multiselect-combobox';
+import { FormStickySaveBar } from './form-sticky-save-bar';
+import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '@documenso/lib/constants/pdf';
+import {
+  DEFAULT_SIGNATURE_FONT_FAMILY,
+  MAX_SIGNATURE_FONT_SIZE,
+  MIN_SIGNATURE_FONT_SIZE,
+  SIGNATURE_FONTS,
+  getSignatureFontFamilyString,
+} from '@documenso/lib/constants/signature-fonts';
+
+import { InheritableField } from './inheritable-field';
 
 /**
  * Spelled out rather than derived from the Prisma enum object: this is a client component, and a
  * value import of `@prisma/client` does not survive into the browser bundle. `satisfies` keeps the
  * literals checked against the real enum, so adding or renaming a mode fails to compile here.
  */
-const EMAIL_SENDER_NAME_MODES = [
-  'ORGANISATION',
-  'TEAM',
-  'CUSTOM',
-] as const satisfies readonly EmailSenderNameMode[];
-
 /**
  * Can't infer this from the schema since we need to keep the schema inside the component to allow
  * it to be dynamic.
@@ -81,16 +59,12 @@ export type TDocumentPreferencesFormSchema = {
   documentLanguage: (typeof SUPPORTED_LANGUAGE_CODES)[number] | null;
   documentTimezone: string | null;
   documentDateFormat: TDocumentMetaDateFormat | null;
-  includeSenderDetails: boolean | null;
-  emailSenderNameMode: EmailSenderNameMode | null;
-  emailSenderNameCustom: string;
-  includeSigningCertificate: boolean | null;
-  includeAuditLog: boolean | null;
   signatureTypes: DocumentSignatureType[];
   defaultRecipients: TDefaultRecipients | null;
   delegateDocumentOwnership: boolean | null;
+  signatureFontFamily: string | null;
+  signatureFontSize: number | null;
   aiFeaturesEnabled: boolean | null;
-  envelopeExpirationPeriod: TEnvelopeExpirationPeriod | null;
 };
 
 type SettingsSubset = Pick<
@@ -99,24 +73,33 @@ type SettingsSubset = Pick<
   | 'documentLanguage'
   | 'documentTimezone'
   | 'documentDateFormat'
-  | 'includeSenderDetails'
-  | 'emailSenderNameMode'
-  | 'emailSenderNameCustom'
-  | 'includeSigningCertificate'
-  | 'includeAuditLog'
   | 'typedSignatureEnabled'
   | 'uploadSignatureEnabled'
   | 'drawSignatureEnabled'
   | 'defaultRecipients'
   | 'delegateDocumentOwnership'
+  | 'signatureFontFamily'
+  | 'signatureFontSize'
   | 'aiFeaturesEnabled'
-  | 'envelopeExpirationPeriod'
 >;
 
 export type DocumentPreferencesFormProps = {
   settings: SettingsSubset;
   canInherit: boolean;
-  isAiFeaturesConfigured?: boolean;
+  onFormSubmit: (data: TDocumentPreferencesFormSchema) => Promise<void>;
+
+  /**
+   * The effective font this context would inherit when `signatureFontFamily` is null (i.e. the
+   * organisation's resolved font for a team). Used to preview the "Inherit from organisation" choice
+   * in the real inherited font rather than the hardcoded default.
+   */
+  inheritedFontFamily?: string | null;
+  /**
+   * The effective font size this context would inherit when `signatureFontSize` is null (i.e. the
+   * organisation's resolved size for a team). Used as the placeholder/preview for the "inherit"
+   * (blank) choice rather than the hardcoded default.
+   */
+  inheritedFontSize?: number | null;
 
   /**
    * The signature types the organisation permits. A team may only narrow this list further, so the
@@ -124,33 +107,41 @@ export type DocumentPreferencesFormProps = {
    * there is nothing above to cap against.
    */
   allowedSignatureTypes?: DocumentSignatureType[];
+};
 
-  /**
-   * The sender name this context would fall back to when `emailSenderNameMode` is null (i.e. the
-   * organisation's resolved name for a team). Used so the preview shows the real inherited name
-   * rather than guessing. Omit at organisation level, which has nothing to inherit.
-   */
-  inheritedSenderName?: string;
-  onFormSubmit: (data: TDocumentPreferencesFormSchema) => Promise<void>;
+const getDocumentPreferencesFormValues = (settings: SettingsSubset): TDocumentPreferencesFormSchema => {
+  const parsedDocumentDateFormat = ZDocumentMetaDateFormatSchema.safeParse(settings.documentDateFormat);
+
+  return {
+    documentVisibility: settings.documentVisibility,
+    documentLanguage: isValidLanguageCode(settings.documentLanguage) ? settings.documentLanguage : null,
+    documentTimezone: settings.documentTimezone,
+    documentDateFormat: parsedDocumentDateFormat.success ? parsedDocumentDateFormat.data : null,
+    signatureTypes: extractTeamSignatureSettings({ ...settings }),
+    defaultRecipients: settings.defaultRecipients ? ZDefaultRecipientsSchema.parse(settings.defaultRecipients) : null,
+    delegateDocumentOwnership: settings.delegateDocumentOwnership,
+    signatureFontFamily: settings.signatureFontFamily ?? null,
+    signatureFontSize: settings.signatureFontSize ?? null,
+    aiFeaturesEnabled: settings.aiFeaturesEnabled,
+  };
 };
 
 export const DocumentPreferencesForm = ({
   settings,
   onFormSubmit,
   canInherit,
-  isAiFeaturesConfigured = false,
   allowedSignatureTypes,
-  inheritedSenderName,
+  inheritedFontFamily,
+  inheritedFontSize,
 }: DocumentPreferencesFormProps) => {
   const { _ } = useLingui();
-  const { user, organisations } = useSession();
+  const { organisations } = useSession();
   const currentOrganisation = useCurrentOrganisation();
   const optionalTeam = useOptionalCurrentTeam();
 
-  const isPersonalLayoutMode = isPersonalLayout(organisations);
-  const isPersonalOrganisation = currentOrganisation.type === OrganisationType.PERSONAL;
+  const isAiFeaturesConfigured = IS_AI_FEATURES_CONFIGURED();
 
-  const placeholderEmail = user.email ?? 'user@example.com';
+  const isPersonalLayoutMode = isPersonalLayout(organisations);
 
   const signatureTypeOptions = Object.values(DOCUMENT_SIGNATURE_TYPES).filter(
     (option) => !allowedSignatureTypes || allowedSignatureTypes.includes(option.value),
@@ -164,98 +155,103 @@ export const DocumentPreferencesForm = ({
     documentLanguage: z.enum(SUPPORTED_LANGUAGE_CODES).nullable(),
     documentTimezone: z.string().nullable(),
     documentDateFormat: ZDocumentMetaDateFormatSchema.nullable(),
-    includeSenderDetails: z.boolean().nullable(),
-    emailSenderNameMode: z.enum(EMAIL_SENDER_NAME_MODES).nullable(),
-    emailSenderNameCustom: z.string().max(200),
-    includeSigningCertificate: z.boolean().nullable(),
-    includeAuditLog: z.boolean().nullable(),
     signatureTypes: z.array(z.nativeEnum(DocumentSignatureType)).min(canInherit ? 0 : 1, {
       message: msg`At least one signature type must be enabled`.id,
     }),
     defaultRecipients: ZDefaultRecipientsSchema.nullable(),
     delegateDocumentOwnership: z.boolean().nullable(),
+    // Null = inherit from organisation (team only). The allowed values are validated server-side by
+    // the tRPC input (`ZSignatureFontFamilySchema`); kept as a plain string here since the `Select`
+    // only offers curated families.
+    signatureFontFamily: z.string().nullable(),
+    // Null = inherit from organisation (team only). Same bounds as the per-field `fieldMeta.fontSize`.
+    signatureFontSize: z
+      .number()
+      .int()
+      .min(MIN_SIGNATURE_FONT_SIZE)
+      .max(MAX_SIGNATURE_FONT_SIZE)
+      .nullable(),
     aiFeaturesEnabled: z.boolean().nullable(),
-    envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullable(),
   });
 
+  const defaultValues = getDocumentPreferencesFormValues(settings);
+  const defaultSettings = canInherit ? generateDefaultTeamSettings() : generateDefaultOrganisationSettings();
+  const baseResetValues = getDocumentPreferencesFormValues(defaultSettings);
+  const resetValues = {
+    ...baseResetValues,
+    aiFeaturesEnabled: isAiFeaturesConfigured ? baseResetValues.aiFeaturesEnabled : defaultValues.aiFeaturesEnabled,
+  };
+
+  const { user } = useSession();
+
+  const signaturePreviewName = user?.name?.trim() || t`Jane Doe`;
+
   const form = useForm<TDocumentPreferencesFormSchema>({
-    defaultValues: {
-      documentVisibility: settings.documentVisibility,
-      documentLanguage: isValidLanguageCode(settings.documentLanguage)
-        ? settings.documentLanguage
-        : null,
-      documentTimezone: settings.documentTimezone,
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      documentDateFormat: settings.documentDateFormat as TDocumentMetaDateFormat | null,
-      includeSenderDetails: settings.includeSenderDetails,
-      emailSenderNameMode: settings.emailSenderNameMode ?? null,
-      emailSenderNameCustom: settings.emailSenderNameCustom ?? '',
-      includeSigningCertificate: settings.includeSigningCertificate,
-      includeAuditLog: settings.includeAuditLog,
-      // Filtered so a selection stored before the organisation revoked a type is not resubmitted.
-      signatureTypes: extractTeamSignatureSettings({ ...settings }).filter(
-        (type) => !allowedSignatureTypes || allowedSignatureTypes.includes(type),
-      ),
-      defaultRecipients: settings.defaultRecipients
-        ? ZDefaultRecipientsSchema.parse(settings.defaultRecipients)
-        : null,
-      delegateDocumentOwnership: settings.delegateDocumentOwnership,
-      aiFeaturesEnabled: settings.aiFeaturesEnabled,
-      envelopeExpirationPeriod: settings.envelopeExpirationPeriod ?? null,
-    },
+    defaultValues,
     resolver: zodResolver(ZDocumentPreferencesFormSchema),
   });
 
-  const watchedSenderNameMode = form.watch('emailSenderNameMode');
-  const watchedSenderNameCustom = form.watch('emailSenderNameCustom');
+  const watchedSignatureFontFamily = form.watch('signatureFontFamily');
+  const watchedSignatureFontSize = form.watch('signatureFontSize');
 
-  // At organisation level there is no single team to name — each team resolves its own — so the
-  // preview keeps an illustrative placeholder rather than implying the organisation name is used.
-  const previewTeamName = optionalTeam?.name ?? t`Team Name`;
+  // Resolve the values the signature preview should render with, applying the same inherit/default
+  // fallbacks the server uses at document creation.
+  const previewFontFamily = watchedSignatureFontFamily ?? inheritedFontFamily;
+  const previewFontSize = watchedSignatureFontSize ?? inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE;
 
-  // Resolved with the same helper the senders use, so the preview cannot drift from the real email.
-  // A null mode means "inherit", which is what the organisation would resolve to.
-  const previewSenderName =
-    watchedSenderNameMode === null
-      ? (inheritedSenderName ?? currentOrganisation.name)
-      : resolveEmailSenderName({
-          settings: {
-            emailSenderNameMode: watchedSenderNameMode,
-            emailSenderNameCustom: watchedSenderNameCustom,
-          },
-          organisationName: currentOrganisation.name,
-          teamName: previewTeamName,
-        });
+  // Parse both sides through the schema so we compare canonical representations
+  const parsedCurrentValues = ZDocumentPreferencesFormSchema.safeParse(defaultValues);
+  const parsedResetValues = ZDocumentPreferencesFormSchema.safeParse(resetValues);
 
+  const isResetToDefaultsVisible =
+    !parsedCurrentValues.success ||
+    !parsedResetValues.success ||
+    JSON.stringify(parsedCurrentValues.data) !== JSON.stringify(parsedResetValues.data);
+
+  const handleResetToDefaults = async () => {
+    await onFormSubmit(resetValues);
+    form.reset(resetValues);
+  };
+
+  const handleFormSubmit = form.handleSubmit(async (data) => {
+    try {
+      await onFormSubmit(data);
+    } catch {
+      // The page handler surfaces its own error toast. Keep the form dirty so
+      // the save bar stays visible and the user can retry.
+      return;
+    }
+
+    form.reset(data);
+  });
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onFormSubmit)}>
-        <fieldset
-          className="flex h-full max-w-2xl flex-col gap-y-6"
-          disabled={form.formState.isSubmitting}
-        >
+      <form onSubmit={handleFormSubmit}>
+        <fieldset className="flex h-full flex-col gap-y-6" disabled={form.formState.isSubmitting}>
           {!isPersonalLayoutMode && (
             <FormField
               control={form.control}
               name="documentVisibility"
               render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    <Trans>Default Document Visibility</Trans>
-                  </FormLabel>
-
+                <InheritableField
+                  className="flex-1"
+                  canInherit={canInherit}
+                  isInherited={field.value === null}
+                  label={<Trans>Default Document Visibility</Trans>}
+                  testId="document-visibility"
+                >
                   <Select
-                    name={field.name}
+                    {...field}
                     value={field.value === null ? '-1' : field.value}
                     onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
                   >
                     <FormControl>
-                      <SelectTrigger
-                        className="bg-background text-muted-foreground"
-                        data-testid="document-visibility-trigger"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
+                        <SelectTrigger
+                          className="bg-background text-muted-foreground"
+                          data-testid="document-visibility-trigger"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
                     </FormControl>
 
                     <SelectContent>
@@ -280,7 +276,7 @@ export const DocumentPreferencesForm = ({
                   <FormDescription>
                     <Trans>Controls the default visibility of an uploaded document.</Trans>
                   </FormDescription>
-                </FormItem>
+                </InheritableField>
               )}
             />
           )}
@@ -289,23 +285,25 @@ export const DocumentPreferencesForm = ({
             control={form.control}
             name="documentLanguage"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Default Document Language</Trans>
-                </FormLabel>
-
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Default Document Language</Trans>}
+                testId="document-language"
+              >
                 <Select
-                  name={field.name}
+                  {...field}
                   value={field.value === null ? '-1' : field.value}
                   onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
                 >
                   <FormControl>
-                    <SelectTrigger
-                      className="bg-background text-muted-foreground"
-                      data-testid="document-language-trigger"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
+                      <SelectTrigger
+                        className="bg-background text-muted-foreground"
+                        data-testid="document-language-trigger"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
                   </FormControl>
 
                   <SelectContent>
@@ -323,11 +321,11 @@ export const DocumentPreferencesForm = ({
 
                 <FormDescription>
                   <Trans>
-                    Controls the default language of an uploaded document. This will be used as the
-                    language in email communications with the recipients.
+                    Controls the default language of an uploaded document. This will be used as the language in email
+                    communications with the recipients.
                   </Trans>
                 </FormDescription>
-              </FormItem>
+              </InheritableField>
             )}
           />
 
@@ -335,19 +333,20 @@ export const DocumentPreferencesForm = ({
             control={form.control}
             name="documentDateFormat"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  <Trans>Default Date Format</Trans>
-                </FormLabel>
-
+              <InheritableField
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Default Date Format</Trans>}
+                testId="document-date-format"
+              >
                 <Select
                   value={field.value === null ? '-1' : field.value}
                   onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
                 >
                   <FormControl>
-                    <SelectTrigger data-testid="document-date-format-trigger">
-                      <SelectValue />
-                    </SelectTrigger>
+                      <SelectTrigger data-testid="document-date-format-trigger">
+                        <SelectValue />
+                      </SelectTrigger>
                   </FormControl>
 
                   <SelectContent>
@@ -366,7 +365,7 @@ export const DocumentPreferencesForm = ({
                 </Select>
 
                 <FormMessage />
-              </FormItem>
+              </InheritableField>
             )}
           />
 
@@ -374,22 +373,25 @@ export const DocumentPreferencesForm = ({
             control={form.control}
             name="documentTimezone"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  <Trans>Default Time Zone</Trans>
-                </FormLabel>
-
-                <Combobox
-                  triggerPlaceholder={canInherit ? t`Inherit from organisation` : t`Local timezone`}
-                  placeholder={t`Select a time zone`}
-                  options={TIME_ZONES}
-                  value={field.value}
-                  onChange={(value) => field.onChange(value)}
-                  testId="document-timezone-trigger"
-                />
+              <InheritableField
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Default Time Zone</Trans>}
+                testId="document-timezone"
+              >
+                <FormControl>
+                  <Combobox
+                    triggerPlaceholder={canInherit ? t`Inherit from organisation` : t`Local timezone`}
+                    placeholder={t`Select a time zone`}
+                    options={TIME_ZONES}
+                    value={field.value}
+                    onChange={(value) => field.onChange(value)}
+                    testId="document-timezone-trigger"
+                  />
+                </FormControl>
 
                 <FormMessage />
-              </FormItem>
+              </InheritableField>
             )}
           />
 
@@ -397,26 +399,32 @@ export const DocumentPreferencesForm = ({
             control={form.control}
             name="signatureTypes"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="flex flex-row items-center">
-                  <Trans>Default Signature Settings</Trans>
-                  <DocumentSignatureSettingsTooltip />
-                </FormLabel>
-
-                <MultiSelectCombobox
-                  options={signatureTypeOptions.map((option) => ({
-                    label: _(option.label),
-                    value: option.value,
-                  }))}
-                  selectedValues={field.value}
-                  onChange={field.onChange}
-                  className="w-full bg-background"
-                  enableSearch={false}
-                  emptySelectionPlaceholder={
-                    canInherit ? t`Inherit from organisation` : t`Select signature types`
-                  }
-                  testId="signature-types-trigger"
-                />
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={canInherit && (field.value === null || field.value.length === 0)}
+                label={
+                  <span className="flex flex-row items-center">
+                    <Trans>Default Signature Settings</Trans>
+                    <DocumentSignatureSettingsTooltip />
+                  </span>
+                }
+                testId="signature-types"
+              >
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={Object.values(DOCUMENT_SIGNATURE_TYPES).map((option) => ({
+                      label: _(option.label),
+                      value: option.value,
+                    }))}
+                    selectedValues={field.value}
+                    onChange={field.onChange}
+                    className="w-full bg-background"
+                    enableSearch={false}
+                    emptySelectionPlaceholder={canInherit ? t`Inherit from organisation` : t`Select signature types`}
+                    testId="signature-types-trigger"
+                  />
+                </FormControl>
 
                 {form.formState.errors.signatureTypes ? (
                   <FormMessage />
@@ -434,274 +442,7 @@ export const DocumentPreferencesForm = ({
                     )}
                   </FormDescription>
                 )}
-              </FormItem>
-            )}
-          />
-
-          {!isPersonalLayoutMode && !isPersonalOrganisation && (
-            <FormField
-              control={form.control}
-              name="emailSenderNameMode"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    <Trans>Email Sender Name</Trans>
-                  </FormLabel>
-
-                  <Select
-                    value={field.value === null ? '-1' : field.value}
-                    // Matching against the real modes avoids a type assertion, and the "inherit"
-                    // sentinel simply matches nothing and falls through to null.
-                    onValueChange={(value) =>
-                      field.onChange(EMAIL_SENDER_NAME_MODES.find((mode) => mode === value) ?? null)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger
-                        className="bg-background text-muted-foreground"
-                        data-testid="email-sender-name-mode-trigger"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-
-                    <SelectContent>
-                      <SelectItem value={'ORGANISATION'}>
-                        <Trans>Organisation name</Trans>
-                      </SelectItem>
-
-                      <SelectItem value={'TEAM'}>
-                        <Trans>Team name</Trans>
-                      </SelectItem>
-
-                      <SelectItem value={'CUSTOM'}>
-                        <Trans>Custom</Trans>
-                      </SelectItem>
-
-                      {canInherit && (
-                        <SelectItem value={'-1'}>
-                          <Trans>Inherit from organisation</Trans>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-
-                  <FormDescription>
-                    <Trans>
-                      The name recipients see in emails about your documents. Applies whether or not
-                      branding is enabled.
-                    </Trans>
-                  </FormDescription>
-                </FormItem>
-              )}
-            />
-          )}
-
-          {!isPersonalLayoutMode &&
-            !isPersonalOrganisation &&
-            watchedSenderNameMode === 'CUSTOM' && (
-              <FormField
-                control={form.control}
-                name="emailSenderNameCustom"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel required>
-                      <Trans>Custom Sender Name</Trans>
-                    </FormLabel>
-
-                    <FormControl>
-                      <Input className="bg-background" {...field} />
-                    </FormControl>
-
-                    <FormDescription>
-                      <Trans>Leave blank to fall back to the team name. Available variables:</Trans>{' '}
-                      <code className="rounded bg-muted-foreground/20 p-1 text-xs">
-                        {'{organisation.name}'}
-                      </code>{' '}
-                      <code className="rounded bg-muted-foreground/20 p-1 text-xs">
-                        {'{team.name}'}
-                      </code>
-                    </FormDescription>
-
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-          {!isPersonalLayoutMode && !isPersonalOrganisation && (
-            <FormField
-              control={form.control}
-              name="includeSenderDetails"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    <Trans>Send on Behalf of Team</Trans>
-                  </FormLabel>
-
-                  <Select
-                    name={field.name}
-                    value={field.value === null ? '-1' : field.value.toString()}
-                    onValueChange={(value) =>
-                      field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger
-                        className="bg-background text-muted-foreground"
-                        data-testid="include-sender-details-trigger"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-
-                    <SelectContent>
-                      <SelectItem value="true">
-                        <Trans>Yes</Trans>
-                      </SelectItem>
-
-                      <SelectItem value="false">
-                        <Trans>No</Trans>
-                      </SelectItem>
-
-                      {canInherit && (
-                        <SelectItem value={'-1'}>
-                          <Trans>Inherit from organisation</Trans>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="pt-2">
-                    <div className="text-xs font-medium text-muted-foreground">
-                      <Trans>Preview</Trans>
-                    </div>
-
-                    <Alert variant="neutral" className="mt-1 px-2.5 py-1.5 text-sm">
-                      {field.value ? (
-                        <Trans>
-                          "{placeholderEmail}" on behalf of "{previewSenderName}" has invited you to
-                          sign "example document".
-                        </Trans>
-                      ) : (
-                        <Trans>
-                          "{previewSenderName}" has invited you to sign "example document".
-                        </Trans>
-                      )}
-                    </Alert>
-                  </div>
-
-                  <FormDescription>
-                    <Trans>
-                      Controls whether the individual sender's name appears alongside the email
-                      sender name when inviting a recipient to sign a document.
-                    </Trans>
-                  </FormDescription>
-                </FormItem>
-              )}
-            />
-          )}
-
-          <FormField
-            control={form.control}
-            name="includeSigningCertificate"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Include the Signing Certificate in the Document</Trans>
-                </FormLabel>
-
-                <Select
-                  name={field.name}
-                  value={field.value === null ? '-1' : field.value.toString()}
-                  onValueChange={(value) =>
-                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                  }
-                >
-                  <FormControl>
-                    <SelectTrigger
-                      className="bg-background text-muted-foreground"
-                      data-testid="include-signing-certificate-trigger"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-
-                  <SelectContent>
-                    <SelectItem value="true">
-                      <Trans>Yes</Trans>
-                    </SelectItem>
-
-                    <SelectItem value="false">
-                      <Trans>No</Trans>
-                    </SelectItem>
-
-                    {canInherit && (
-                      <SelectItem value={'-1'}>
-                        <Trans>Inherit from organisation</Trans>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-
-                <FormDescription>
-                  <Trans>
-                    Controls whether the signing certificate will be included in the document when
-                    it is downloaded. The signing certificate can still be downloaded from the logs
-                    page separately.
-                  </Trans>
-                </FormDescription>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="includeAuditLog"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Include the Audit Logs in the Document</Trans>
-                </FormLabel>
-
-                <Select
-                  name={field.name}
-                  value={field.value === null ? '-1' : field.value.toString()}
-                  onValueChange={(value) =>
-                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                  }
-                >
-                  <FormControl>
-                    <SelectTrigger className="bg-background text-muted-foreground">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-
-                  <SelectContent>
-                    <SelectItem value="true">
-                      <Trans>Yes</Trans>
-                    </SelectItem>
-
-                    <SelectItem value="false">
-                      <Trans>No</Trans>
-                    </SelectItem>
-
-                    {canInherit && (
-                      <SelectItem value={'-1'}>
-                        <Trans>Inherit from organisation</Trans>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-
-                <FormDescription>
-                  <Trans>
-                    Controls whether the audit logs will be included in the document when it is
-                    downloaded. The audit logs can still be downloaded from the logs page
-                    separately.
-                  </Trans>
-                </FormDescription>
-              </FormItem>
+              </InheritableField>
             )}
           />
 
@@ -712,11 +453,13 @@ export const DocumentPreferencesForm = ({
               const recipients = field.value ?? [];
 
               return (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    <Trans>Default Recipients</Trans>
-                  </FormLabel>
-
+                <InheritableField
+                  className="flex-1"
+                  canInherit={canInherit}
+                  isInherited={field.value === null}
+                  label={<Trans>Default Recipients</Trans>}
+                  testId="default-recipients"
+                >
                   {canInherit && (
                     <Select
                       value={field.value === null ? '-1' : '0'}
@@ -754,15 +497,11 @@ export const DocumentPreferencesForm = ({
                             <AvatarWithText
                               avatarFallback={recipientAbbreviation(recipient)}
                               primaryText={
-                                <span className="text-sm font-medium">
-                                  {recipient.name || recipient.email}
-                                </span>
+                                <span className="font-medium text-sm">{recipient.name || recipient.email}</span>
                               }
                               secondaryText={
                                 recipient.name ? (
-                                  <span className="text-xs text-muted-foreground">
-                                    {recipient.email}
-                                  </span>
+                                  <span className="text-muted-foreground text-xs">{recipient.email}</span>
                                 ) : undefined
                               }
                               className="flex-1"
@@ -788,7 +527,7 @@ export const DocumentPreferencesForm = ({
                   <FormDescription>
                     <Trans>Recipients that will be automatically added to new documents.</Trans>
                   </FormDescription>
-                </FormItem>
+                </InheritableField>
               );
             }}
           />
@@ -797,17 +536,17 @@ export const DocumentPreferencesForm = ({
             control={form.control}
             name="delegateDocumentOwnership"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Delegate Document Ownership</Trans>
-                </FormLabel>
-
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Delegate Document Ownership</Trans>}
+                testId="delegate-document-ownership"
+              >
                 <Select
                   name={field.name}
                   value={field.value === null ? '-1' : field.value.toString()}
-                  onValueChange={(value) =>
-                    field.onChange(value === 'true' ? true : value === 'false' ? false : null)
-                  }
+                  onValueChange={(value) => field.onChange(value === 'true' ? true : value === 'false' ? false : null)}
                 >
                   <FormControl>
                     <SelectTrigger className="bg-background text-muted-foreground">
@@ -833,38 +572,114 @@ export const DocumentPreferencesForm = ({
                 </Select>
 
                 <FormDescription>
-                  <Trans>
-                    Enable team API tokens to delegate document ownership to another team member.
-                  </Trans>
+                  <Trans>Enable team API tokens to delegate document ownership to another team member.</Trans>
                 </FormDescription>
-              </FormItem>
+              </InheritableField>
             )}
           />
 
           <FormField
             control={form.control}
-            name="envelopeExpirationPeriod"
+            name="signatureFontFamily"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>
-                  <Trans>Default Envelope Expiration</Trans>
-                </FormLabel>
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font</Trans>}
+                testId="signature-font-family"
+              >
+                <Select
+                  value={field.value ?? (canInherit ? '-1' : DEFAULT_SIGNATURE_FONT_FAMILY)}
+                  onValueChange={(value) => field.onChange(value === '-1' ? null : value)}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      className="bg-background"
+                      data-testid="signature-font"
+                      style={{ fontFamily: getSignatureFontFamilyString(field.value ?? inheritedFontFamily) }}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
 
-                <ExpirationPeriodPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  inheritLabel={canInherit ? t`Inherit from organisation` : undefined}
-                />
+                  <SelectContent className="z-[9999]">
+                    {canInherit && (
+                      <SelectItem value="-1">
+                        <Trans>Inherit from organisation</Trans>
+                      </SelectItem>
+                    )}
+
+                    {SIGNATURE_FONTS.map((signatureFont) => (
+                      <SelectItem
+                        key={signatureFont.family}
+                        value={signatureFont.family}
+                        className="text-xl"
+                        style={{ fontFamily: `'${signatureFont.family}', ${signatureFont.cssFallback}` }}
+                      >
+                        {signatureFont.family}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="mt-2 flex h-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+                  <span
+                    className="text-black dark:text-white"
+                    style={{
+                      fontFamily: getSignatureFontFamilyString(previewFontFamily),
+                      fontSize: `${previewFontSize}px`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {signaturePreviewName}
+                  </span>
+                </div>
 
                 <FormDescription>
                   <Trans>
-                    Controls how long recipients have to complete signing before the document
-                    expires. After expiration, recipients can no longer sign the document.
+                    The font used for typed signatures. Applies to documents created after this change - already-created
+                    documents keep their original font.
                   </Trans>
                 </FormDescription>
+              </InheritableField>
+            )}
+          />
 
-                <FormMessage />
-              </FormItem>
+          <FormField
+            control={form.control}
+            name="signatureFontSize"
+            render={({ field }) => (
+              <InheritableField
+                className="flex-1"
+                canInherit={canInherit}
+                isInherited={field.value === null}
+                label={<Trans>Signature Font Size</Trans>}
+                testId="signature-font-size-field"
+              >
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={MIN_SIGNATURE_FONT_SIZE}
+                    max={MAX_SIGNATURE_FONT_SIZE}
+                    className="bg-background"
+                    data-testid="signature-font-size"
+                    placeholder={
+                      canInherit ? (inheritedFontSize ?? DEFAULT_SIGNATURE_TEXT_FONT_SIZE).toString() : undefined
+                    }
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)}
+                  />
+                </FormControl>
+
+                <FormDescription>
+                  <Trans>
+                    The default size (in pixels, {MIN_SIGNATURE_FONT_SIZE}-{MAX_SIGNATURE_FONT_SIZE}) for typed
+                    signatures. A per-field size set in the editor overrides this. Applies to documents created after
+                    this change.
+                  </Trans>
+                </FormDescription>
+              </InheritableField>
             )}
           />
 
@@ -873,22 +688,24 @@ export const DocumentPreferencesForm = ({
               control={form.control}
               name="aiFeaturesEnabled"
               render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    <Trans>AI Features</Trans>
-                  </FormLabel>
-
+                <InheritableField
+                  className="flex-1"
+                  canInherit={canInherit}
+                  isInherited={field.value === null}
+                  label={<Trans>AI Features</Trans>}
+                  testId="ai-features-enabled"
+                >
                   <Select
-                    name={field.name}
+                    {...field}
                     value={field.value === null ? '-1' : field.value.toString()}
                     onValueChange={(value) =>
                       field.onChange(value === 'true' ? true : value === 'false' ? false : null)
                     }
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-background text-muted-foreground">
-                        <SelectValue />
-                      </SelectTrigger>
+                        <SelectTrigger className="bg-background text-muted-foreground">
+                          <SelectValue />
+                        </SelectTrigger>
                     </FormControl>
 
                     <SelectContent>
@@ -910,22 +727,31 @@ export const DocumentPreferencesForm = ({
 
                   <FormDescription>
                     <Trans>
-                      Enable AI-powered features such as automatic recipient detection. When
-                      enabled, document content will be sent to AI providers. We only use providers
-                      that do not retain data for training and prefer European regions where
-                      available.
+                      Enable AI-powered features such as automatic recipient detection. When enabled, document content
+                      will be sent to AI providers. We only use providers that do not retain data for training and
+                      prefer European regions where available.
                     </Trans>
                   </FormDescription>
-                </FormItem>
+                </InheritableField>
               )}
             />
           )}
 
-          <div className="flex flex-row justify-end space-x-4">
-            <Button type="submit" loading={form.formState.isSubmitting}>
-              <Trans>Update</Trans>
-            </Button>
-          </div>
+          <FormStickySaveBar
+            isDirty={form.formState.isDirty}
+            isSubmitting={form.formState.isSubmitting}
+            onReset={() => form.reset()}
+            resetToDefaults={
+              isResetToDefaultsVisible ? (
+                <DocumentPreferencesResetDialog
+                  isSubmitting={form.formState.isSubmitting}
+                  onReset={handleResetToDefaults}
+                  showAiFeatures={isAiFeaturesConfigured}
+                  showDocumentVisibility={!isPersonalLayoutMode}
+                />
+              ) : undefined
+            }
+          />
         </fieldset>
       </form>
     </Form>

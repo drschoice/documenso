@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
-
 import { useLingui } from '@lingui/react/macro';
+import { useEffect, useRef } from 'react';
 
 import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
 
@@ -41,7 +40,7 @@ export const SignaturePadType = ({
       <input
         data-testid="signature-pad-type-input"
         placeholder={t`Type your signature`}
-        className="w-full bg-transparent px-4 text-center font-signature text-7xl text-black placeholder:text-4xl focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:text-white"
+        className="w-full bg-transparent px-4 text-center font-signature text-7xl text-foreground placeholder:text-4xl focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
         style={fontFamily ? { fontFamily: getSignatureFontFamilyString(fontFamily) } : undefined}
         value={value}
         onChange={(event) => {
