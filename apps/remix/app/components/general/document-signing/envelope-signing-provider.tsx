@@ -8,12 +8,13 @@ import {
   RecipientRole,
   SigningStatus,
 } from '@prisma/client';
-import { prop, sortBy } from 'remeda';
 
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import type { EnvelopeForSigningResponse } from '@documenso/lib/server-only/envelope/get-envelope-for-recipient-signing';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
+import { getFieldsWrittenBySign } from '@documenso/lib/universal/field-inline-signing/optimistic-insertion';
+import { sortFieldsInReadingOrder } from '@documenso/lib/universal/field-inline-signing/reading-order';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import {
   isFieldUnsignedAndRequired,
@@ -75,6 +76,35 @@ export type EnvelopeSigningContextValue = {
     _value: TSignEnvelopeFieldValue,
     authOptions?: TRecipientActionAuth,
   ) => Promise<Pick<Field, 'id' | 'inserted'>>;
+
+  /**
+   * Sign a field and show the result straight away, before the server confirms it.
+   *
+   * Used for values typed in place, where waiting for the round trip would make the field blink
+   * back to its old value as the signer moves on. Requests for the same field are sent one at a
+   * time, and only the newest value is sent: one typed while an older request is in flight
+   * replaces it. If the server rejects the newest value, the field goes back to what the server
+   * last confirmed.
+   *
+   * Resolves `false` when the value was rejected, `true` otherwise. Never rejects.
+   */
+  signFieldOptimistic: (_fieldId: number, _value: TSignEnvelopeFieldValue) => Promise<boolean>;
+
+  /**
+   * Wait for every `signFieldOptimistic` request still in flight. Resolves `false` if any of them
+   * was rejected while waiting, so completion can stop rather than submit a field the server does
+   * not have.
+   */
+  flushPendingSignatures: () => Promise<boolean>;
+};
+
+type TFieldWrite = Pick<Field, 'customText' | 'inserted'>;
+
+type TPendingSignature = {
+  /** Bumped on every optimistic write, so a stale response can tell it has been superseded. */
+  version: number;
+  /** The requests for this field, chained so they reach the server in order. */
+  queue: Promise<void>;
 };
 
 const EnvelopeSigningContext = createContext<EnvelopeSigningContextValue | null>(null);
@@ -150,42 +180,72 @@ export const EnvelopeSigningProvider = ({
 
   const isDirectTemplate = envelope.type === EnvelopeType.TEMPLATE;
 
+  // Read by the optimistic signing path, which runs outside a render and needs the fields as they
+  // stand rather than as they were when the callback was created.
+  const envelopeDataRef = useRef(envelopeData);
+  envelopeDataRef.current = envelopeData;
+
+  /**
+   * Merge field updates into every copy of those fields: the signer's own list, and the per
+   * recipient lists, which is where an assistant's fields and other signers' fields live.
+   */
+  const patchFields = (updates: Map<number, Partial<Field>>) => {
+    if (updates.size === 0) {
+      return;
+    }
+
+    const applyUpdates = <T extends { id: number }>(fields: T[]): T[] => {
+      let isChanged = false;
+
+      const nextFields = fields.map((field) => {
+        const update = updates.get(field.id);
+
+        if (!update) {
+          return field;
+        }
+
+        isChanged = true;
+
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        return { ...field, ...update } as T;
+      });
+
+      return isChanged ? nextFields : fields;
+    };
+
+    setEnvelopeData((prev) => ({
+      ...prev,
+      envelope: {
+        ...prev.envelope,
+        recipients: prev.envelope.recipients.map((envelopeRecipient) => {
+          const fields = applyUpdates(envelopeRecipient.fields);
+
+          return fields === envelopeRecipient.fields
+            ? envelopeRecipient
+            : { ...envelopeRecipient, fields };
+        }),
+      },
+      recipient: {
+        ...prev.recipient,
+        fields: applyUpdates(prev.recipient.fields),
+      },
+    }));
+  };
+
   const { mutateAsync: signEnvelopeField } = trpc.envelope.field.sign.useMutation({
     ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
-    onSuccess: (data) => {
-      // The signed field plus any copy-and-link group members the server updated
-      // with the same value in the same transaction. Apply them all so linked
-      // fields (incl. ones on other pages) re-render immediately.
-      const updatedById = new Map<number, (typeof data.linkedFields)[number]>(
-        [data.signedField, ...data.linkedFields].map((f) => [f.id, f]),
-      );
-
-      const applyUpdates = <T extends { id: number }>(fields: T[]): T[] =>
-        fields.map((field) => {
-          const updated = updatedById.get(field.id);
-          return updated ? ({ ...field, ...updated } as T) : field;
-        });
-
-      setEnvelopeData((prev) => ({
-        ...prev,
-        envelope: {
-          ...prev.envelope,
-          recipients: prev.envelope.recipients.map((recipient) =>
-            recipient.id === data.signedField.recipientId
-              ? {
-                  ...recipient,
-                  fields: applyUpdates(recipient.fields),
-                }
-              : recipient,
-          ),
-        },
-        recipient: {
-          ...prev.recipient,
-          fields: applyUpdates(prev.recipient.fields),
-        },
-      }));
-    },
   });
+
+  /**
+   * Apply a sign response: the signed field plus any copy-and-link group members the server
+   * updated with the same value in the same transaction, so linked fields (including ones on
+   * other pages) re-render immediately.
+   */
+  const applySignResponse = (data: Awaited<ReturnType<typeof signEnvelopeField>>) => {
+    patchFields(
+      new Map([data.signedField, ...data.linkedFields].map((field) => [field.id, field])),
+    );
+  };
 
   // Ensure the user signature doesn't show up if it's not allowed.
   const [signature, setSignature] = useState(
@@ -284,8 +344,11 @@ export const EnvelopeSigningProvider = ({
     prevVisibilityRef.current = new Map(recipientFieldVisibility);
   }, [recipientFieldVisibility, recipientFields]);
 
+  const getEnvelopeItemOrder = (envelopeItemId: string) =>
+    envelope.envelopeItems.find((item) => item.id === envelopeItemId)?.order ?? 0;
+
   /**
-   * The fields that are still required to be signed by the actual recipient.
+   * The fields that are still required to be signed by the actual recipient, in reading order.
    */
   const recipientFieldsRemaining = useMemo(() => {
     const requiredFields = envelopeData.recipient.fields
@@ -306,12 +369,7 @@ export const EnvelopeSigningProvider = ({
         };
       });
 
-    return sortBy(
-      requiredFields,
-      [prop('envelopeItemOrder'), 'asc'],
-      [prop('page'), 'asc'],
-      [prop('positionY'), 'asc'],
-    );
+    return sortFieldsInReadingOrder(requiredFields, getEnvelopeItemOrder);
   }, [envelopeData.recipient.fields, recipientFieldVisibility]);
 
   /**
@@ -350,12 +408,7 @@ export const EnvelopeSigningProvider = ({
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    const sortedFields = sortBy(
-      allUnsignedFields,
-      [prop('envelopeItemOrder'), 'asc'],
-      [prop('page'), 'asc'],
-      [prop('positionY'), 'asc'],
-    );
+    const sortedFields = sortFieldsInReadingOrder(allUnsignedFields, getEnvelopeItemOrder);
 
     return sortedFields.filter((field) => {
       if (hasTypeFilter && navigationTypes.includes(field.type)) {
@@ -470,14 +523,194 @@ export const EnvelopeSigningProvider = ({
       return signedField;
     }
 
-    const { signedField } = await signEnvelopeField({
+    const response = await signEnvelopeField({
       token: envelopeData.recipient.token,
       fieldId,
       fieldValue,
       authOptions,
     });
 
-    return signedField;
+    applySignResponse(response);
+
+    return response.signedField;
+  };
+
+  const pendingSignaturesRef = useRef(new Map<number, TPendingSignature>());
+  const signatureVersionRef = useRef(0);
+
+  /**
+   * What the server last confirmed for each field an optimistic write has touched, so a rejected
+   * write can be undone. Only set while a write is unconfirmed.
+   */
+  const confirmedFieldValuesRef = useRef(new Map<number, TFieldWrite>());
+
+  /** Counts rolled-back writes, so a flush can tell whether one failed while it waited. */
+  const rejectedSignatureCountRef = useRef(0);
+
+  const findField = (fieldId: number) => {
+    const { recipient: currentRecipient, envelope: currentEnvelope } = envelopeDataRef.current;
+
+    return (
+      currentRecipient.fields.find((field) => field.id === fieldId) ??
+      currentEnvelope.recipients
+        .flatMap((envelopeRecipient) => envelopeRecipient.fields)
+        .find((field) => field.id === fieldId)
+    );
+  };
+
+  const signFieldOptimistic = async (
+    fieldId: number,
+    fieldValue: TSignEnvelopeFieldValue,
+  ): Promise<boolean> => {
+    const field = findField(fieldId);
+
+    if (!field) {
+      return false;
+    }
+
+    const ownerFields =
+      envelopeDataRef.current.envelope.recipients.find(
+        (envelopeRecipient) => envelopeRecipient.id === field.recipientId,
+      )?.fields ?? envelopeDataRef.current.recipient.fields;
+
+    let fieldWrite: TFieldWrite;
+
+    try {
+      fieldWrite = extractFieldInsertionValues({
+        fieldValue,
+        field,
+        documentMeta: envelope.documentMeta,
+      });
+    } catch (err) {
+      // Callers validate first, so this is a value the shared validators accept but the
+      // insertion rules do not. Treat it like a rejection from the server.
+      console.error(err);
+
+      return false;
+    }
+
+    const writtenFields = getFieldsWrittenBySign(ownerFields, field);
+
+    // Remember what the server has for each field before the first unconfirmed write to it.
+    for (const writtenField of writtenFields) {
+      if (!confirmedFieldValuesRef.current.has(writtenField.id)) {
+        confirmedFieldValuesRef.current.set(writtenField.id, {
+          customText: writtenField.customText,
+          inserted: writtenField.inserted,
+        });
+      }
+    }
+
+    patchFields(new Map(writtenFields.map((writtenField) => [writtenField.id, fieldWrite])));
+
+    // Direct templates are filled in locally and submitted in one go at the end.
+    if (isDirectTemplate) {
+      for (const writtenField of writtenFields) {
+        confirmedFieldValuesRef.current.delete(writtenField.id);
+      }
+
+      return true;
+    }
+
+    const pending = pendingSignaturesRef.current.get(fieldId) ?? {
+      version: 0,
+      queue: Promise.resolve(),
+    };
+
+    // Unique across fields, so a request left over from an earlier entry for this field can never
+    // mistake a later entry for its own.
+    signatureVersionRef.current += 1;
+
+    const version = signatureVersionRef.current;
+
+    pending.version = version;
+    pendingSignaturesRef.current.set(fieldId, pending);
+
+    const isLatest = () => pendingSignaturesRef.current.get(fieldId)?.version === version;
+
+    let isAccepted = true;
+
+    pending.queue = pending.queue.then(async () => {
+      // A newer value was written while this one waited its turn. Sending it would only add an
+      // audit log entry for a value the signer has already replaced.
+      if (!isLatest()) {
+        return;
+      }
+
+      try {
+        const response = await signEnvelopeField({
+          token: envelopeDataRef.current.recipient.token,
+          fieldId,
+          fieldValue,
+        });
+
+        if (isLatest()) {
+          applySignResponse(response);
+
+          for (const writtenField of writtenFields) {
+            confirmedFieldValuesRef.current.delete(writtenField.id);
+          }
+
+          return;
+        }
+
+        // A newer value is waiting to be sent. Until it is confirmed, this is what the server
+        // holds, and what a rejection of the newer value has to go back to.
+        for (const savedField of [response.signedField, ...response.linkedFields]) {
+          if (confirmedFieldValuesRef.current.has(savedField.id)) {
+            confirmedFieldValuesRef.current.set(savedField.id, {
+              customText: savedField.customText,
+              inserted: savedField.inserted,
+            });
+          }
+        }
+      } catch (err) {
+        console.error(err);
+
+        if (!isLatest()) {
+          return;
+        }
+
+        isAccepted = false;
+        rejectedSignatureCountRef.current += 1;
+
+        const rollback = new Map<number, TFieldWrite>();
+
+        for (const writtenField of writtenFields) {
+          const confirmed = confirmedFieldValuesRef.current.get(writtenField.id);
+
+          if (confirmed) {
+            rollback.set(writtenField.id, confirmed);
+            confirmedFieldValuesRef.current.delete(writtenField.id);
+          }
+        }
+
+        patchFields(rollback);
+      } finally {
+        if (isLatest()) {
+          pendingSignaturesRef.current.delete(fieldId);
+        }
+      }
+    });
+
+    await pending.queue;
+
+    return isAccepted;
+  };
+
+  const flushPendingSignatures = async () => {
+    const rejectedBefore = rejectedSignatureCountRef.current;
+
+    // Keep waiting until nothing is queued: a request can be added while an earlier one finishes.
+    while (pendingSignaturesRef.current.size > 0) {
+      const queues = Array.from(pendingSignaturesRef.current.values()).map(
+        async ({ queue }) => queue,
+      );
+
+      await Promise.all(queues);
+    }
+
+    return rejectedSignatureCountRef.current === rejectedBefore;
   };
 
   const handleDirectTemplateFieldInsertion = (
@@ -574,6 +807,8 @@ export const EnvelopeSigningProvider = ({
         selectedAssistantRecipientFields,
 
         signField,
+        signFieldOptimistic,
+        flushPendingSignatures,
       }}
     >
       {children}

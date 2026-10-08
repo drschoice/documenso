@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { flushSync } from 'react-dom';
 import { match } from 'ts-pattern';
 
 import { usePageRenderer } from '@documenso/lib/client-only/hooks/use-page-renderer';
@@ -18,18 +19,17 @@ import {
   type PageRenderData,
   useCurrentEnvelopeRender,
 } from '@documenso/lib/client-only/providers/envelope-render-provider';
-import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
-import { DIRECT_TEMPLATE_RECIPIENT_EMAIL } from '@documenso/lib/constants/direct-templates';
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
 import type { TEnvelope } from '@documenso/lib/types/envelope';
 import { ZFullFieldSchema } from '@documenso/lib/types/field';
-import { isFullNameField } from '@documenso/lib/types/field-meta';
+import { getFieldNamePart, isFullNameField } from '@documenso/lib/types/field-meta';
+import { getInlineEditKind } from '@documenso/lib/universal/field-inline-signing/inline-edit-kind';
+import { getInlineInitialText } from '@documenso/lib/universal/field-inline-signing/resolve-inline-commit';
 import { createSpinner } from '@documenso/lib/universal/field-renderer/field-generic-items';
 import { renderField } from '@documenso/lib/universal/field-renderer/render-field';
 import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { getClientSideFieldTranslations } from '@documenso/lib/utils/fields';
-import { extractInitials } from '@documenso/lib/utils/recipient-formatter';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
 import { EnvelopeRecipientFieldTooltip } from '@documenso/ui/components/document/envelope-recipient-field-tooltip';
 import { EnvelopeFieldToolTip } from '@documenso/ui/components/field/envelope-field-tooltip';
@@ -37,17 +37,35 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { handleCheckboxFieldClick } from '~/utils/field-signing/checkbox-field';
-import { handleDateFieldClick } from '~/utils/field-signing/date-field';
-import { handleDropdownFieldClick } from '~/utils/field-signing/dropdown-field';
 import { handleEmailFieldClick } from '~/utils/field-signing/email-field';
 import { handleInitialsFieldClick } from '~/utils/field-signing/initial-field';
 import { handleNameFieldClick } from '~/utils/field-signing/name-field';
-import { handleNumberFieldClick } from '~/utils/field-signing/number-field';
 import { handleSignatureFieldClick } from '~/utils/field-signing/signature-field';
-import { handleTextFieldClick } from '~/utils/field-signing/text-field';
 
 import { useRequiredDocumentSigningAuthContext } from '../document-signing/document-signing-auth-provider';
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
+import { EnvelopeSignerInlineCombEditor } from './envelope-signer-inline-comb-editor';
+import { EnvelopeSignerInlineDateEditor } from './envelope-signer-inline-date-editor';
+import { EnvelopeSignerInlineDropdownEditor } from './envelope-signer-inline-dropdown-editor';
+import { EnvelopeSignerInlineFieldEditor } from './envelope-signer-inline-field-editor';
+import {
+  type TOpenInlineFieldOptions,
+  useEnvelopeSigningInlineEdit,
+} from './envelope-signing-inline-edit-provider';
+import { useSigningIdentityValues } from './use-signing-identity-values';
+
+/**
+ * How far, in CSS pixels, the pointer may move between pressing and releasing on a field for it to
+ * still count as a click that opens the field for typing. Further than this is a drag or a scroll.
+ */
+const INLINE_OPEN_MAX_POINTER_TRAVEL = 8;
+
+/** The comb cell a click landed on, if it landed on one. */
+const getClickedCellIndex = (target: Konva.Node): number | undefined => {
+  const cellIndex = Number(target.getAttr('internalCellIndex'));
+
+  return Number.isNaN(cellIndex) ? undefined : cellIndex;
+};
 
 type GenericLocalField = TEnvelope['fields'][number] & {
   signature?: Pick<Signature, 'signatureImageAsBase64' | 'typedSignature'> | null;
@@ -57,7 +75,6 @@ type GenericLocalField = TEnvelope['fields'][number] & {
 export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderData }) => {
   const { t, i18n } = useLingui();
   const { currentEnvelopeItem, setRenderError } = useCurrentEnvelopeRender();
-  const { sessionData } = useOptionalSession();
 
   const { executeActionAuthProcedure } = useRequiredDocumentSigningAuthContext();
   const { toast } = useToast();
@@ -75,15 +92,32 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     setEmail,
     fullName,
     setFullName,
-    nameParts,
     signature,
     setSignature,
     selectedAssistantRecipientFields,
     selectedAssistantRecipient,
-    isDirectTemplate,
   } = useRequiredEnvelopeSigningContext();
 
   const { onFieldSigned, onFieldUnsigned } = useEmbedSigningContext() || {};
+
+  const {
+    activeField,
+    commitOptions,
+    openInlineField,
+    closeInlineField,
+    commitInlineField,
+    navigateInlineField,
+  } = useEnvelopeSigningInlineEdit();
+
+  const {
+    localEmail,
+    localFullName,
+    localRecipient,
+    placeholderEmail,
+    isNameLocked,
+    isEmailEditable,
+    getKnownValue,
+  } = useSigningIdentityValues();
 
   const { stage, pageLayer, konvaContainer, unscaledViewport } = usePageRenderer(
     ({ stage, pageLayer }) => createPageCanvas(stage, pageLayer),
@@ -160,6 +194,64 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       });
   }, [envelope.recipients, recipient.id, localPageFields, pageNumber, currentEnvelopeItem?.id]);
 
+  // Only the page holding the field being typed into redraws when it opens or closes.
+  const activeFieldIdOnPage =
+    activeField && localPageFields.some((field) => field.id === activeField.fieldId)
+      ? activeField.fieldId
+      : null;
+
+  /**
+   * Open a field for typing in place once the press that started on it is released.
+   *
+   * Opening on the press itself would lose the new editor straight away: the browser moves focus
+   * after the press, which blurs the editor. Konva's own click event does not work either. Saving
+   * the field that was open before redraws every field between press and release, so the release
+   * no longer lands on the shape that was pressed and Konva never fires the click. Listening on
+   * the window avoids depending on the shape at all.
+   *
+   * The editor is rendered and focused synchronously inside the release, which is what lets
+   * mobile browsers raise the keyboard.
+   */
+  const openInlineFieldOnRelease = (
+    event: KonvaEventObject<Event>,
+    fieldId: number,
+    options?: TOpenInlineFieldOptions,
+  ) => {
+    const pressEvent = event.evt;
+
+    if (!(pressEvent instanceof PointerEvent)) {
+      flushSync(() => openInlineField(fieldId, options));
+      return;
+    }
+
+    const { pointerId, clientX: startX, clientY: startY } = pressEvent;
+
+    const stopListening = () => {
+      window.removeEventListener('pointerup', handleRelease, true);
+      window.removeEventListener('pointercancel', stopListening, true);
+    };
+
+    const handleRelease = (releaseEvent: PointerEvent) => {
+      if (releaseEvent.pointerId !== pointerId) {
+        return;
+      }
+
+      stopListening();
+
+      const travel = Math.hypot(releaseEvent.clientX - startX, releaseEvent.clientY - startY);
+
+      if (travel > INLINE_OPEN_MAX_POINTER_TRAVEL) {
+        return;
+      }
+
+      flushSync(() => openInlineField(fieldId, options));
+    };
+
+    window.addEventListener('pointerup', handleRelease, true);
+    // The browser took the gesture over, e.g. to scroll the page.
+    window.addEventListener('pointercancel', stopListening, true);
+  };
+
   const unsafeRenderFieldOnLayer = (unparsedField: Field & { signature?: Signature | null }) => {
     if (!pageLayer.current) {
       console.error('Layer not loaded yet');
@@ -196,6 +288,14 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       signatureFontSize: envelope.documentMeta.signatureFontSize,
     });
 
+    // The editor typed into in place draws the value itself. Rendering re-creates the text node,
+    // so it is hidden again on every render rather than once.
+    if (activeFieldIdOnPage === fieldToRender.id) {
+      fieldGroup.find('.field-text').forEach((node) => node.visible(false));
+      fieldGroup.find('.field-cell-text').forEach((node) => node.visible(false));
+      fieldGroup.find('.dropdown-selected-text').forEach((node) => node.visible(false));
+    }
+
     const handleFieldGroupClick = (e: KonvaEventObject<Event>) => {
       const currentTarget = e.currentTarget as Konva.Group;
       const target = e.target as Konva.Shape;
@@ -207,24 +307,6 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
       if (!foundField || foundLoadingGroup || foundField.fieldMeta?.readOnly) {
         return;
-      }
-
-      let localEmail: string | null = email;
-      let localFullName: string | null = fullName;
-      let placeholderEmail: string | null = null;
-
-      if (recipient.role === RecipientRole.ASSISTANT) {
-        localEmail = selectedAssistantRecipient?.email || null;
-        localFullName = selectedAssistantRecipient?.name || null;
-      }
-
-      // Allows us let the user set a different email than their current logged in email.
-      if (isDirectTemplate) {
-        placeholderEmail = sessionData?.user?.email || email || recipient.email;
-
-        if (!placeholderEmail || placeholderEmail === DIRECT_TEMPLATE_RECIPIENT_EMAIL) {
-          placeholderEmail = null;
-        }
       }
 
       // Free-layout radio/checkbox options render as their own subgroups, so
@@ -295,44 +377,39 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * NUMBER FIELD.
          */
         .with({ type: FieldType.NUMBER }, (field) => {
-          handleNumberFieldClick({ field, number: null })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
-            })
-            .finally(() => {
-              loadingSpinnerGroup.destroy();
-            });
+          openInlineFieldOnRelease(e, field.id, { caretIndex: getClickedCellIndex(target) });
         })
         /**
          * TEXT FIELD.
          */
         .with({ type: FieldType.TEXT }, (field) => {
-          handleTextFieldClick({ field, text: null })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
-            })
-            .finally(() => {
-              loadingSpinnerGroup.destroy();
-            });
+          openInlineFieldOnRelease(e, field.id, { caretIndex: getClickedCellIndex(target) });
         })
         /**
          * EMAIL FIELD.
          */
         .with({ type: FieldType.EMAIL }, (field) => {
-          handleEmailFieldClick({ field, email: localEmail, placeholderEmail })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
+          // A recipient's email is fixed, so a filled field only toggles back off. Only a direct
+          // template signer chooses their own email, and can change what they typed.
+          if (field.inserted ? isEmailEditable : !localEmail) {
+            openInlineFieldOnRelease(e, field.id, {
+              initialValue: field.inserted ? undefined : (placeholderEmail ?? ''),
+            });
 
-              if (payload?.value) {
+            return;
+          }
+
+          const payload = handleEmailFieldClick({ field, email: localEmail });
+
+          if (!payload) {
+            return;
+          }
+
+          fieldGroup.add(loadingSpinnerGroup);
+
+          void signField(field.id, payload)
+            .then(() => {
+              if (payload.value) {
                 setEmail(payload.value);
               }
             })
@@ -344,41 +421,58 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * INITIALS FIELD.
          */
         .with({ type: FieldType.INITIALS }, (field) => {
-          const initials = localFullName ? extractInitials(localFullName) : null;
+          const initials = getKnownValue(field) || null;
 
-          handleInitialsFieldClick({ field, initials })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
-            })
-            .finally(() => {
-              loadingSpinnerGroup.destroy();
-            });
+          // Known initials fill the field in one click. Typed ones, or a filled field, are edited
+          // in place - unless an embedding host has locked the signer's name.
+          if (field.inserted ? !isNameLocked : !initials) {
+            openInlineFieldOnRelease(e, field.id);
+            return;
+          }
+
+          const payload = handleInitialsFieldClick({ field, initials });
+
+          if (!payload) {
+            return;
+          }
+
+          fieldGroup.add(loadingSpinnerGroup);
+
+          void signField(field.id, payload).finally(() => {
+            loadingSpinnerGroup.destroy();
+          });
         })
         /**
          * NAME FIELD.
          */
         .with({ type: FieldType.NAME }, (field) => {
-          // In assistant mode the name belongs to the recipient being filled for, so use their
-          // stored parts. Otherwise use the parts the signer is editing in the sidebar.
-          const localRecipient =
-            recipient.role === RecipientRole.ASSISTANT
-              ? selectedAssistantRecipient
-              : { ...recipient, ...nameParts, name: fullName };
+          const knownName = getKnownValue(field);
 
-          handleNameFieldClick({ field, name: localFullName, recipient: localRecipient })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
+          // A known name fills the field in one click. A name the page does not know yet, or a
+          // filled field, is typed in place - unless an embedding host has locked the name.
+          if (field.inserted ? !isNameLocked : !knownName) {
+            openInlineFieldOnRelease(e, field.id);
+            return;
+          }
 
+          const payload = handleNameFieldClick({
+            field,
+            name: localFullName,
+            recipient: localRecipient,
+          });
+
+          if (!payload) {
+            return;
+          }
+
+          fieldGroup.add(loadingSpinnerGroup);
+
+          void signField(field.id, payload)
+            .then(() => {
               // Only a field holding the whole name may update the signer's full name. A field
               // bound to a single part would otherwise reduce it to just that part, which also
               // drives the initials and typed signature.
-              if (payload?.value && isFullNameField(field.fieldMeta)) {
+              if (payload.value && isFullNameField(field.fieldMeta)) {
                 setFullName(payload.value);
               }
             })
@@ -390,35 +484,13 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
          * DROPDOWN FIELD.
          */
         .with({ type: FieldType.DROPDOWN }, (field) => {
-          handleDropdownFieldClick({ field, text: null })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
-
-              loadingSpinnerGroup.destroy();
-            })
-            .finally(() => {
-              loadingSpinnerGroup.destroy();
-            });
+          openInlineFieldOnRelease(e, field.id);
         })
         /**
          * DATE FIELD.
          */
         .with({ type: FieldType.DATE }, (field) => {
-          handleDateFieldClick({ field })
-            .then(async (payload) => {
-              if (payload) {
-                fieldGroup.add(loadingSpinnerGroup);
-                await signField(field.id, payload);
-              }
-
-              loadingSpinnerGroup.destroy();
-            })
-            .catch(() => {
-              loadingSpinnerGroup.destroy();
-            });
+          openInlineFieldOnRelease(e, field.id);
         })
         /**
          * SIGNATURE FIELD.
@@ -606,6 +678,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     fullName,
     signature,
     email,
+    activeFieldIdOnPage,
   ]);
 
   /**
@@ -624,6 +697,28 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     pageLayer.current.batchDraw();
   }, [selectedAssistantRecipient]);
 
+  const activeLocalField = useMemo(() => {
+    const field = activeField
+      ? localPageFields.find((localField) => localField.id === activeField.fieldId)
+      : undefined;
+
+    return field ? ZFullFieldSchema.parse(field) : null;
+  }, [activeField, localPageFields]);
+
+  const getInlineInitialValue = (field: NonNullable<typeof activeLocalField>) =>
+    activeField?.initialValue ?? getInlineInitialText(field, commitOptions);
+
+  const getInlineFieldPlaceholder = (field: NonNullable<typeof activeLocalField>) => {
+    const translations = getClientSideFieldTranslations(i18n);
+
+    const typeName =
+      field.type === FieldType.NAME
+        ? translations.namePart[getFieldNamePart(field.fieldMeta)]
+        : translations[field.type];
+
+    return field.fieldMeta?.placeholder || field.fieldMeta?.label || typeName;
+  };
+
   if (!currentEnvelopeItem) {
     return null;
   }
@@ -633,7 +728,8 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
       {showPendingFieldTooltip &&
         recipientFieldsRemainingForNavigation.length > 0 &&
         recipientFieldsRemainingForNavigation[0]?.envelopeItemId === currentEnvelopeItem?.id &&
-        recipientFieldsRemainingForNavigation[0]?.page === pageNumber && (
+        recipientFieldsRemainingForNavigation[0]?.page === pageNumber &&
+        recipientFieldsRemainingForNavigation[0]?.id !== activeField?.fieldId && (
           <EnvelopeFieldToolTip
             key={recipientFieldsRemainingForNavigation[0].id}
             field={recipientFieldsRemainingForNavigation[0]}
@@ -651,6 +747,67 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           showRecipientTooltip={true}
         />
       ))}
+
+      {activeLocalField && getInlineEditKind(activeLocalField) === 'comb' && (
+        <EnvelopeSignerInlineCombEditor
+          key={activeLocalField.id}
+          field={activeLocalField}
+          pageWidth={unscaledViewport.width}
+          pageHeight={unscaledViewport.height}
+          scale={scale}
+          initialValue={getInlineInitialValue(activeLocalField)}
+          initialCaret={activeField?.caretIndex}
+          label={getInlineFieldPlaceholder(activeLocalField)}
+          onCommit={(draft) => commitInlineField(activeLocalField.id, draft)}
+          onClose={() => closeInlineField(activeLocalField.id)}
+          onNavigate={(direction) => navigateInlineField(activeLocalField.id, direction)}
+        />
+      )}
+
+      {activeLocalField && getInlineEditKind(activeLocalField) === 'text' && (
+        <EnvelopeSignerInlineFieldEditor
+          key={activeLocalField.id}
+          field={activeLocalField}
+          pageWidth={unscaledViewport.width}
+          pageHeight={unscaledViewport.height}
+          scale={scale}
+          initialValue={getInlineInitialValue(activeLocalField)}
+          placeholder={getInlineFieldPlaceholder(activeLocalField)}
+          onCommit={(draft) => commitInlineField(activeLocalField.id, draft)}
+          onClose={() => closeInlineField(activeLocalField.id)}
+          onNavigate={(direction) => navigateInlineField(activeLocalField.id, direction)}
+        />
+      )}
+
+      {activeLocalField && getInlineEditKind(activeLocalField) === 'date' && (
+        <EnvelopeSignerInlineDateEditor
+          key={activeLocalField.id}
+          field={activeLocalField}
+          pageWidth={unscaledViewport.width}
+          pageHeight={unscaledViewport.height}
+          scale={scale}
+          initialValue={getInlineInitialValue(activeLocalField)}
+          label={getInlineFieldPlaceholder(activeLocalField)}
+          commitOptions={commitOptions}
+          onCommit={(draft) => commitInlineField(activeLocalField.id, draft)}
+          onClose={() => closeInlineField(activeLocalField.id)}
+          onNavigate={(direction) => navigateInlineField(activeLocalField.id, direction)}
+        />
+      )}
+
+      {activeLocalField && getInlineEditKind(activeLocalField) === 'dropdown' && (
+        <EnvelopeSignerInlineDropdownEditor
+          key={activeLocalField.id}
+          field={activeLocalField}
+          pageWidth={unscaledViewport.width}
+          pageHeight={unscaledViewport.height}
+          scale={scale}
+          label={getInlineFieldPlaceholder(activeLocalField)}
+          onCommit={(value) => commitInlineField(activeLocalField.id, value)}
+          onClose={() => closeInlineField(activeLocalField.id)}
+          onNavigate={(direction) => navigateInlineField(activeLocalField.id, direction)}
+        />
+      )}
 
       {/* The element Konva will inject it's canvas into. */}
       <div className="konva-container absolute inset-0 z-10 w-full" ref={konvaContainer}></div>

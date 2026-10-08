@@ -85,11 +85,6 @@ msgstr "{0, plural, one {Zaznaczono {1} z # wiersza.} few {Zaznaczono {2} z # wi
 msgid "{0, plural, one {# character over the limit} other {# characters over the limit}}"
 msgstr "{0, plural, one {Przekroczono # znak} few {Przekroczono # znaki} many {Przekroczono # znaków} other {Przekroczono # znaków}}"
 
-#. placeholder {0}: characterLimit - (field.value?.length ?? 0)
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "{0, plural, one {# character remaining} other {# characters remaining}}"
-msgstr "{0, plural, one {Pozostał # znak} few {Pozostały # znaki} many {Pozostało # znaków} other {Pozostało # znaków}}"
-
 #. placeholder {0}: folder._count.documents
 #: apps/remix/app/components/general/folder/folder-card.tsx
 msgid "{0, plural, one {# document} other {# documents}}"
@@ -399,6 +394,10 @@ msgstr "Użytkownik {recipientReference} podpisał dokument „{documentName}”
 #: packages/email/templates/document-recipient-signed.tsx
 msgid "{recipientReference} has signed {documentName}"
 msgstr "Użytkownik {recipientReference} podpisał dokument „{documentName}”"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-field-editor.tsx
+msgid "{remainingCharacters} characters remaining"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/forms/public-profile-form.tsx
@@ -910,6 +909,10 @@ msgstr "Sprawdź i {recipientActionVerb} dokument, który został utworzony prze
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "A draft document will be created"
 msgstr "Zostanie utworzony szkic dokumentu"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-complete-dialog.tsx
+msgid "A field could not be saved"
+msgstr ""
 
 #: packages/lib/utils/document-audit-logs.ts
 msgctxt "Audit log format"
@@ -1856,6 +1859,7 @@ msgid "An error occurred while signing the document."
 msgstr "Wystąpił błąd podczas podpisywania dokumentu."
 
 #: apps/remix/app/components/general/envelope-signing/envelope-signer-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-inline-edit-provider.tsx
 msgid "An error occurred while signing the field."
 msgstr "Wystąpił błąd podczas podpisywania pola."
 
@@ -2052,10 +2056,6 @@ msgctxt "Recipient role progressive verb"
 msgid "Approving"
 msgstr "Zatwierdza"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "April"
-msgstr ""
-
 #: apps/remix/app/components/dialogs/assistant-confirmation-dialog.tsx
 msgid "Are you sure you want to complete the document? This action cannot be undone. Please ensure that you have completed prefilling all relevant fields before proceeding."
 msgstr "Czy na pewno chcesz zakończyć dokument? Ta akcja jest nieodwracalna. Upewnij się, że wypełniono wszystkie pola."
@@ -2213,10 +2213,6 @@ msgstr "Szczegóły dziennika logu"
 #: apps/remix/app/routes/_authenticated+/admin+/documents.$id.tsx
 msgid "Audit Logs"
 msgstr "Dziennik logów"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "August"
-msgstr ""
 
 #: apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx
 #: packages/lib/server-only/pdf/render-certificate.ts
@@ -2498,13 +2494,7 @@ msgstr ""
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/dialogs/session-logout-all-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-checkbox-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-signature-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/dialogs/team-delete-dialog.tsx
@@ -2726,6 +2716,7 @@ msgstr ""
 msgid "Clear filters"
 msgstr "Wyczyść filtry"
 
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 #: apps/remix/app/components/tables/envelopes-table-bulk-action-bar.tsx
 msgid "Clear selection"
 msgstr "Wyczyść zaznaczenie"
@@ -2979,7 +2970,6 @@ msgstr "Skonfiguruj role w zespole dla każdego użytkownika"
 
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-checkbox-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
 #: apps/remix/app/components/dialogs/template-direct-link-dialog.tsx
 msgid "Confirm"
 msgstr "Potwierdź"
@@ -3550,10 +3540,6 @@ msgstr "Ustawienia daty"
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
 msgid "David is the Employee, Lucas is the Manager"
 msgstr "David jest pracownikiem. Lucas jest managerem."
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "December"
-msgstr ""
 
 #: apps/remix/app/components/general/organisations/organisation-invitations.tsx
 #: apps/remix/app/routes/_unauthenticated+/organisation.sso.confirmation.$token.tsx
@@ -4825,10 +4811,6 @@ msgstr "Domeny"
 msgid "Email domains synced"
 msgstr "Domeny zostały zsynchronizowane"
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Email is required"
-msgstr "Adres e-mail jest wymagany"
-
 #: packages/ui/primitives/template-flow/add-template-settings.tsx
 msgid "Email Options"
 msgstr "Opcje adresu e-mail"
@@ -5042,14 +5024,6 @@ msgstr "Angielski"
 msgid "Ensure that you are using the embedding token, not the API token"
 msgstr "Upewnij się, że używasz tokena osadzania, a nie tokenu API."
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Enter"
-msgstr "Wpisz"
-
 #: apps/remix/app/components/dialogs/folder-create-dialog.tsx
 msgid "Enter a name for your new folder. Folders help you organise your items."
 msgstr "Wpisz nazwę nowego folderu. Foldery pomagają uporządkować elementy."
@@ -5062,37 +5036,9 @@ msgstr ""
 msgid "Enter claim name"
 msgstr "Wpisz nazwę"
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Enter Email"
-msgstr "Wpisz adres e-mail"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter First Name"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Enter the date as {format}."
 msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Enter Initials"
-msgstr "Wpisz inicjały"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Last Name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Middle Name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Name"
-msgstr "Wpisz nazwę"
-
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Enter Number"
-msgstr "Wpisz liczbę"
-
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Enter Text"
-msgstr "Wpisz tekst"
 
 #: apps/remix/app/components/dialogs/organisation-email-domain-create-dialog.tsx
 msgid "Enter the domain you want to use for sending emails (without http:// or www)"
@@ -5134,16 +5080,11 @@ msgstr "Wpisz adres e-mail, aby otrzymać zakończony dokument."
 msgid "Enter your name"
 msgstr "Wpisz swoją nazwę"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Enter your number here"
-msgstr "Wpisz liczbę"
-
 #: apps/remix/app/components/general/document-signing/document-signing-auth-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-auth-password.tsx
 msgid "Enter your password"
 msgstr "Wpisz hasło"
 
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-text-field.tsx
 msgid "Enter your text here"
 msgstr "Wpisz tekst"
@@ -5257,6 +5198,7 @@ msgstr "Koperta została zaktualizowana"
 #: apps/remix/app/components/general/document/document-edit-form.tsx
 #: apps/remix/app/components/general/document/document-upload-button-legacy.tsx
 #: apps/remix/app/components/general/envelope-signing/envelope-signer-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-inline-edit-provider.tsx
 #: apps/remix/app/components/general/envelope/envelope-drop-zone-wrapper.tsx
 #: apps/remix/app/components/general/envelope/envelope-upload-button.tsx
 #: apps/remix/app/components/general/pdf-viewer/pdf-viewer.tsx
@@ -5524,10 +5466,6 @@ msgstr "Flagi funkcji"
 #: apps/remix/app/components/general/admin-license-card.tsx
 msgid "Features"
 msgstr "Funkcje"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "February"
-msgstr ""
 
 #: packages/ui/primitives/document-flow/field-items-advanced-settings/text-field.tsx
 msgid "Field character limit"
@@ -6194,7 +6132,6 @@ msgid "Inherited subscription claim"
 msgstr "Odziedziczenie subskrypcji"
 
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-initials-field.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-drag-drop.tsx
 #: packages/lib/utils/fields.ts
@@ -6203,10 +6140,6 @@ msgstr "Odziedziczenie subskrypcji"
 #: packages/ui/primitives/template-flow/add-template-fields.tsx
 msgid "Initials"
 msgstr "Inicjały"
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Initials are required"
-msgstr "Inicjały są wymagane"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Initials Settings"
@@ -6377,10 +6310,6 @@ msgstr "Włoski"
 msgid "Jane Doe"
 msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "January"
-msgstr ""
-
 #: packages/lib/constants/i18n.ts
 msgid "Japanese"
 msgstr "Japoński"
@@ -6403,14 +6332,6 @@ msgstr "Dołączył"
 #: apps/remix/app/routes/_authenticated+/dashboard.tsx
 msgid "Joined {0}"
 msgstr "Dołączył {0}"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "July"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "June"
-msgstr ""
 
 #: apps/remix/app/routes/_authenticated+/admin+/teams.$id.tsx
 msgid "Key identifiers and relationships for this team."
@@ -6874,10 +6795,6 @@ msgstr "Managerowie i wyżej"
 msgid "Mapping fields to recipients"
 msgstr "Mapowanie pól dla odbiorców"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "March"
-msgstr ""
-
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Mark as viewed"
 msgstr "Oznacz jako wyświetlone"
@@ -6912,10 +6829,6 @@ msgstr "Maksymalny rozmiar pliku to 4 MB. Możesz przesłać maksymalnie 100 wie
 #: apps/remix/app/routes/_authenticated+/admin+/organisations.$id.tsx
 msgid "Maximum number of uploaded files per envelope allowed"
 msgstr "Maksymalna dozwolona liczba przesłanych plików na kopertę"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "May"
-msgstr ""
 
 #: apps/remix/app/components/dialogs/admin-organisation-member-update-dialog.tsx
 #: apps/remix/app/components/dialogs/admin-organisation-member-update-dialog.tsx
@@ -7010,6 +6923,10 @@ msgstr "Edytuj odbiorców"
 #: apps/remix/app/components/dialogs/claim-update-dialog.tsx
 msgid "Modify the details of the subscription claim."
 msgstr "Edytuj szczegóły subskrypcji."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Month"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/general/billing-plans.tsx
@@ -7125,7 +7042,6 @@ msgstr "Nie dotyczy"
 msgid "Name"
 msgstr "Nazwa"
 
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.groups.$id.tsx
 msgid "Name is required"
 msgstr "Nazwa jest wymagana"
@@ -7211,6 +7127,10 @@ msgstr ""
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Next Field"
 msgstr "Następne pole"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Next month"
+msgstr ""
 
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Next Recipient Email"
@@ -7362,6 +7282,7 @@ msgid "No results found"
 msgstr "Nie znaleziono wyników"
 
 #: apps/remix/app/components/general/app-command-menu.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 msgid "No results found."
 msgstr "Nie znaleziono wyników."
 
@@ -7456,10 +7377,6 @@ msgstr "Nieobsługiwane"
 msgid "Nothing to do"
 msgstr "Nie masz nic do zrobienia"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "November"
-msgstr ""
-
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-number-field.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-drag-drop.tsx
@@ -7470,18 +7387,22 @@ msgstr ""
 msgid "Number"
 msgstr "Liczba"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Number cannot exceed {combCellCount} characters"
-msgstr ""
-
 #: apps/remix/app/components/forms/editor/editor-field-number-form.tsx
 #: packages/ui/primitives/document-flow/field-items-advanced-settings/number-field.tsx
 msgid "Number format"
 msgstr "Format liczby"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Number needs to be formatted as {numberFormat}"
-msgstr "Liczba musi być w formacie {numberFormat}"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number must be at least {min}."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number must be at most {max}."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number needs to be formatted as {format}."
+msgstr ""
 
 #: apps/remix/app/components/forms/editor/editor-field-generic-field-forms.tsx
 msgid "Number of cells"
@@ -7500,10 +7421,6 @@ msgstr "Liczba dozwolonych zespołów. 0 = Bez ograniczeń"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Number Settings"
 msgstr "Ustawienia liczby"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "October"
-msgstr ""
 
 #: apps/remix/app/components/general/admin-global-settings-section.tsx
 msgid "Off"
@@ -7550,6 +7467,10 @@ msgstr "Udostępnij link w dowolnym miejscu. Osoba, która otworzy link, będzie
 #: apps/remix/app/components/embed/multisign/multi-sign-document-list.tsx
 msgid "One of the documents in the current bundle has a signing role that is not compatible with the current signing experience."
 msgstr "Jeden z dokumentów ma niezgodną rolę w procesie podpisywania."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-complete-dialog.tsx
+msgid "One of the values you entered was not saved. Please check your fields and try again."
+msgstr ""
 
 #: apps/remix/app/components/forms/document-preferences-form.tsx
 msgid "Only admins can access and view the document"
@@ -7603,10 +7524,6 @@ msgstr ""
 #: apps/remix/app/components/forms/editor/editor-field-dropdown-form.tsx
 msgid "Option value cannot be empty"
 msgstr "Wartość opcji nie może być pusta"
-
-#: apps/remix/app/components/dialogs/sign-field-dropdown-dialog.tsx
-msgid "Options"
-msgstr "Opcje"
 
 #: apps/remix/app/components/dialogs/template-direct-link-dialog.tsx
 #: apps/remix/app/components/forms/signup.tsx
@@ -8081,6 +7998,10 @@ msgstr "Sprawdź instrukcje na stronie."
 msgid "Please check your email for updates."
 msgstr "Sprawdź pocztę e-mail."
 
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please choose one of the options."
+msgstr ""
+
 #: apps/remix/app/routes/_unauthenticated+/reset-password.$token.tsx
 msgid "Please choose your new password"
 msgstr "Wybierz nowe hasło"
@@ -8117,9 +8038,9 @@ msgstr "Skontaktuj się z właścicielem dokumentu, aby uzyskać pomoc."
 msgid "Please enter a meaningful name for your token. This will help you identify it later."
 msgstr "Wpisz nazwę tokena. Pomoże to później w jego identyfikacji."
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Please enter a number"
-msgstr "Wpisz liczbę"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please enter a valid email address."
+msgstr ""
 
 #: apps/remix/app/components/forms/profile.tsx
 #: apps/remix/app/components/forms/signup.tsx
@@ -8127,36 +8048,8 @@ msgstr "Wpisz liczbę"
 msgid "Please enter a valid name."
 msgstr "Wpisz prawidłową nazwę."
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Please enter a valid number"
-msgstr "Wpisz prawidłową liczbę"
-
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Please enter a value"
-msgstr "Wpisz wartość"
-
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Please enter your email address"
-msgstr "Wpisz adres e-mail"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your first name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your full name"
-msgstr "Wpisz nazwę"
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Please enter your initials"
-msgstr "Wpisz inicjały"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your last name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your middle name"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please enter a valid number."
 msgstr ""
 
 #: apps/remix/app/components/general/document-signing/document-signing-mobile-widget.tsx
@@ -8233,10 +8126,6 @@ msgstr "Sprawdź dokument przed zatwierdzeniem."
 #: apps/remix/app/components/general/document-signing/document-signing-page-view-v1.tsx
 msgid "Please review the document before signing."
 msgstr "Sprawdź dokument przed podpisaniem."
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "Please select a date for this field."
-msgstr ""
 
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Please select a PDF file"
@@ -8346,6 +8235,10 @@ msgstr "Podgląd dokumentu przed wysłaniem"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview what the signed document will look like with placeholder data"
 msgstr "Podgląd podpisanego dokumentu z domyślnymi opcjami"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Previous month"
+msgstr ""
 
 #: apps/remix/app/components/general/template/template-type.tsx
 #: apps/remix/app/components/tables/templates-table.tsx
@@ -9280,7 +9173,7 @@ msgstr "Zaznacz wszystko"
 msgid "Select an event type"
 msgstr "Wybierz rodzaj zdarzenia"
 
-#: apps/remix/app/components/dialogs/sign-field-dropdown-dialog.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 #: packages/ui/primitives/combobox.tsx
 msgid "Select an option"
 msgstr "Wybierz opcję"
@@ -9306,10 +9199,6 @@ msgstr ""
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
 msgid "Select authentication methods"
 msgstr "Wybierz metody uwierzytelniania"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "Select Date"
-msgstr ""
 
 #: apps/remix/app/components/forms/editor/editor-field-dropdown-form.tsx
 #: packages/ui/primitives/document-flow/field-items-advanced-settings/dropdown-field.tsx
@@ -9537,10 +9426,6 @@ msgstr "Wysyłanie..."
 #: packages/lib/server-only/pdf/render-certificate.ts
 msgid "Sent"
 msgstr "Wysłano"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "September"
-msgstr ""
 
 #: apps/remix/app/routes/_authenticated+/settings+/security.sessions.tsx
 msgid "Session revoked"
@@ -10658,17 +10543,9 @@ msgstr "Tekst"
 msgid "Text Align"
 msgstr "Wyrównanie tekstu"
 
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Text cannot exceed {characterLimit} characters"
-msgstr ""
-
 #: apps/remix/app/routes/_authenticated+/admin+/site-settings.tsx
 msgid "Text Color"
 msgstr "Kolor tekstu"
-
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Text is required"
-msgstr "Tekst jest wymagany"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Text Settings"
@@ -11370,6 +11247,10 @@ msgstr "Zaproszenie jest nieprawidłowe lub wygasło. Skontaktuj się ze swoim z
 #: apps/remix/app/components/forms/team-update-form.tsx
 msgid "This URL is already in use."
 msgstr "Adres URL jest już zajęty."
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "This value cannot be saved."
+msgstr ""
 
 #: packages/ui/components/document/document-email-checkboxes.tsx
 msgid "This will be sent to all recipients if a pending document has been deleted."
@@ -12191,6 +12072,10 @@ msgstr "Adres URL"
 #: apps/remix/app/routes/_authenticated+/t.$teamUrl+/templates.$id._index.tsx
 msgid "Use"
 msgstr "Użyj"
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Use {limit} characters or fewer."
+msgstr ""
 
 #: apps/remix/app/components/forms/2fa/disable-authenticator-app-dialog.tsx
 #: apps/remix/app/components/forms/signin.tsx
@@ -13050,6 +12935,10 @@ msgstr "Wycofanie zgody"
 #: apps/remix/app/components/forms/public-profile-form.tsx
 msgid "Write a description to display on your public profile"
 msgstr "Wpisz opis, który będzie wyświetlany w profilu publicznym"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Year"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/general/billing-plans.tsx
@@ -14018,6 +13907,10 @@ msgstr "Twój adres e-mail jest używany przez zespół <0>{0}</0> ({1})."
 #: apps/remix/app/routes/_authenticated+/t.$teamUrl+/settings.email.tsx
 msgid "Your email preferences have been updated"
 msgstr "Ustawienia adresu e-mail zostały zaktualizowane"
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-editor-session.ts
+msgid "Your entry was not saved"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/envelope-distribute-dialog.tsx
 msgid "Your envelope has been distributed successfully."
