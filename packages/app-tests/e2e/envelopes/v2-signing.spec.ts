@@ -10,6 +10,9 @@ import {
   clickV2SigningRadioOption,
   completeV2SigningViaTrpc,
   expectEnvelopeCompleted,
+  getV2InlineFieldEditor,
+  getV2SigningModalDialogs,
+  openV2InlineFieldEditor,
   openV2SigningPage,
   seedV2PendingEnvelope,
   signV2FieldViaTrpc,
@@ -288,13 +291,13 @@ test.describe('copy-and-link fields on the v2 signer', () => {
   });
 });
 
-test.describe('the date field dialog on the v2 signer', () => {
+test.describe('the date field on the v2 signer', () => {
   /**
-   * `21551a2ff` replaced the auto-inserted DATE field with a calendar dialog. Every
-   * pre-existing DATE test drives the v1 renderer, which still auto-inserts, so the
-   * dialog has never been opened by a test.
+   * `21551a2ff` replaced the auto-inserted DATE field with a calendar dialog, and #42 replaced the
+   * dialog with a date typed over the field and a calendar under it. Every pre-existing DATE test
+   * drives the v1 renderer, which still auto-inserts.
    */
-  test('clicking a date field opens the picker and persists the chosen day', async ({ page }) => {
+  test('a date typed over the field, or picked from its calendar, is signed', async ({ page }) => {
     const { user, team } = await seedUser();
 
     const seeded = await seedV2PendingEnvelope({
@@ -311,41 +314,67 @@ test.describe('the date field dialog on the v2 signer', () => {
           height: 10,
           fieldMeta: { type: 'date', label: 'Date of signature' },
         },
+        {
+          type: FieldType.DATE,
+          positionY: 40,
+          width: 30,
+          height: 10,
+          fieldMeta: { type: 'date', label: 'Date of birth' },
+        },
       ],
     });
 
     const [recipient] = seeded.recipients;
-    const [dateField] = seeded.fields;
+    const [typedField, pickedField] = seeded.fields;
 
     await openV2SigningPage(page, recipient.token);
-    await clickV2SigningField(page, dateField.id);
 
-    // The dialog titles itself with the field's label rather than the generic
-    // "Select Date" when the author set one.
-    await expect(page.getByRole('dialog').getByText('Date of signature')).toBeVisible();
+    // The date is typed in the order the document prints dates in, and the separators are put
+    // in for the signer.
+    const typedEditor = await openV2InlineFieldEditor(page, typedField.id);
 
-    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(typedEditor).toHaveAttribute('placeholder', 'YYYY-MM-DD');
+    await expect(getV2SigningModalDialogs(page)).toHaveCount(0);
 
-    // The dialog opens on today, so confirming without touching the calendar signs
-    // today. `DateTime.local()` reads the same clock and zone as the browser.
-    const today = DateTime.local().toFormat('yyyy-MM-dd');
+    await typedEditor.pressSequentially('19570314');
+    await expect(typedEditor).toHaveValue('1957-03-14');
+    await typedEditor.press('Enter');
 
     await expect(async () => {
-      const persisted = await prisma.field.findFirstOrThrow({ where: { id: dateField.id } });
+      const persisted = await prisma.field.findFirstOrThrow({ where: { id: typedField.id } });
 
       expect(persisted.inserted).toBe(true);
-      expect(persisted.customText).toBe(today);
+      expect(persisted.customText).toBe('1957-03-14');
+    }).toPass({ timeout: 15_000 });
+
+    // Nothing is filled in until the signer picks a day; the calendar opens on this month.
+    await openV2InlineFieldEditor(page, pickedField.id);
+
+    const calendar = page.getByTestId('signing-inline-date-calendar');
+
+    await expect(calendar).toBeVisible();
+    await calendar.getByRole('gridcell', { name: '15', exact: true }).first().click();
+
+    const fifteenth = DateTime.local().set({ day: 15 }).toFormat('yyyy-MM-dd');
+
+    await expect(async () => {
+      const persisted = await prisma.field.findFirstOrThrow({ where: { id: pickedField.id } });
+
+      expect(persisted.inserted).toBe(true);
+      expect(persisted.customText).toBe(fifteenth);
     }).toPass({ timeout: 15_000 });
   });
 
-  test('cancelling the picker leaves the field unsigned', async ({ page }) => {
+  test('an unfinished date says how to type it, and Escape leaves the field unsigned', async ({
+    page,
+  }) => {
     const { user, team } = await seedUser();
 
     const seeded = await seedV2PendingEnvelope({
       ownerUserId: user.id,
       teamId: team.id,
       recipients: [{ email: `v2-date-cancel-${user.id}@example.com`, name: 'V2 Signer' }],
-      documentMeta: { dateFormat: 'yyyy-MM-dd', timezone: 'Etc/UTC' },
+      documentMeta: { dateFormat: 'MM/dd/yyyy', timezone: 'Etc/UTC' },
       fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date' } }],
     });
 
@@ -353,13 +382,18 @@ test.describe('the date field dialog on the v2 signer', () => {
     const [dateField] = seeded.fields;
 
     await openV2SigningPage(page, recipient.token);
-    await clickV2SigningField(page, dateField.id);
 
-    // No label was set, so the dialog falls back to its generic title.
-    await expect(page.getByRole('dialog').getByText('Select Date')).toBeVisible();
+    const editor = await openV2InlineFieldEditor(page, dateField.id);
 
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await editor.pressSequentially('0314');
+    await editor.press('Enter');
+
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Enter the date as MM/DD/YYYY.' }),
+    ).toBeVisible();
+
+    await editor.press('Escape');
+    await expect(getV2InlineFieldEditor(page)).toHaveCount(0);
 
     const persisted = await prisma.field.findFirstOrThrow({ where: { id: dateField.id } });
 
@@ -614,9 +648,9 @@ test.describe('name parts on the v2 signer', () => {
    * to one of them via `fieldMeta.namePart`. The recipient-side columns are covered
    * by `envelope-recipients.spec.ts`; what happens at signing time is not.
    *
-   * Clicking a bound NAME field signs it outright - `handleNameFieldClick` only
-   * falls back to a dialog when the part resolves to nothing - so this also pins
-   * down that a part-bound field never opens one.
+   * Clicking a bound NAME field signs it outright - only a part that resolves to
+   * nothing is opened for typing in place - so this also pins down that a
+   * part-bound field with a known part opens nothing.
    */
   test('each part-bound name field signs with only its own part', async ({ page }) => {
     const { user, team } = await seedUser();
@@ -671,9 +705,10 @@ test.describe('name parts on the v2 signer', () => {
     await signNameField(middleField.id, 'Augusta');
     await signNameField(lastField.id, 'Lovelace');
 
-    // No dialog at any point: every part resolved off the recipient's columns,
-    // so `handleNameFieldClick` never had to fall back to asking.
+    // Nothing opened at any point: every part resolved off the recipient's
+    // columns, so no field had to be typed into.
     await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(getV2InlineFieldEditor(page)).toHaveCount(0);
   });
 });
 

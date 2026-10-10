@@ -24,6 +24,9 @@ const WEBAPP = NEXT_PUBLIC_WEBAPP_URL();
 
 const EXAMPLE_PDF_PATH = path.join(__dirname, '../../../../assets/example.pdf');
 
+/** A seven-page PDF, for specs that move between pages. */
+export const MULTI_PAGE_PDF_PATH = path.join(__dirname, '../../../../assets/field-meta.pdf');
+
 export type TSeedV2FieldInput = {
   type: FieldType;
   /** Defaults to the first recipient. */
@@ -74,6 +77,7 @@ export const seedV2PendingEnvelope = async ({
   fields,
   status = DocumentStatus.PENDING,
   documentMeta: documentMetaInput,
+  pdfPath = EXAMPLE_PDF_PATH,
 }: {
   ownerUserId: number;
   teamId: number;
@@ -90,8 +94,13 @@ export const seedV2PendingEnvelope = async ({
    * so a spec has to be able to seed them.
    */
   documentMeta?: Prisma.DocumentMetaCreateInput;
+  /**
+   * The PDF to sign. `example.pdf` has one page; a spec that moves between pages needs one with
+   * more, such as `MULTI_PAGE_PDF_PATH`.
+   */
+  pdfPath?: string;
 }) => {
-  const pdf = fs.readFileSync(EXAMPLE_PDF_PATH).toString('base64');
+  const pdf = fs.readFileSync(pdfPath).toString('base64');
 
   const documentData = await prisma.documentData.create({
     data: { type: DocumentDataType.BYTES_64, data: pdf, initialData: pdf },
@@ -205,9 +214,23 @@ export const openV2SigningPage = async (page: Page, token: string) => {
  * node painted into the page canvas, so its stage-space rect has to be
  * translated into viewport coordinates before the mouse can reach it.
  */
-export const clickV2SigningField = async (page: Page, fieldId: number, pageNumber = 1) => {
+export const clickV2SigningField = async (
+  page: Page,
+  fieldId: number,
+  pageNumber = 1,
+  options: {
+    /**
+     * Click one character cell of a comb field. The centre of a comb field can fall in the gap
+     * between two cells, where a click lands on nothing.
+     */
+    cellIndex?: number;
+  } = {},
+) => {
+  const cellRectId =
+    options.cellIndex === undefined ? null : `${fieldId}-option-rect-${options.cellIndex}`;
+
   const point = await page.evaluate(
-    ({ fieldId, pageNumber }) => {
+    ({ fieldId, pageNumber, cellRectId }) => {
       const konva = (
         window as unknown as {
           Konva: {
@@ -224,7 +247,9 @@ export const clickV2SigningField = async (page: Page, fieldId: number, pageNumbe
       ).Konva;
 
       const stage = konva.stages.find((s) => s.attrs.id === `page-${pageNumber}`);
-      const node = stage?.find('.field-group').find((n) => n.id() === String(fieldId));
+      const node = cellRectId
+        ? stage?.find('Rect').find((n) => n.id() === cellRectId)
+        : stage?.find('.field-group').find((n) => n.id() === String(fieldId));
 
       if (!stage || !node) {
         return null;
@@ -238,7 +263,7 @@ export const clickV2SigningField = async (page: Page, fieldId: number, pageNumbe
         y: container.top + rect.y + rect.height / 2,
       };
     },
-    { fieldId, pageNumber },
+    { fieldId, pageNumber, cellRectId },
   );
 
   if (!point) {
@@ -248,6 +273,57 @@ export const clickV2SigningField = async (page: Page, fieldId: number, pageNumbe
   await page.mouse.click(point.x, point.y);
 
   return point;
+};
+
+/**
+ * Modal dialogs on the signing page.
+ *
+ * The calendar under a date field is a non-modal popover that also has the dialog role, so it is
+ * left out: what matters is whether a popup takes the signer away from the document.
+ */
+export const getV2SigningModalDialogs = (page: Page) =>
+  page.locator('[role="dialog"]:not([data-radix-popper-content-wrapper] > *)');
+
+/**
+ * The text box a v2 signer types into in place of a field.
+ *
+ * It is drawn over the canvas only while a field is open, so this resolves to
+ * nothing the rest of the time.
+ */
+export const getV2InlineFieldEditor = (page: Page, fieldId?: number) => {
+  const editor =
+    fieldId === undefined
+      ? page.getByTestId('signing-inline-field-editor')
+      : page.locator(`[data-testid="signing-inline-field-editor"][data-field-id="${fieldId}"]`);
+
+  // A text box for most fields; an invisible single-line input for comb fields.
+  return editor.locator('textarea, input');
+};
+
+/**
+ * Click a field on the v2 signing canvas and wait for its in-place editor to
+ * take focus.
+ *
+ * Retried because the stage repaints after every save, and a click delivered
+ * mid-repaint can land on a node that is being replaced.
+ */
+export const openV2InlineFieldEditor = async (
+  page: Page,
+  fieldId: number,
+  pageNumber = 1,
+  options: { cellIndex?: number } = {},
+) => {
+  const editor = getV2InlineFieldEditor(page, fieldId);
+
+  await expect(async () => {
+    if ((await editor.count()) === 0) {
+      await clickV2SigningField(page, fieldId, pageNumber, options);
+    }
+
+    await expect(editor).toBeFocused({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+
+  return editor;
 };
 
 /**

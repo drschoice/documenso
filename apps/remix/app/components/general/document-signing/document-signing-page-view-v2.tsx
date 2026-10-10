@@ -23,16 +23,10 @@ import { Separator } from '@documenso/ui/primitives/separator';
 
 import { EnvelopeDownloadDialog } from '~/components/dialogs/envelope-download-dialog';
 import { SignFieldCheckboxDialog } from '~/components/dialogs/sign-field-checkbox-dialog';
-import { SignFieldDateDialog } from '~/components/dialogs/sign-field-date-dialog';
-import { SignFieldDropdownDialog } from '~/components/dialogs/sign-field-dropdown-dialog';
-import { SignFieldEmailDialog } from '~/components/dialogs/sign-field-email-dialog';
-import { SignFieldInitialsDialog } from '~/components/dialogs/sign-field-initials-dialog';
-import { SignFieldNameDialog } from '~/components/dialogs/sign-field-name-dialog';
-import { SignFieldNumberDialog } from '~/components/dialogs/sign-field-number-dialog';
 import { SignFieldSignatureDialog } from '~/components/dialogs/sign-field-signature-dialog';
-import { SignFieldTextDialog } from '~/components/dialogs/sign-field-text-dialog';
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { EnvelopeSignerPageRenderer } from '~/components/general/envelope-signing/envelope-signer-page-renderer';
+import { EnvelopeSigningInlineEditProvider } from '~/components/general/envelope-signing/envelope-signing-inline-edit-provider';
 import { EnvelopePdfViewer } from '~/components/general/pdf-viewer/envelope-pdf-viewer';
 
 import { BrandingLogo } from '../branding-logo';
@@ -45,6 +39,14 @@ import { DocumentSigningRejectDialog } from './document-signing-reject-dialog';
 import { useRequiredEnvelopeSigningContext } from './envelope-signing-provider';
 
 export const DocumentSigningPageViewV2 = () => {
+  return (
+    <EnvelopeSigningInlineEditProvider>
+      <DocumentSigningPageViewV2Content />
+    </EnvelopeSigningInlineEditProvider>
+  );
+};
+
+const DocumentSigningPageViewV2Content = () => {
   const { envelopeItems, currentEnvelopeItem, setCurrentEnvelopeItem } = useCurrentEnvelopeRender();
 
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
@@ -85,13 +87,6 @@ export const DocumentSigningPageViewV2 = () => {
 
   return (
     <div className="min-h-screen w-screen bg-gray-50 dark:bg-background">
-      <SignFieldEmailDialog.Root />
-      <SignFieldTextDialog.Root />
-      <SignFieldDateDialog.Root />
-      <SignFieldNumberDialog.Root />
-      <SignFieldNameDialog.Root />
-      <SignFieldInitialsDialog.Root />
-      <SignFieldDropdownDialog.Root />
       <SignFieldSignatureDialog.Root />
       <SignFieldCheckboxDialog.Root />
 
