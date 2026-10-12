@@ -73,6 +73,7 @@ export const EnvelopeEditorRecipientForm = () => {
     setRecipientsDebounced,
     updateEnvelope,
     editorRecipients,
+    editorFields,
     isEmbedded,
     editorConfig,
   } = useCurrentEnvelopeEditor();
@@ -373,6 +374,26 @@ export const EnvelopeEditorRecipientForm = () => {
         shouldValidate: true,
         shouldDirty: true,
       });
+
+      // Drop this recipient's fields from the editor as well. Saving the
+      // recipients cascades server side, but embedded surfaces hold their state
+      // locally until the envelope is persisted, so without this their fields
+      // stay on the canvas owned by a recipient that no longer exists. Doing it
+      // unconditionally also avoids a flash of orphaned fields on the native
+      // surfaces while the save is in flight.
+      //
+      // `removeFieldsByFormId` also strips any visibility rules that pointed at
+      // the removed fields, so no dependent is left referencing a missing
+      // trigger.
+      // A signer that was never assigned an id cannot own fields yet.
+      const orphanedFieldFormIds =
+        signer.id === undefined
+          ? []
+          : editorFields.getFieldsByRecipient(signer.id).map((field) => field.formId);
+
+      if (orphanedFieldFormIds.length > 0) {
+        editorFields.removeFieldsByFormId(orphanedFieldFormIds);
+      }
     }
   };
 

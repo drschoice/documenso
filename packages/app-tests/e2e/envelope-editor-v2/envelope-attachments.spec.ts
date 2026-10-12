@@ -12,7 +12,6 @@ import {
   openTemplateEnvelopeEditor,
   persistEmbeddedEnvelope,
 } from '../fixtures/envelope-editor';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 const TEST_ATTACHMENTS = {
   first: {
@@ -45,9 +44,11 @@ const updateExternalId = async (surface: TEnvelopeEditorSurface, externalId: str
   await surface.root.locator('input[name="externalId"]').fill(externalId);
   await surface.root.getByRole('button', { name: 'Update' }).click();
 
-  if (!surface.isEmbedded) {
-    await expectToastTextToBeVisible(surface.root, 'Envelope updated');
-  }
+  // Barrier: the dialog closes (`setOpen(false)`) as soon as the update
+  // mutation resolves, immediately before the success toast. The toast is
+  // not usable as a barrier - it lives about a second and `TOAST_LIMIT` is
+  // 1, so the editor's autosave can evict it.
+  await expect(surface.root.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
 };
 
 const openAttachmentsPopover = async (root: Page) => {
@@ -147,7 +148,6 @@ const runAttachmentFlow = async (
 
   // Create first attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.first);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.first);
   await assertAttachmentCount(surface.root, 1);
 
@@ -159,7 +159,6 @@ const runAttachmentFlow = async (
 
   // Create second attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.second);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.second);
   await assertAttachmentCount(surface.root, 2);
 
@@ -171,7 +170,6 @@ const runAttachmentFlow = async (
 
   // Create third attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.third);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.third);
   await assertAttachmentCount(surface.root, 3);
 
@@ -183,7 +181,6 @@ const runAttachmentFlow = async (
 
   // Delete first attachment.
   await getAttachmentDeleteButtons(surface.root).first().click();
-  await expectToastTextToBeVisible(surface.root, 'Attachment removed successfully.');
 
   await expect(getAttachmentItems(surface.root)).toHaveCount(2);
   await assertAttachmentNotVisibleInPopover(surface.root, TEST_ATTACHMENTS.first.label);
@@ -215,25 +212,21 @@ const runEmbeddedAttachmentFlow = async (
 
   // Create first attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.first);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.first);
   await assertAttachmentCount(surface.root, 1);
 
   // Create second attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.second);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.second);
   await assertAttachmentCount(surface.root, 2);
 
   // Create third attachment.
   await addAttachment(surface.root, TEST_ATTACHMENTS.third);
-  await expectToastTextToBeVisible(surface.root, 'Attachment added successfully.');
   await assertAttachmentVisibleInPopover(surface.root, TEST_ATTACHMENTS.third);
   await assertAttachmentCount(surface.root, 3);
 
   // Delete first attachment.
   await getAttachmentDeleteButtons(surface.root).first().click();
-  await expectToastTextToBeVisible(surface.root, 'Attachment removed successfully.');
 
   await expect(getAttachmentItems(surface.root)).toHaveCount(2);
   await assertAttachmentNotVisibleInPopover(surface.root, TEST_ATTACHMENTS.first.label);

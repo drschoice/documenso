@@ -477,6 +477,205 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
     ...calculatePosition(2, 1),
     customText: 'Option 1',
   },
+
+  /**
+   * Render paths this fork added.
+   *
+   * These sit in rows the grid left free rather than replacing existing rows, so
+   * the pages they land on keep everything they already asserted and gain the
+   * new shapes below them.
+   *
+   * NAME `namePart` is deliberately absent: it decides which part of the name is
+   * *prefilled*, and the sealed PDF draws whatever `customText` ended up in the
+   * field either way. There is no separate render path for it to cover, and it
+   * is asserted where it does something - authoring and signing.
+   */
+
+  /**
+   * PAGE 2 typed signature: alignment inside the box, and an explicit size.
+   *
+   * Both are fork behaviour. `textAlign` came with the alignment option on every
+   * field type, and the typed-signature default size moved 18 -> 24, which is
+   * what moved these two pages' baselines in the first place. The images above
+   * cannot show either: they are scaled to fit and centred vertically.
+   */
+  {
+    type: FieldType.SIGNATURE,
+    fieldMeta: {
+      type: 'signature',
+      textAlign: 'left',
+    },
+    page: 2,
+    ...calculatePosition(4, 0),
+    customText: '',
+    signature: 'Typed Left',
+  },
+  {
+    type: FieldType.SIGNATURE,
+    fieldMeta: {
+      type: 'signature',
+      textAlign: 'center',
+    },
+    page: 2,
+    ...calculatePosition(4, 1),
+    customText: '',
+    signature: 'Typed Center',
+  },
+  {
+    type: FieldType.SIGNATURE,
+    fieldMeta: {
+      type: 'signature',
+      textAlign: 'right',
+    },
+    page: 2,
+    ...calculatePosition(4, 2),
+    customText: '',
+    signature: 'Typed Right',
+  },
+  {
+    type: FieldType.SIGNATURE,
+    fieldMeta: {
+      type: 'signature',
+      fontSize: 12,
+    },
+    page: 2,
+    ...calculatePosition(5, 0),
+    customText: '',
+    signature: 'Small Typed',
+  },
+  {
+    type: FieldType.SIGNATURE,
+    fieldMeta: {
+      type: 'signature',
+      fontSize: 32,
+    },
+    page: 2,
+    ...calculatePosition(5, 1),
+    customText: '',
+    signature: 'Big Typed',
+  },
+
+  /**
+   * PAGE 3 comb TEXT, cells laid out by the fallback.
+   *
+   * Cells created through the API carry no offsets, and the renderer lays those
+   * out as a row from the field origin. That is the shape every API-created comb
+   * field has, so it is the one worth pinning.
+   */
+  {
+    type: FieldType.TEXT,
+    fieldMeta: {
+      type: 'text',
+      layout: 'cells',
+      cells: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
+    },
+    page: 3,
+    ...calculatePosition(5, 0, 'full'),
+    customText: 'AB1234',
+  },
+
+  /**
+   * PAGE 4 comb NUMBER, cells placed individually.
+   *
+   * The gap between the third and fourth cell is the point: free placement is
+   * what lets a comb field line up with a pre-printed grid that has a separator
+   * in it, and it is not reachable from the fallback row above.
+   */
+  {
+    type: FieldType.NUMBER,
+    fieldMeta: {
+      type: 'number',
+      layout: 'cells',
+      cellSize: 24,
+      cells: [
+        { id: 0, offsetX: 0, offsetY: 0 },
+        { id: 1, offsetX: 3.5, offsetY: 0 },
+        { id: 2, offsetX: 7, offsetY: 0 },
+        { id: 3, offsetX: 14, offsetY: 0 },
+        { id: 4, offsetX: 17.5, offsetY: 0 },
+      ],
+    },
+    page: 4,
+    ...calculatePosition(5, 0, 'full'),
+    customText: '12345',
+  },
+
+  /**
+   * PAGE 5 RADIO: free option placement, and options with the caption withheld.
+   *
+   * Free layout hides the field's own rect and draws one per option, so this
+   * exercises a different branch of the renderer rather than different numbers
+   * through the same one.
+   */
+  {
+    type: FieldType.RADIO,
+    fieldMeta: {
+      type: 'radio',
+      // Ignored under free layout, which places each option by its own offset,
+      // but the parsed meta type carries a default so it has to be stated.
+      direction: 'vertical',
+      layout: 'free',
+      values: [
+        { id: 1, checked: false, value: 'Yes', offsetX: 0, offsetY: 0 },
+        { id: 2, checked: true, value: 'No', offsetX: 12, offsetY: 3 },
+      ],
+    },
+    page: 5,
+    ...calculatePosition(3, 0, 'full'),
+    customText: '1',
+  },
+  {
+    type: FieldType.RADIO,
+    fieldMeta: {
+      direction: 'horizontal',
+      type: 'radio',
+      showOptionText: false,
+      values: [
+        { id: 1, checked: true, value: 'Option 1' },
+        { id: 2, checked: false, value: 'Option 2' },
+        { id: 3, checked: false, value: 'Option 3' },
+      ],
+    },
+    page: 5,
+    ...calculatePosition(4, 0, 'full'),
+    customText: '0',
+  },
+
+  /**
+   * PAGE 6 CHECKBOX: the same two shapes, plus more than one box ticked, which
+   * free layout has to keep straight across its own offsets.
+   */
+  {
+    type: FieldType.CHECKBOX,
+    fieldMeta: {
+      type: 'checkbox',
+      direction: 'vertical',
+      layout: 'free',
+      values: [
+        { id: 1, checked: true, value: 'Alpha', offsetX: 0, offsetY: 0 },
+        { id: 2, checked: false, value: 'Beta', offsetX: 10, offsetY: 0 },
+        { id: 3, checked: true, value: 'Gamma', offsetX: 20, offsetY: 4 },
+      ],
+    },
+    page: 6,
+    ...calculatePosition(4, 0, 'full'),
+    customText: toCheckboxCustomText([0, 2]),
+  },
+  {
+    type: FieldType.CHECKBOX,
+    fieldMeta: {
+      direction: 'horizontal',
+      type: 'checkbox',
+      showOptionText: false,
+      values: [
+        { id: 1, checked: true, value: 'Option 1' },
+        { id: 2, checked: false, value: 'Option 2' },
+      ],
+    },
+    page: 6,
+    ...calculatePosition(5, 0, 'full'),
+    customText: toCheckboxCustomText([0]),
+  },
 ] as const;
 
 export const formatFieldMetaTestFields = FIELD_META_TEST_FIELDS.map((field, index) => {

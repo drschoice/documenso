@@ -23,74 +23,108 @@ const getVisibility = (field: EvaluatableField): TVisibilityBlock | null => {
 
 const normalize = (s: string): string => s.trim().toLowerCase();
 
-// Returns [] on malformed JSON — safe for contains/isEmpty (fail-closed)
-// but note that notContains will treat corrupt state as "does not contain X" → true.
-const parseCheckboxCustomText = (customText: string): string[] => {
-  if (!customText) return [];
-  try {
-    const parsed = JSON.parse(customText);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
+const parseSelectionTokens = (customText: string): string[] => {
+  if (!customText) {
     return [];
   }
+
+  try {
+    const parsed: unknown = JSON.parse(customText);
+
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    // v1 wrote comma separated values before the JSON encoding landed.
+    return customText.split(',').filter(Boolean);
+  }
+};
+
+const getOptionValues = (trigger: EvaluatableField): string[] => {
+  const meta = trigger.fieldMeta as { values?: Array<{ value?: unknown }> } | null;
+
+  return (meta?.values ?? []).map((option) =>
+    typeof option.value === 'string' ? option.value : '',
+  );
 };
 
 /**
- * Resolve the current "value" the rule sees for a trigger field.
- * - For checkbox: list of checked option VALUES (not ids).
- * - For everything else: trigger.customText (empty string if not inserted).
+ * Resolve a single stored token to every reading it could plausibly have.
+ *
+ * Radio and checkbox `customText` is encoded differently depending on which
+ * signer produced it:
+ *
+ * - the v2 (Konva) signer stores the 0-based INDEX into `fieldMeta.values`
+ *   (`toRadioCustomText` / `toCheckboxCustomText` in `lib/utils/fields.ts`);
+ * - the v1 (DOM) signer stores the option VALUE itself
+ *   (`document-signing-radio-field.tsx`, `fromCheckboxValue`).
+ *
+ * `evaluateAllVisibility` runs on both paths, so a token is resolved to both
+ * readings and a rule matches when either one does. Resolving only the v2
+ * reading silently hid every conditional dependent on v1 envelopes.
  */
-const triggerValueFor = (
-  trigger: EvaluatableField,
-): { isEmpty: boolean; scalar: string; list: string[] } => {
-  if (!trigger.inserted) return { isEmpty: true, scalar: '', list: [] };
+const resolveToken = (token: string, optionValues: string[]): string[] => {
+  const candidates = [token];
 
-  if (trigger.type === FieldType.CHECKBOX) {
-    const selectedIndices = parseCheckboxCustomText(trigger.customText);
-    const meta = trigger.fieldMeta as { values?: Array<{ id: number; value: string }> } | null;
-    const values = meta?.values ?? [];
-    const list = selectedIndices
-      .map((idx) => values[Number(idx)]?.value ?? '')
-      .filter((v) => v !== '');
-    return { isEmpty: list.length === 0, scalar: '', list };
+  const asIndex = Number(token);
+
+  if (Number.isInteger(asIndex) && asIndex >= 0 && asIndex < optionValues.length) {
+    candidates.push(optionValues[asIndex]);
   }
 
-  if (trigger.type === FieldType.RADIO) {
-    const meta = trigger.fieldMeta as { values?: Array<{ id: number; value: string }> } | null;
-    const selectedIndex = Number(trigger.customText);
-    const radioValues = meta?.values ?? [];
-    // customText stores the 0-based index into the values array
-    const selectedValue = radioValues[selectedIndex]?.value ?? '';
-    return { isEmpty: selectedValue.trim() === '', scalar: selectedValue, list: [] };
+  return candidates.filter((candidate) => candidate.trim() !== '');
+};
+
+/**
+ * Resolve the current "value(s)" the rule sees for a trigger field.
+ *
+ * - For radio/checkbox: every candidate reading of the selected option(s).
+ * - For everything else: the field's `customText`.
+ *
+ * An uninserted or blank trigger yields an empty list, which is what
+ * `isEmpty` / `isNotEmpty` test against.
+ */
+const triggerValuesFor = (trigger: EvaluatableField): string[] => {
+  if (!trigger.inserted) {
+    return [];
   }
 
-  const scalar = trigger.customText;
-  return { isEmpty: scalar.trim() === '', scalar, list: [] };
+  if (trigger.type === FieldType.CHECKBOX || trigger.type === FieldType.RADIO) {
+    const optionValues = getOptionValues(trigger);
+
+    const tokens =
+      trigger.type === FieldType.CHECKBOX
+        ? parseSelectionTokens(trigger.customText)
+        : [trigger.customText];
+
+    return tokens.flatMap((token) => resolveToken(token, optionValues));
+  }
+
+  return trigger.customText.trim() === '' ? [] : [trigger.customText];
 };
 
 const evaluateRule = (rule: TVisibilityRule, trigger: EvaluatableField | null): boolean => {
-  if (!trigger) return false; // fail-closed
-  const v = triggerValueFor(trigger);
+  if (!trigger) {
+    return false; // fail-closed
+  }
+
+  const values = triggerValuesFor(trigger);
+
+  // Comparison operators keep their historic behaviour against an empty
+  // trigger by comparing with a single blank value.
+  const comparable = values.length > 0 ? values : [''];
 
   switch (rule.operator) {
     case 'isEmpty':
-      return v.isEmpty;
+      return values.length === 0;
     case 'isNotEmpty':
-      return !v.isEmpty;
+      return values.length > 0;
     case 'equals':
-      return normalize(v.scalar) === normalize(rule.value);
+      return comparable.some((value) => normalize(value) === normalize(rule.value));
     case 'notEquals':
-      return normalize(v.scalar) !== normalize(rule.value);
+      return !comparable.some((value) => normalize(value) === normalize(rule.value));
     case 'contains':
-      if (trigger.type === FieldType.CHECKBOX) {
-        return v.list.map(normalize).includes(normalize(rule.value));
-      }
-      return normalize(v.scalar).includes(normalize(rule.value));
+      return comparable.some((value) => normalize(value).includes(normalize(rule.value)));
     case 'notContains':
-      if (trigger.type === FieldType.CHECKBOX) {
-        return !v.list.map(normalize).includes(normalize(rule.value));
-      }
-      return !normalize(v.scalar).includes(normalize(rule.value));
+      return !comparable.some((value) => normalize(value).includes(normalize(rule.value)));
     default:
       return false;
   }

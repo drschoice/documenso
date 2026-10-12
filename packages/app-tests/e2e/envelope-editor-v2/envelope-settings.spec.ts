@@ -15,7 +15,6 @@ import {
   openTemplateEnvelopeEditor,
   persistEmbeddedEnvelope,
 } from '../fixtures/envelope-editor';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 type SettingsFlowData = {
   externalId: string;
@@ -171,9 +170,11 @@ const runSettingsFlow = async (
 
   await root.getByRole('button', { name: 'Update' }).click();
 
-  if (!isEmbedded) {
-    await expectToastTextToBeVisible(root, 'Envelope updated');
-  }
+  // Barrier: the dialog closes (`setOpen(false)`) as soon as the update
+  // mutation resolves, immediately before the success toast. The toast is
+  // not usable as a barrier - it lives about a second and `TOAST_LIMIT` is
+  // 1, so the editor's autosave can evict it.
+  await expect(root.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
 
   await openSettingsDialog(root);
 
@@ -244,9 +245,11 @@ const runSettingsFlow = async (
 
   await root.getByRole('button', { name: 'Update' }).click();
 
-  if (!isEmbedded) {
-    await expectToastTextToBeVisible(root, 'Envelope updated');
-  }
+  // Barrier: the dialog closes (`setOpen(false)`) as soon as the update
+  // mutation resolves, immediately before the success toast. The toast is
+  // not usable as a barrier - it lives about a second and `TOAST_LIMIT` is
+  // 1, so the editor's autosave can evict it.
+  await expect(root.getByRole('heading', { name: 'Document Settings' })).toBeHidden();
 
   return {
     hasActionAuthSelect,
@@ -454,7 +457,12 @@ test.describe('fixed expiration date', () => {
     const expectedDate = target.toFormat('yyyy-MM-dd');
 
     await root.getByRole('button', { name: 'Update' }).click();
-    await expectToastTextToBeVisible(root, 'Envelope updated');
+
+    // Barrier before reopening: the dialog closes once the save lands. The
+    // 'Envelope updated' toast used to serve this purpose, but it is evicted
+    // within about a second, so waiting on it raced the mutation it was meant
+    // to gate. See issue #31.
+    await expect(root.getByRole('button', { name: 'Update' })).not.toBeVisible();
 
     // Reopening shows the fixed date back, not a duration.
     await openSettingsDialog(root);

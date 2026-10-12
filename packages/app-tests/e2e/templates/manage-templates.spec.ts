@@ -151,8 +151,11 @@ test('[TEMPLATES]: use template', async ({ page }) => {
   // Get input with Email label placeholder.
   await page.getByLabel('Email').click();
   await page.getByLabel('Email').fill(teamMemberUser.email);
-  await page.getByLabel('Name').click();
-  await page.getByLabel('Name').fill('name');
+  // `e77aacc48` split the recipient name into First/Middle/Last with a derived
+  // full-name input underneath, so a bare "Name" now matches four boxes. The
+  // full name is the one this test means - it is what the recipient row stores.
+  await page.getByLabel('Full name').click();
+  await page.getByLabel('Full name').fill('name');
 
   await page.getByRole('button', { name: 'Create as draft' }).click();
   await page.waitForURL(/\/t\/.+\/documents/);

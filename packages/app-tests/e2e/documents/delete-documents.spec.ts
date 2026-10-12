@@ -9,7 +9,7 @@ import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin, apiSignout } from '../fixtures/authentication';
 import { checkDocumentTabCount } from '../fixtures/documents';
-import { expectToastTextToBeVisible, openDropdownMenu } from '../fixtures/generic';
+import { openDropdownMenu } from '../fixtures/generic';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -177,8 +177,6 @@ test('[DOCUMENTS]: deleting draft documents should permanently remove it', async
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   await expect(page.getByPlaceholder("Type 'delete' to confirm")).not.toBeVisible();
   await page.getByRole('button', { name: 'Delete' }).click();
-
-  await expectToastTextToBeVisible(page, 'Document deleted');
 
   await expect(page.getByRole('row', { name: /Document 1 - Draft/ })).not.toBeVisible();
 

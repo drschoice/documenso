@@ -122,6 +122,12 @@ test('[TEAMS]: can pin a document folder', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Pin' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Pin' }).click();
 
+  // Let the badge appear before reloading. This one asserts a positive, so a
+  // reload that cancels the pin request fails loudly rather than passing on an
+  // absence - but it is the same race its unpin sibling lost, and losing it
+  // here is a flake rather than a finding.
+  await expect(page.locator('svg.text-documenso.h-3.w-3')).toBeVisible();
+
   await page.reload();
 
   await expect(page.locator('svg.text-documenso.h-3.w-3')).toBeVisible();
@@ -149,8 +155,17 @@ test('[TEAMS]: can unpin a document folder', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Unpin' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Unpin' }).click();
 
+  // Wait for the badge to clear before reloading. Its sibling pin test asserts a
+  // positive after the reload, so it fails if the mutation is lost; this one
+  // asserted only an absence, which a reload that outran the request satisfies
+  // just as well as a successful unpin.
+  await expect(page.locator('svg.text-documenso.h-3.w-3')).not.toBeVisible();
+
   await page.reload();
 
+  // And barrier on the card before asserting the badge is still gone, because an
+  // unpainted page has no badge either.
+  await expect(folderMoreBtn).toBeVisible();
   await expect(page.locator('svg.text-documenso.h-3.w-3')).not.toBeVisible();
 });
 
@@ -289,11 +304,26 @@ test('[TEAMS]: document folder and its contents can be deleted', async ({ page }
   await page.getByRole('textbox').fill(`delete ${folder.name}`);
   await page.getByRole('button', { name: 'Delete' }).click();
 
+  // The dialog closes itself only after the mutation resolves, so this is the
+  // app's own signal that the delete landed. Navigating straight off the click
+  // aborts the request in flight - the server records it as "Unexpected end of
+  // JSON input" - and the folder survives, leaving the assertions below to pass
+  // or fail on how fast the machine is rather than on what the app did.
+  //
+  // Scoped by title: Radix renders a popover with `role="dialog"` too, and the
+  // folder card's own popover sometimes outlives the confirm dialog, so waiting
+  // on every dialog waits on one that is not going to close.
+  await expect(page.getByRole('dialog').filter({ hasText: 'Delete Folder' })).toBeHidden();
+
   await page.goto(`/t/${team.url}/documents`);
 
-  await expect(page.locator(`[data-folder-id="${folder.id}"]`)).not.toBeVisible();
+  // Positive assertions first: `not.toBeVisible()` is satisfied by a page that
+  // has not painted yet, so on its own it would hold even if nothing had been
+  // deleted at all. Waiting for the contents to surface at the root proves the
+  // list has rendered, which is what gives the absent folder card its meaning.
   await expect(page.getByText(proposal.title)).toBeVisible();
   await expect(page.getByText(report.title)).toBeVisible();
+  await expect(page.locator(`[data-folder-id="${folder.id}"]`)).not.toBeVisible();
 });
 
 test('[TEAMS]: create folder button is visible on templates page', async ({ page }) => {
@@ -441,6 +471,12 @@ test('[TEAMS]: can pin a template folder', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Pin' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Pin' }).click();
 
+  // Let the badge appear before reloading. This one asserts a positive, so a
+  // reload that cancels the pin request fails loudly rather than passing on an
+  // absence - but it is the same race its unpin sibling lost, and losing it
+  // here is a flake rather than a finding.
+  await expect(page.locator('svg.text-documenso.h-3.w-3')).toBeVisible();
+
   await page.reload();
 
   await expect(page.locator('svg.text-documenso.h-3.w-3')).toBeVisible();
@@ -469,9 +505,15 @@ test('[TEAMS]: can unpin a template folder', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Unpin' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Unpin' }).click();
 
-  await page.reload();
-  await page.waitForTimeout(1000);
+  // Wait for the badge to clear before reloading: the reload cancels the unpin
+  // request if it is still in flight, and then the badge is still there because
+  // nothing was ever unpinned. The sleep this replaces waited for the reloaded
+  // page to paint, which is a different thing entirely.
+  await expect(page.locator('svg.text-documenso.h-3.w-3')).not.toBeVisible();
 
+  await page.reload();
+
+  await expect(folderMoreBtn).toBeVisible();
   await expect(page.locator('svg.text-documenso.h-3.w-3')).not.toBeVisible();
 });
 
@@ -616,17 +658,19 @@ test('[TEAMS]: template folder can be deleted', async ({ page }) => {
   await page.getByRole('textbox').fill(`delete ${folder.name}`);
   await page.getByRole('button', { name: 'Delete' }).click();
 
+  // See the document folder deletion test above: without this the navigation
+  // cancels the delete, and every assertion that followed was a negative one,
+  // which an unpainted page satisfies. The sleep this replaces waited out the
+  // render but could not wait out a request that had already been aborted.
+  await expect(page.getByRole('dialog').filter({ hasText: 'Delete Folder' })).toBeHidden();
+
   await page.goto(`/t/${team.url}/templates`);
 
-  await page.waitForTimeout(1000);
-
-  // !: This is no longer the case, when deleting a folder its contents will be moved to the root folder.
-  // await expect(page.locator(`[data-folder-id="${folder.id}"]`)).not.toBeVisible();
-  // await expect(page.getByText(template.title)).not.toBeVisible();
-
-  await page.goto(`/t/${team.url}/templates/f/${folder.id}`);
-
-  await expect(page.getByText(reportTemplate.title)).not.toBeVisible();
+  // Deleting a folder moves its contents to the root rather than removing them,
+  // one level down included, so assert where they landed.
+  await expect(page.getByText(template.title)).toBeVisible();
+  await expect(page.getByText(reportTemplate.title)).toBeVisible();
+  await expect(page.locator(`[data-folder-id="${folder.id}"]`)).not.toBeVisible();
   await expect(page.locator(`[data-folder-id="${subfolder.id}"]`)).not.toBeVisible();
 });
 

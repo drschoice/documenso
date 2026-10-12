@@ -25,6 +25,29 @@ test.describe.configure({
   mode: 'parallel',
 });
 
+/**
+ * The seeded members of a team, in creation order, with the owner left out.
+ *
+ * `OrganisationMember.id` is a string, so `orderBy: { id: 'asc' }` sorts it
+ * lexicographically rather than by creation order, and the owner lands at an
+ * arbitrary index among the members. Indexing into that list therefore picks the
+ * owner roughly a third of the time, which silently changes what a test is
+ * asserting - a document seeded as "sent by member1" is then sent by the owner.
+ * `User.id` is an integer, so sorting on it is the creation order the callers
+ * actually mean.
+ */
+const getSeededTeamMembers = async (teamId: number, ownerId: number) => {
+  const organisation = await prisma.organisation.findFirstOrThrow({
+    where: { teams: { some: { id: teamId } } },
+    include: { members: { include: { user: true } } },
+  });
+
+  return organisation.members
+    .map((member) => member.user)
+    .filter((user) => user.id !== ownerId)
+    .sort((a, b) => a.id - b.id);
+};
+
 test.describe('Find Documents UI - Personal Context', () => {
   test('should show all owned documents across statuses', async ({ page }) => {
     const { user: owner, team, organisation } = await seedUser();
@@ -1067,12 +1090,7 @@ test.describe('Find Documents UI - Tab Counts Consistency', () => {
   test('team context tab counts should be accurate with mixed documents', async ({ page }) => {
     const { team, owner } = await seedTeam({ createTeamMembers: 2 });
 
-    const member1 = (
-      await prisma.organisation.findFirstOrThrow({
-        where: { teams: { some: { id: team.id } } },
-        include: { members: { include: { user: true } } },
-      })
-    ).members[1].user;
+    const [member1] = await getSeededTeamMembers(team.id, owner.id);
 
     const { user: outsideUser, team: outsideTeam } = await seedUser();
 
@@ -1162,13 +1180,7 @@ test.describe('Find Documents UI - Sender Filter', () => {
   test('sender filter should narrow results correctly', async ({ page }) => {
     const { team, owner } = await seedTeam({ createTeamMembers: 2 });
 
-    const org = await prisma.organisation.findFirstOrThrow({
-      where: { teams: { some: { id: team.id } } },
-      include: { members: { include: { user: true }, orderBy: { id: 'asc' } } },
-    });
-
-    const member1 = org.members[1].user;
-    const member2 = org.members[2].user;
+    const [member1, member2] = await getSeededTeamMembers(team.id, owner.id);
 
     const { user: outsideUser } = await seedUser();
 

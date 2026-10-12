@@ -1068,7 +1068,7 @@ test.describe('API V2 Envelopes', () => {
       // Create fields for all recipients including those without emails
       const createFieldsRequest = {
         envelopeId: response.id,
-        data: recipients.map((recipient, index) => ({
+        data: recipients.map((recipient: { id: number }, index: number) => ({
           recipientId: recipient.id,
           envelopeItemId: envelopeItem.id,
           type: FieldType.SIGNATURE,
@@ -1157,7 +1157,7 @@ test.describe('API V2 Envelopes', () => {
       // Create fields for recipients
       const createFieldsRequest = {
         envelopeId: createResponse.id,
-        data: recipients.map((recipient, index) => ({
+        data: recipients.map((recipient: { id: number }, index: number) => ({
           recipientId: recipient.id,
           envelopeItemId: envelopeItem.id,
           type: FieldType.SIGNATURE,

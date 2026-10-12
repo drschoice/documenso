@@ -22,11 +22,6 @@ import { useCurrentEnvelopeRender } from '@documenso/lib/client-only/providers/e
 import { PDF_VIEWER_ERROR_MESSAGES } from '@documenso/lib/constants/pdf-viewer-i18n';
 import type { NormalizedFieldWithContext } from '@documenso/lib/server-only/ai/envelope/detect-fields/types';
 import {
-  getFieldStableId,
-  removeValuesFromRules,
-  renameValueInRules,
-} from '@documenso/lib/universal/field-visibility/authoring';
-import {
   FIELD_MAX_CELL_COUNT,
   FIELD_META_DEFAULT_VALUES,
   FIELD_MIN_CELL_COUNT,
@@ -45,6 +40,11 @@ import {
   type TSignatureFieldMeta,
   type TTextFieldMeta,
 } from '@documenso/lib/types/field-meta';
+import {
+  getFieldStableId,
+  removeValuesFromRules,
+  renameValueInRules,
+} from '@documenso/lib/universal/field-visibility/authoring';
 import { getEnvelopeItemPermissions } from '@documenso/lib/utils/envelope';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
 import { trpc } from '@documenso/trpc/react';
@@ -60,23 +60,24 @@ import { AiFieldDetectionDialog } from '~/components/dialogs/ai-field-detection-
 import { EnvelopeItemEditDialog } from '~/components/dialogs/envelope-item-edit-dialog';
 import { EditorFieldCheckboxForm } from '~/components/forms/editor/editor-field-checkbox-form';
 import { EditorFieldConditionalVisibilitySection } from '~/components/forms/editor/editor-field-conditional-visibility-section';
-import { EditorFieldLinkFieldsSection } from '~/components/forms/editor/editor-field-link-fields-section';
-import { EditorFieldVisibilityDependencyNotice } from '~/components/forms/editor/editor-field-visibility-dependency-notice';
 import { EditorFieldDateForm } from '~/components/forms/editor/editor-field-date-form';
 import { EditorFieldDropdownForm } from '~/components/forms/editor/editor-field-dropdown-form';
 import { EditorFieldEmailForm } from '~/components/forms/editor/editor-field-email-form';
 import { EditorFieldInitialsForm } from '~/components/forms/editor/editor-field-initials-form';
+import { EditorFieldLinkFieldsSection } from '~/components/forms/editor/editor-field-link-fields-section';
 import { EditorFieldNameForm } from '~/components/forms/editor/editor-field-name-form';
 import { EditorFieldNumberForm } from '~/components/forms/editor/editor-field-number-form';
 import { EditorFieldRadioForm } from '~/components/forms/editor/editor-field-radio-form';
 import { EditorFieldSignatureForm } from '~/components/forms/editor/editor-field-signature-form';
 import { EditorFieldTextForm } from '~/components/forms/editor/editor-field-text-form';
+import { EditorFieldVisibilityDependencyNotice } from '~/components/forms/editor/editor-field-visibility-dependency-notice';
 import { EnvelopePdfViewer } from '~/components/general/pdf-viewer/envelope-pdf-viewer';
 import { useCurrentTeam } from '~/providers/team';
 
 import { EnvelopeEditorFieldDragDrop } from './envelope-editor-fields-drag-drop';
 import { EnvelopeEditorFieldsPageRenderer } from './envelope-editor-fields-page-renderer';
 import { EnvelopeEditorPageThumbnails } from './envelope-editor-page-thumbnails';
+import { EnvelopeEditorPickModeBanner } from './envelope-editor-pick-mode-banner';
 import { EnvelopeRendererFileSelector } from './envelope-file-selector';
 import { EnvelopeRecipientSelector } from './envelope-recipient-selector';
 
@@ -579,6 +580,8 @@ export const EnvelopeEditorFieldsPage = () => {
               : undefined
           }
         />
+
+        <EnvelopeEditorPickModeBanner />
 
         {/* Document View */}
         <div className="mt-4 flex h-full flex-col items-center justify-center">

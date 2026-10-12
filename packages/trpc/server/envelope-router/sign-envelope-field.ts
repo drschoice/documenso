@@ -14,6 +14,7 @@ import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settin
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { getLinkGroupId } from '@documenso/lib/universal/field-linking';
+import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility';
 import { resolveLiveDocumentMeta } from '@documenso/lib/utils/document';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
@@ -144,6 +145,39 @@ export const signEnvelopeFieldRoute = procedure
     // Unreachable code based on the above query but we need to satisfy TypeScript
     if (field.recipientId === null) {
       throw new Error(`Field ${fieldId} has no recipientId`);
+    }
+
+    // Conditional visibility: a field whose rule is unmet is not rendered for the
+    // signer, so a request to sign it did not come from the UI. Accepting it
+    // would let a caller fill a field the document logic says should be skipped,
+    // and that value would then count towards completion and be sealed into the
+    // PDF.
+    //
+    // Evaluated over the OWNING recipient's field set, not the acting one - an
+    // assistant signs on another recipient's behalf, and the rules belong to
+    // whoever owns the fields.
+    const ownerFields = await prisma.field.findMany({
+      where: {
+        envelopeId: field.envelopeId,
+        recipientId: field.recipientId,
+      },
+    });
+
+    const visibilityMap = evaluateAllVisibility(
+      ownerFields.map((ownerField) => ({
+        id: ownerField.id,
+        type: ownerField.type,
+        customText: ownerField.customText,
+        inserted: ownerField.inserted,
+        fieldMeta: ownerField.fieldMeta,
+      })),
+    );
+
+    if (visibilityMap.get(field.id) === false) {
+      throw new AppError(AppErrorCode.FIELD_NOT_VISIBLE, {
+        message: 'This field is not currently active and cannot be signed.',
+        userMessage: 'This field is not currently active.',
+      });
     }
 
     // Copy & link fields: other editable members of this field's link group get

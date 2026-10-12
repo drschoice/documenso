@@ -25,8 +25,15 @@ export const SUPPORT_EMAIL = env('NEXT_PUBLIC_SUPPORT_EMAIL') ?? 'support@docume
 export const USE_INTERNAL_URL_BROWSERLESS = () =>
   env('NEXT_PUBLIC_USE_INTERNAL_URL_BROWSERLESS') === 'true';
 
+/**
+ * Swaps the field-detection model for a deterministic stub. Server-only, and set
+ * only by the e2e suite - see `server-only/ai/model.ts`.
+ */
+export const IS_AI_STUB_MODEL_ENABLED = () => env('NEXT_PRIVATE_AI_STUB_MODEL') === 'true';
+
 export const IS_AI_FEATURES_CONFIGURED = () =>
-  !!env('GOOGLE_VERTEX_PROJECT_ID') && !!env('GOOGLE_VERTEX_API_KEY');
+  IS_AI_STUB_MODEL_ENABLED() ||
+  (!!env('GOOGLE_VERTEX_PROJECT_ID') && !!env('GOOGLE_VERTEX_API_KEY'));
 
 /**
  * Temporary flag to toggle between Playwright-based and Konva-based PDF generation

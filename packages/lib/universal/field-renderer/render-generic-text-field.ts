@@ -34,7 +34,7 @@ import {
   resolveCellSize,
 } from './field-renderer';
 
-const DEFAULT_TEXT_X_PADDING = 6;
+export const DEFAULT_TEXT_X_PADDING = 6;
 
 // Distance (in scaled pixels) within which a dragged comb cell snaps to its
 // sibling cells.

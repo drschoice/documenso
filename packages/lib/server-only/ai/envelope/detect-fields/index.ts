@@ -11,7 +11,7 @@ import { resizeImageToGeminiImage } from '../../../../utils/images/resize-image-
 import { logger } from '../../../../utils/logger';
 import { getEnvelopeById } from '../../../envelope/get-envelope-by-id';
 import { createEnvelopeRecipients } from '../../../recipient/create-envelope-recipients';
-import { vertex } from '../../google';
+import { getFieldDetectionModel } from '../../model';
 import { pdfToImages } from '../../pdf-to-images';
 import {
   buildRecipientContextMessage,
@@ -306,6 +306,10 @@ const detectFieldsFromPage = async ({
     ],
   });
 
+  // Resolved once per page rather than per attempt, so a stand-in model can keep
+  // per-page state (which attempt this is) across the retries below.
+  const model = await getFieldDetectionModel();
+
   // The model occasionally returns output that fails schema validation (e.g. a
   // malformed box2d), which makes generateObject throw. Retry a few times since
   // the call is non-deterministic before giving up on this page.
@@ -314,7 +318,7 @@ const detectFieldsFromPage = async ({
   for (let attempt = 1; attempt <= MAX_PAGE_DETECTION_ATTEMPTS; attempt++) {
     try {
       const result = await generateObject({
-        model: vertex('gemini-3-flash-preview'),
+        model,
         system: SYSTEM_PROMPT,
         schema: ZSubmitDetectedFieldsInputSchema,
         messages,

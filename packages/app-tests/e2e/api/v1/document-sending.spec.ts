@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { createApiToken } from '@documenso/lib/server-only/public-api/create-api-token';
+import { DEFAULT_DOCUMENT_EMAIL_SETTINGS } from '@documenso/lib/types/document-email';
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { prisma } from '@documenso/prisma';
 import { FieldType, RecipientRole } from '@documenso/prisma/client';
@@ -102,6 +103,11 @@ test.describe('Document API', () => {
       create: {
         id: document.documentMetaId,
         emailSettings: {
+          // Spread the defaults rather than storing a partial object: the column is
+          // typed as the full settings shape, and `extractDerivedDocumentEmailSettings`
+          // fills any missing key with the same defaults at read time, so this is
+          // what the old partial already resolved to.
+          ...DEFAULT_DOCUMENT_EMAIL_SETTINGS,
           documentCompleted: true,
           ownerDocumentCompleted: false,
         },
@@ -109,6 +115,11 @@ test.describe('Document API', () => {
       update: {
         id: document.documentMetaId,
         emailSettings: {
+          // Spread the defaults rather than storing a partial object: the column is
+          // typed as the full settings shape, and `extractDerivedDocumentEmailSettings`
+          // fills any missing key with the same defaults at read time, so this is
+          // what the old partial already resolved to.
+          ...DEFAULT_DOCUMENT_EMAIL_SETTINGS,
           documentCompleted: true,
           ownerDocumentCompleted: false,
         },

@@ -148,32 +148,50 @@ export const DATE_FORMATS = [
   value: (typeof VALID_DATE_FORMAT_VALUES)[number];
 }[];
 
+/**
+ * Read back the date a DATE field was signed with, from the text stored on the field.
+ *
+ * The value was formatted with the document's date format in the document's time zone. A field
+ * signed before the document's format changed was stamped under a different pattern, so the other
+ * known formats are tried too. The result is invalid when none of them match.
+ */
+export const parseSignedDateText = (
+  customText: string,
+  dateFormat: string | null = DEFAULT_DOCUMENT_DATE_FORMAT,
+  timeZone: string | null = DEFAULT_DOCUMENT_TIME_ZONE,
+): DateTime => {
+  const coalescedDateFormat = dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT;
+  const coalescedTimeZone = timeZone ?? DEFAULT_DOCUMENT_TIME_ZONE;
+
+  const parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
+    zone: coalescedTimeZone,
+  });
+
+  if (parsedDate.isValid) {
+    return parsedDate;
+  }
+
+  for (const candidateFormat of VALID_DATE_FORMAT_VALUES) {
+    const candidateDate = DateTime.fromFormat(customText, candidateFormat, {
+      zone: coalescedTimeZone,
+    });
+
+    if (candidateDate.isValid) {
+      return candidateDate;
+    }
+  }
+
+  return parsedDate;
+};
+
 export const convertToLocalSystemFormat = (
   customText: string,
   dateFormat: string | null = DEFAULT_DOCUMENT_DATE_FORMAT,
   timeZone: string | null = DEFAULT_DOCUMENT_TIME_ZONE,
 ): string => {
   const coalescedDateFormat = dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT;
-  const coalescedTimeZone = timeZone ?? DEFAULT_DOCUMENT_TIME_ZONE;
 
-  let parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
-    zone: coalescedTimeZone,
-  });
-
-  // A field signed before the document's format changed was stamped under a different pattern, so
-  // fall back to the other known formats rather than showing the user "Invalid date".
-  if (!parsedDate.isValid) {
-    for (const candidateFormat of VALID_DATE_FORMAT_VALUES) {
-      const candidateDate = DateTime.fromFormat(customText, candidateFormat, {
-        zone: coalescedTimeZone,
-      });
-
-      if (candidateDate.isValid) {
-        parsedDate = candidateDate;
-        break;
-      }
-    }
-  }
+  const parsedDate = parseSignedDateText(customText, dateFormat, timeZone);
 
   // Anything we cannot parse at all is shown verbatim — it is still the value that was signed.
   if (!parsedDate.isValid) {

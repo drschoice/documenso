@@ -32,4 +32,18 @@ const handler = handle(build, server);
 
 const port = parseInt(process.env.PORT || '3000', 10);
 
-serve({ fetch: handler.fetch, port });
+const httpServer = serve({ fetch: handler.fetch, port });
+
+/**
+ * Node closes an idle keep-alive connection after 5s by default. Any client that
+ * pools connections can then pick a socket in the instant the server is closing
+ * it and see ECONNRESET, through no fault of the request.
+ *
+ * The convention is to keep this above the idle timeout of whatever sits in
+ * front of the process - an AWS ALB, for instance, defaults to 60s - so the
+ * proxy is always the side that retires a connection. `headersTimeout` must
+ * exceed `keepAliveTimeout`, or Node can close a connection while it is still
+ * waiting for the request headers of a reused socket.
+ */
+httpServer.keepAliveTimeout = 65_000;
+httpServer.headersTimeout = 66_000;

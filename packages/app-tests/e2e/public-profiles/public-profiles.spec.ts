@@ -6,7 +6,6 @@ import { seedDirectTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
-import { expectToastTextToBeVisible } from '../fixtures/generic';
 
 test('[PUBLIC_PROFILE]: create team profile', async ({ page }) => {
   const { user, team } = await seedUser();
@@ -46,8 +45,10 @@ test('[PUBLIC_PROFILE]: create team profile', async ({ page }) => {
     .fill('public-direct-template-description');
   await page.getByRole('button', { name: 'Update' }).click();
 
-  // Wait for toast
-  await expectToastTextToBeVisible(page, 'Template has been updated');
+  // The dialog closes once the update resolves. That is the barrier the toast
+  // used to provide before the navigation below; the toast is evicted within
+  // about a second (TOAST_LIMIT = 1). See issue #31.
+  await expect(page.getByRole('textbox', { name: 'Title *' })).not.toBeVisible();
 
   // Check that public profile is disabled.
   await page.goto(`${NEXT_PUBLIC_WEBAPP_URL()}/p/${publicProfileUrl}`);
