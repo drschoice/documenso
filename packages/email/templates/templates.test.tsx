@@ -42,7 +42,9 @@ import { OrganisationAccountLinkConfirmationTemplate } from './organisation-acco
 import { OrganisationInviteEmailTemplate } from './organisation-invite';
 import { OrganisationJoinEmailTemplate } from './organisation-join';
 import { OrganisationLeaveEmailTemplate } from './organisation-leave';
+import { OrganisationLimitsUpdatedEmailTemplate } from './organisation-limits-updated';
 import { RecipientExpiredTemplate } from './recipient-expired';
+import { RecipientRemovedByAdminEmailTemplate } from './recipient-removed-by-admin';
 import { RecipientRemovedFromDocumentTemplate } from './recipient-removed-from-document';
 import { ResetPasswordTemplate } from './reset-password';
 import { TeamDeleteEmailTemplate } from './team-delete';
@@ -239,7 +241,15 @@ const TEMPLATES: { name: string; element: ReactElement }[] = [
       />
     ),
   },
+  {
+    name: 'organisation-limits-updated',
+    element: <OrganisationLimitsUpdatedEmailTemplate assetBaseUrl={ASSET_BASE_URL} organisationName="Documenso" />,
+  },
   { name: 'recipient-expired', element: <RecipientExpiredTemplate /> },
+  {
+    name: 'recipient-removed-by-admin',
+    element: <RecipientRemovedByAdminEmailTemplate />,
+  },
   {
     name: 'recipient-removed-from-document',
     element: <RecipientRemovedFromDocumentTemplate />,
