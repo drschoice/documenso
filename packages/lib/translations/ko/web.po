@@ -95,11 +95,6 @@ msgstr "{0, plural, other {{2} / #개 행이 선택되었습니다.}}"
 msgid "{0, plural, one {# character over the limit} other {# characters over the limit}}"
 msgstr "{0, plural, other {제한을 #자 초과했습니다}}"
 
-#. placeholder {0}: characterLimit - (field.value?.length ?? 0)
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "{0, plural, one {# character remaining} other {# characters remaining}}"
-msgstr "{0, plural, other {#자 남음}}"
-
 #. placeholder {0}: warnings.length
 #: apps/remix/app/routes/_authenticated+/o.$orgUrl.settings.branding.tsx
 #: apps/remix/app/routes/_authenticated+/t.$teamUrl+/settings.branding.tsx
@@ -510,6 +505,10 @@ msgstr "{recipientReference}님이 \"{documentName}\"에 서명했습니다."
 #: packages/email/templates/document-recipient-signed.tsx
 msgid "{recipientReference} has signed {documentName}"
 msgstr "{recipientReference}님이 {documentName}에 서명했습니다."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-field-editor.tsx
+msgid "{remainingCharacters} characters remaining"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/forms/public-profile-form.tsx
@@ -1088,6 +1087,10 @@ msgstr "귀하의 다이렉트 템플릿에서 생성된 문서가 있으며, �
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "A draft document will be created"
 msgstr "임시 저장 문서가 생성됩니다."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-complete-dialog.tsx
+msgid "A field could not be saved"
+msgstr ""
 
 #: packages/lib/utils/document-audit-logs.ts
 msgctxt "Audit log format"
@@ -2104,6 +2107,7 @@ msgid "An error occurred while signing the document."
 msgstr "문서에 서명하는 중 오류가 발생했습니다."
 
 #: apps/remix/app/components/general/envelope-signing/envelope-signer-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-inline-edit-provider.tsx
 msgid "An error occurred while signing the field."
 msgstr "필드를 서명하는 동안 오류가 발생했습니다."
 
@@ -2365,10 +2369,6 @@ msgctxt "Recipient role progressive verb"
 msgid "Approving"
 msgstr "승인 중"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "April"
-msgstr ""
-
 #: apps/remix/app/components/dialogs/assistant-confirmation-dialog.tsx
 msgid "Are you sure you want to complete the document? This action cannot be undone. Please ensure that you have completed prefilling all relevant fields before proceeding."
 msgstr "문서를 완료하시겠습니까? 이 작업은 되돌릴 수 없습니다. 계속하기 전에 관련 필드를 모두 미리 채웠는지 확인해 주세요."
@@ -2527,10 +2527,6 @@ msgstr "감사 로그 세부 정보"
 #: apps/remix/app/routes/_authenticated+/admin+/documents.$id.tsx
 msgid "Audit Logs"
 msgstr "감사 로그"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "August"
-msgstr ""
 
 #: apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx
 #: packages/lib/server-only/pdf/render-certificate.ts
@@ -2902,13 +2898,7 @@ msgstr ""
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/dialogs/session-logout-all-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-checkbox-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-signature-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/dialogs/team-create-dialog.tsx
 #: apps/remix/app/components/dialogs/team-delete-dialog.tsx
@@ -3178,6 +3168,7 @@ msgstr ""
 msgid "Clear filters"
 msgstr "필터 지우기"
 
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 #: apps/remix/app/components/tables/envelopes-table-bulk-action-bar.tsx
 msgid "Clear selection"
 msgstr "선택 해제"
@@ -3470,7 +3461,6 @@ msgstr "아직 서명을 완료하지 않은 수신자에게 알림 이메일을
 
 #: apps/remix/app/components/dialogs/public-profile-template-manage-dialog.tsx
 #: apps/remix/app/components/dialogs/sign-field-checkbox-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
 #: apps/remix/app/components/dialogs/template-direct-link-dialog.tsx
 msgid "Confirm"
 msgstr "확인"
@@ -4176,10 +4166,6 @@ msgstr "날짜 설정"
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
 msgid "David is the Employee, Lucas is the Manager"
 msgstr "David는 직원이고, Lucas는 관리자입니다."
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "December"
-msgstr ""
 
 #: apps/remix/app/components/general/organisations/organisation-invitations.tsx
 #: apps/remix/app/routes/_unauthenticated+/organisation.invite.$token.tsx
@@ -5683,10 +5669,6 @@ msgstr "이메일 도메인"
 msgid "Email domains synced"
 msgstr "이메일 도메인이 동기화되었습니다."
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Email is required"
-msgstr "이메일은 필수 항목입니다."
-
 #: packages/ui/primitives/template-flow/add-template-settings.tsx
 msgid "Email Options"
 msgstr "이메일 옵션"
@@ -5942,14 +5924,6 @@ msgstr "영어"
 msgid "Ensure that you are using the embedding token, not the API token"
 msgstr "임베딩 토큰이 아닌 API 토큰을 사용하고 있지 않은지 확인하세요."
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Enter"
-msgstr "입력하세요"
-
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Enter a document name"
 msgstr ""
@@ -5978,44 +5952,16 @@ msgstr "클레임 이름 입력"
 msgid "Enter custom document name"
 msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Enter Email"
-msgstr "이메일을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter First Name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Enter Initials"
-msgstr "이니셜을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Last Name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Middle Name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Enter Name"
-msgstr "이름을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Enter Number"
-msgstr "숫자를 입력하세요"
-
 #: apps/remix/app/components/forms/2fa/two-factor-code-dialog.tsx
 msgid "Enter one of your backup codes to continue."
 msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Enter Text"
-msgstr "텍스트를 입력하세요"
-
 #: apps/remix/app/components/forms/2fa/two-factor-code-dialog.tsx
 msgid "Enter the code from your authenticator app to continue."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Enter the date as {format}."
 msgstr ""
 
 #: apps/remix/app/components/dialogs/organisation-email-domain-create-dialog.tsx
@@ -6058,16 +6004,11 @@ msgstr "완료된 문서를 받을 이메일 주소를 입력하세요."
 msgid "Enter your name"
 msgstr "이름을 입력하세요"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Enter your number here"
-msgstr "여기에 번호를 입력하세요"
-
 #: apps/remix/app/components/general/document-signing/document-signing-auth-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-auth-password.tsx
 msgid "Enter your password"
 msgstr "비밀번호를 입력하세요."
 
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-text-field.tsx
 msgid "Enter your text here"
 msgstr "여기에 텍스트를 입력하세요"
@@ -6174,6 +6115,7 @@ msgstr "봉투가 업데이트되었습니다"
 #: apps/remix/app/components/general/document/document-edit-form.tsx
 #: apps/remix/app/components/general/document/document-edit-form.tsx
 #: apps/remix/app/components/general/envelope-signing/envelope-signer-page-renderer.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-inline-edit-provider.tsx
 #: apps/remix/app/components/general/pdf-viewer/pdf-viewer.tsx
 #: apps/remix/app/components/general/template/template-edit-form.tsx
 #: apps/remix/app/components/general/template/template-edit-form.tsx
@@ -6486,10 +6428,6 @@ msgstr "기능 플래그"
 #: apps/remix/app/components/general/admin-license-card.tsx
 msgid "Features"
 msgstr "기능"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "February"
-msgstr ""
 
 #: apps/remix/app/components/dialogs/admin-organisation-sync-subscription-dialog.tsx
 msgid "Fetch the latest subscription data from Stripe and apply it to this organisation."
@@ -7273,7 +7211,6 @@ msgid "Inherited subscription claim"
 msgstr "상속된 구독 클레임"
 
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-initials-field.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-drag-drop.tsx
 #: packages/lib/utils/fields.ts
@@ -7282,10 +7219,6 @@ msgstr "상속된 구독 클레임"
 #: packages/ui/primitives/template-flow/add-template-fields.tsx
 msgid "Initials"
 msgstr "이니셜"
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Initials are required"
-msgstr "이니셜은 필수 항목입니다"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Initials Settings"
@@ -7473,10 +7406,6 @@ msgstr "이탈리아어"
 msgid "Jane Doe"
 msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "January"
-msgstr ""
-
 #: packages/lib/constants/i18n.ts
 msgid "Japanese"
 msgstr "일본어"
@@ -7500,16 +7429,8 @@ msgstr "가입일"
 msgid "Joined {0}"
 msgstr "{0}에 가입함"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "July"
-msgstr ""
-
 #: apps/remix/app/components/general/unified-settings-sidebar-mobile.tsx
 msgid "Jump to"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "June"
 msgstr ""
 
 #: apps/remix/app/routes/_authenticated+/admin+/teams.$id.tsx
@@ -8018,10 +7939,6 @@ msgstr "관리자 이상"
 msgid "Mapping fields to recipients"
 msgstr "필드를 수신자에 매핑하는 중"
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "March"
-msgstr ""
-
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Mark as viewed"
 msgstr "열람 완료로 표시"
@@ -8065,10 +7982,6 @@ msgstr "문서당 허용되는 최대 수신자 수입니다. 0 = 무제한"
 #: apps/remix/app/routes/_authenticated+/admin+/organisations.$id.tsx
 msgid "Maximum number of uploaded files per envelope allowed"
 msgstr "봉투당 허용되는 최대 업로드 파일 수"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "May"
-msgstr ""
 
 #: apps/remix/app/components/dialogs/admin-organisation-member-update-dialog.tsx
 #: apps/remix/app/components/dialogs/admin-organisation-member-update-dialog.tsx
@@ -8187,6 +8100,10 @@ msgstr "이메일 전송 방식의 세부 정보를 수정합니다."
 msgid "Modify the details of the subscription claim."
 msgstr "구독 클레임 세부 정보를 수정합니다."
 
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Month"
+msgstr ""
+
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/general/analytics/analytics-documents-over-time-card.tsx
 #: apps/remix/app/components/general/billing-plans.tsx
@@ -8302,10 +8219,6 @@ msgstr "해당 없음"
 msgid "Name"
 msgstr "이름"
 
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Name is required"
-msgstr "이름은 필수 항목입니다."
-
 #: apps/remix/app/components/forms/editor/editor-field-name-form.tsx
 msgid "Name part"
 msgstr ""
@@ -8402,6 +8315,10 @@ msgstr ""
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Next Field"
 msgstr "다음 필드"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Next month"
+msgstr ""
 
 #: apps/remix/app/components/general/document-signing/document-signing-complete-dialog.tsx
 msgid "Next Recipient Email"
@@ -8637,6 +8554,7 @@ msgstr ""
 msgid "No results found"
 msgstr "결과가 없습니다."
 
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 #: apps/remix/app/components/general/filter-pill.tsx
 msgid "No results found."
 msgstr "결과가 없습니다."
@@ -8760,10 +8678,6 @@ msgstr "알림"
 msgid "Notify the organisation about limit changes"
 msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "November"
-msgstr ""
-
 #: apps/remix/app/components/dialogs/ai-field-detection-dialog.tsx
 #: apps/remix/app/components/general/document-signing/document-signing-number-field.tsx
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-drag-drop.tsx
@@ -8774,18 +8688,22 @@ msgstr ""
 msgid "Number"
 msgstr "숫자"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Number cannot exceed {combCellCount} characters"
-msgstr ""
-
 #: apps/remix/app/components/forms/editor/editor-field-number-form.tsx
 #: packages/ui/primitives/document-flow/field-items-advanced-settings/number-field.tsx
 msgid "Number format"
 msgstr "숫자 형식"
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Number needs to be formatted as {numberFormat}"
-msgstr "숫자는 {numberFormat} 형식이어야 합니다"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number must be at least {min}."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number must be at most {max}."
+msgstr ""
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Number needs to be formatted as {format}."
+msgstr ""
 
 #: apps/remix/app/components/forms/editor/editor-field-generic-field-forms.tsx
 msgid "Number of cells"
@@ -8804,10 +8722,6 @@ msgstr "허용되는 팀 수. 0 = 무제한"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Number Settings"
 msgstr "숫자 설정"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "October"
-msgstr ""
 
 #: apps/remix/app/components/general/analytics/analytics-overview-cards.tsx
 msgid "of sent documents completed"
@@ -8860,6 +8774,10 @@ msgstr "템플릿 설정을 마친 후 링크를 원하는 곳에 공유하세�
 #: apps/remix/app/components/embed/multisign/multi-sign-document-list.tsx
 msgid "One of the documents in the current bundle has a signing role that is not compatible with the current signing experience."
 msgstr "현재 번들에 포함된 문서 중 하나에 현재 서명 환경과 호환되지 않는 서명 역할이 있습니다."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signing-complete-dialog.tsx
+msgid "One of the values you entered was not saved. Please check your fields and try again."
+msgstr ""
 
 #: apps/remix/app/utils/toast-error-messages.ts
 msgid "One or more of your required fields have not been saved. Please refresh the page, complete any empty required fields, and try again."
@@ -8929,10 +8847,6 @@ msgstr ""
 #: apps/remix/app/components/forms/editor/editor-field-dropdown-form.tsx
 msgid "Option value cannot be empty"
 msgstr "옵션 값은 비워 둘 수 없습니다"
-
-#: apps/remix/app/components/dialogs/sign-field-dropdown-dialog.tsx
-msgid "Options"
-msgstr "옵션"
 
 #: apps/remix/app/components/dialogs/template-direct-link-dialog.tsx
 #: apps/remix/app/components/forms/signup.tsx
@@ -9502,6 +9416,10 @@ msgstr "자세한 정보는 상위 애플리케이션에서 확인해 주세요.
 msgid "Please check your email for updates."
 msgstr "업데이트 내용을 이메일로 확인해 주세요."
 
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please choose one of the options."
+msgstr ""
+
 #: apps/remix/app/routes/_unauthenticated+/reset-password.$token.tsx
 msgid "Please choose your new password"
 msgstr "새 비밀번호를 선택해 주세요"
@@ -9551,44 +9469,16 @@ msgstr "사이트 소유자에게 추가 지원을 요청해 주세요."
 msgid "Please don't close this tab. The signing provider is finalising your signature."
 msgstr "이 탭을 닫지 마십시오. 서명 제공자가 서명을 마무리하고 있습니다."
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Please enter a number"
-msgstr "숫자를 입력하세요"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please enter a valid email address."
+msgstr ""
 
-#: apps/remix/app/components/dialogs/sign-field-number-dialog.tsx
-msgid "Please enter a valid number"
-msgstr "올바른 숫자를 입력하세요"
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Please enter a valid number."
+msgstr ""
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "Please enter a valid URL"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Please enter a value"
-msgstr "값을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-email-dialog.tsx
-msgid "Please enter your email address"
-msgstr "이메일 주소를 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your first name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your full name"
-msgstr "전체 이름을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-initials-dialog.tsx
-msgid "Please enter your initials"
-msgstr "이니셜을 입력하세요"
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your last name"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-name-dialog.tsx
-msgid "Please enter your middle name"
 msgstr ""
 
 #: apps/remix/app/components/embed/embed-document-completed.tsx
@@ -9663,10 +9553,6 @@ msgstr "문서를 승인하기 전에 검토해 주세요."
 #: apps/remix/app/components/general/document-signing/document-signing-page-view-v1.tsx
 msgid "Please review the document before signing."
 msgstr "서명 전에 문서를 검토해 주세요."
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "Please select a date for this field."
-msgstr ""
 
 #: apps/remix/app/components/dialogs/template-use-dialog.tsx
 msgid "Please select a PDF file"
@@ -9786,6 +9672,10 @@ msgstr "보내기 전에 문서를 미리 확인하세요"
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-preview-page.tsx
 msgid "Preview what the signed document will look like with placeholder data"
 msgstr "자리표시자 데이터를 사용해 서명된 문서가 어떻게 보일지 미리 확인하세요"
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Previous month"
+msgstr ""
 
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "Primary"
@@ -10985,7 +10875,7 @@ msgstr "전체 선택"
 msgid "Select an event type"
 msgstr "이벤트 유형을 선택하세요"
 
-#: apps/remix/app/components/dialogs/sign-field-dropdown-dialog.tsx
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-dropdown-editor.tsx
 #: packages/ui/primitives/combobox.tsx
 msgid "Select an option"
 msgstr "옵션을 선택하세요."
@@ -11011,10 +10901,6 @@ msgstr ""
 #: packages/ui/components/recipient/recipient-action-auth-select.tsx
 msgid "Select authentication methods"
 msgstr "인증 방식 선택"
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "Select Date"
-msgstr ""
 
 #: apps/remix/app/components/forms/editor/editor-field-dropdown-form.tsx
 #: packages/ui/primitives/document-flow/field-items-advanced-settings/dropdown-field.tsx
@@ -11301,10 +11187,6 @@ msgstr ""
 
 #: apps/remix/app/components/general/settings-upsell/branding-upsell.tsx
 msgid "Separate branding per team"
-msgstr ""
-
-#: apps/remix/app/components/dialogs/sign-field-date-dialog.tsx
-msgid "September"
 msgstr ""
 
 #: apps/remix/app/routes/_authenticated+/settings+/security.sessions.tsx
@@ -12643,10 +12525,6 @@ msgstr "텍스트"
 msgid "Text Align"
 msgstr "텍스트 정렬"
 
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Text cannot exceed {characterLimit} characters"
-msgstr ""
-
 #: apps/remix/app/components/general/admin-site-banner-section.tsx
 msgid "Text Color"
 msgstr "텍스트 색상"
@@ -12654,10 +12532,6 @@ msgstr "텍스트 색상"
 #: apps/remix/app/components/forms/branding-preferences-form.tsx
 msgid "Text colour on primary buttons."
 msgstr "기본 버튼의 텍스트 색상입니다."
-
-#: apps/remix/app/components/dialogs/sign-field-text-dialog.tsx
-msgid "Text is required"
-msgstr "텍스트는 필수 항목입니다"
 
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-fields-page.tsx
 msgid "Text Settings"
@@ -13572,6 +13446,10 @@ msgstr "이 토큰은 유효하지 않거나 만료되었습니다. 새 초대�
 #: apps/remix/app/components/forms/team-update-form.tsx
 msgid "This URL is already in use."
 msgstr "이 URL은 이미 사용 중입니다."
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "This value cannot be saved."
+msgstr ""
 
 #: packages/ui/components/document/document-email-checkboxes.tsx
 msgid "This will be sent to all recipients if a pending document has been deleted."
@@ -14500,6 +14378,10 @@ msgstr ""
 #: apps/remix/app/routes/_authenticated+/t.$teamUrl+/templates.$id._index.tsx
 msgid "Use"
 msgstr "사용"
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-commit-error-message.ts
+msgid "Use {limit} characters or fewer."
+msgstr ""
 
 #: apps/remix/app/components/general/rate-limit-array-input.tsx
 msgid "Use a duration with a unit, e.g. 5m, 1h, or 24h"
@@ -15537,6 +15419,10 @@ msgstr ""
 #: apps/remix/app/components/forms/public-profile-form.tsx
 msgid "Write a description to display on your public profile"
 msgstr "공개 프로필에 표시될 설명을 작성하세요."
+
+#: apps/remix/app/components/general/envelope-signing/envelope-signer-inline-date-editor.tsx
+msgid "Year"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/organisation-create-dialog.tsx
 #: apps/remix/app/components/general/billing-plans.tsx
@@ -16595,6 +16481,10 @@ msgstr "현재 이메일은 팀 <0>{0}</0>({1})에서 사용 중입니다."
 #: apps/remix/app/routes/_authenticated+/t.$teamUrl+/settings.email.tsx
 msgid "Your email preferences have been updated"
 msgstr "이메일 기본 설정이 업데이트되었습니다."
+
+#: apps/remix/app/components/general/envelope-signing/use-inline-editor-session.ts
+msgid "Your entry was not saved"
+msgstr ""
 
 #: apps/remix/app/components/dialogs/envelope-distribute-dialog.tsx
 msgid "Your envelope has been distributed successfully."

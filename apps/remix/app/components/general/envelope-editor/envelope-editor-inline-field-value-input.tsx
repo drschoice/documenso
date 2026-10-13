@@ -5,10 +5,7 @@ import type Konva from 'konva';
 import type { TLocalField } from '@documenso/lib/client-only/hooks/use-editor-fields';
 import { DEFAULT_STANDARD_FONT_SIZE } from '@documenso/lib/constants/pdf';
 import { konvaTextFontFamily } from '@documenso/lib/universal/field-renderer/field-generic-items';
-
-// Matches DEFAULT_TEXT_X_PADDING in render-generic-text-field.ts so the DOM
-// text lines up with the Konva text it sits on top of.
-const TEXT_X_PADDING = 6;
+import { DEFAULT_TEXT_X_PADDING } from '@documenso/lib/universal/field-renderer/render-generic-text-field';
 
 export const INLINE_EDITABLE_FIELD_TYPES = new Set<TLocalField['type']>(['TEXT', 'NUMBER']);
 
@@ -120,8 +117,9 @@ export const EnvelopeEditorInlineFieldValueInput = ({
     textAlign,
     paddingTop: 0,
     paddingBottom: 0,
-    paddingLeft: `${TEXT_X_PADDING * scale}px`,
-    paddingRight: `${TEXT_X_PADDING * scale}px`,
+    // The Konva text's own horizontal padding, so the DOM text lines up with it.
+    paddingLeft: `${DEFAULT_TEXT_X_PADDING * scale}px`,
+    paddingRight: `${DEFAULT_TEXT_X_PADDING * scale}px`,
     resize: 'none',
     overflow: 'hidden',
     // Keyboard input still works while all mouse events pass through to Konva.

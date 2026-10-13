@@ -21,6 +21,7 @@ import { useEmbedSigningContext } from '~/components/embed/embed-signing-context
 import { DocumentSigningCompleteDialog } from '../document-signing/document-signing-complete-dialog';
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
 import { EnvelopeSigningCscStatus } from './envelope-signing-csc-status';
+import { useEnvelopeSigningInlineEdit } from './envelope-signing-inline-edit-provider';
 
 type PendingCscSigning = Extract<EmbedPopupAuthCscOptions, { scope: 'credential' }>;
 
@@ -44,6 +45,7 @@ export const EnvelopeSignerCompleteDialog = () => {
     nextRecipient,
     email,
     fullName,
+    flushPendingSignatures,
   } = useRequiredEnvelopeSigningContext();
 
   const { currentEnvelopeItem, setCurrentEnvelopeItem } = useCurrentEnvelopeRender();
@@ -51,6 +53,8 @@ export const EnvelopeSignerCompleteDialog = () => {
   const { onDocumentCompleted, onDocumentError } = useEmbedSigningContext() || {};
 
   const isFramed = useIsFramed();
+
+  const { openInlineFieldFromKeyboard } = useEnvelopeSigningInlineEdit();
 
   const { mutateAsync: completeDocument, isPending } = trpc.recipient.completeDocumentWithToken.useMutation();
 
@@ -166,13 +170,18 @@ export const EnvelopeSignerCompleteDialog = () => {
       return;
     }
 
+    setShowPendingFieldTooltip(true);
+
+    // A field that is typed in place opens ready for typing, scrolled into view.
+    if (openInlineFieldFromKeyboard(nextField)) {
+      return;
+    }
+
     const isEnvelopeItemSwitch = nextField.envelopeItemId !== currentEnvelopeItem?.id;
 
     if (isEnvelopeItemSwitch) {
       setCurrentEnvelopeItem(nextField.envelopeItemId);
     }
-
-    setShowPendingFieldTooltip(true);
 
     setTimeout(
       () => {
@@ -194,6 +203,25 @@ export const EnvelopeSignerCompleteDialog = () => {
     );
   };
 
+  /**
+   * Values typed in place are shown before the server has them. Wait for those to land before
+   * completing, and stop if one was rejected: the field has gone back to what the server holds, so
+   * completing now would submit without it.
+   */
+  const waitForPendingSignatures = async () => {
+    const isSaved = await flushPendingSignatures();
+
+    if (!isSaved) {
+      toast({
+        title: t`A field could not be saved`,
+        description: t`One of the values you entered was not saved. Please check your fields and try again.`,
+        variant: 'destructive',
+      });
+
+      throw new Error('A field value was rejected before completion');
+    }
+  };
+
   const handleOnCompleteClick = async (
     nextSigner?: { name: string; email: string },
     accessAuthOptions?: TRecipientAccessAuth,
@@ -208,6 +236,15 @@ export const EnvelopeSignerCompleteDialog = () => {
         preOpenedPopup.close();
       }
     };
+
+    // After the popup: waiting for in-place saves would spend the click's user activation.
+    try {
+      await waitForPendingSignatures();
+    } catch (err) {
+      closePreOpenedPopup();
+
+      throw err;
+    }
 
     try {
       const result = await completeDocument({
@@ -278,6 +315,8 @@ export const EnvelopeSignerCompleteDialog = () => {
     accessAuthOptions?: TRecipientAccessAuth,
     recipientDetails?: { name: string; email: string },
   ) => {
+    await waitForPendingSignatures();
+
     try {
       let directTemplateExternalId = searchParams?.get('externalId') || undefined;
 

@@ -1,44 +1,50 @@
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
 import { prisma } from '@documenso/prisma';
-import { type Locator, type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { DocumentStatus, FieldType } from '@prisma/client';
 import { DateTime } from 'luxon';
 
+import { getDateInputPattern } from '@documenso/lib/universal/field-inline-signing/date-input';
+
 import { apiSeedPendingDocument } from '../fixtures/api-seeds';
+import { openV2InlineFieldEditor } from '../fixtures/envelope-signing';
 
 const PDF_PAGE_SELECTOR = 'img[data-page-number]';
 
 /**
- * Sign the DATE field through the calendar dialog.
+ * Sign the DATE field with today's date, typed in place.
  *
  * DATE is not in ADVANCED_FIELD_TYPES_WITH_OPTIONAL_SETTING, so `isRequiredField`
  * reports it required whatever its meta says - there is no way to make a date
  * optional. Upstream gets away with never touching it because their signing page
- * marks every date inserted and read-only on load; this fork replaced that with a
- * picker (`21551a2ff`), so the signer has to open it before the document can be
- * completed. The dialog opens on today and Confirm accepts it, which is the same
- * value upstream's auto-insert would have written.
+ * marks every date inserted and read-only on load; this fork lets the signer choose
+ * the date instead (#42: typed over the field, with a calendar under it), so the
+ * signer has to fill it before the document can be completed. Today's date is the
+ * same value upstream's auto-insert would have written.
+ *
+ * Only the date is typed, in the order the document's format prints it; any time
+ * in the format is not typed.
  */
-const signDateFieldViaDialog = async (page: Page, canvas: Locator, field: { positionX: unknown; positionY: unknown; width: unknown; height: unknown }) => {
-  const box = await canvas.boundingBox();
+const signDateFieldInPlace = async (page: Page, fieldId: number, dateFormat = DEFAULT_DOCUMENT_DATE_FORMAT) => {
+  const today = DateTime.now().setZone(DEFAULT_DOCUMENT_TIME_ZONE);
+  const parts = { Y: today.toFormat('yyyy'), M: today.toFormat('MM'), D: today.toFormat('dd') };
 
-  if (!box) {
-    throw new Error('Canvas bounding box not found');
-  }
+  const { order } = getDateInputPattern(dateFormat);
 
-  await canvas.click({
-    position: {
-      x: (Number(field.positionX) / 100) * box.width + ((Number(field.width) / 100) * box.width) / 2,
-      y: (Number(field.positionY) / 100) * box.height + ((Number(field.height) / 100) * box.height) / 2,
-    },
-  });
+  const editor = await openV2InlineFieldEditor(page, fieldId);
 
-  await page.getByRole('button', { name: 'Confirm' }).click();
+  await editor.pressSequentially(
+    order
+      .split('')
+      .map((part) => parts[part as keyof typeof parts])
+      .join(''),
+  );
+  await editor.press('Enter');
 };
 
 test.describe('V2 envelope field insertion during signing', () => {
-  test('date fields are signed through the picker and persist when completing a V2 envelope', async ({ page, request }) => {
+  test('date fields are signed in place and persist when completing a V2 envelope', async ({ page, request }) => {
     const now = DateTime.now().setZone(DEFAULT_DOCUMENT_TIME_ZONE);
 
     const { envelope, distributeResult } = await apiSeedPendingDocument(request, {
@@ -93,7 +99,7 @@ test.describe('V2 envelope field insertion during signing', () => {
     await canvas.click({ position: { x, y } });
     await page.waitForTimeout(500);
 
-    // The date still has to be signed - see signDateFieldViaDialog.
+    // The date still has to be signed - see signDateFieldInPlace.
     await expect(page.getByText('1 Field Remaining').first()).toBeVisible({ timeout: 10_000 });
 
     const dateFieldToSign = envelope.fields.find((f) => f.type === FieldType.DATE);
@@ -102,7 +108,7 @@ test.describe('V2 envelope field insertion during signing', () => {
       throw new Error('Date field not found');
     }
 
-    await signDateFieldViaDialog(page, canvas, dateFieldToSign);
+    await signDateFieldInPlace(page, dateFieldToSign.id);
 
     await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
 
@@ -124,7 +130,7 @@ test.describe('V2 envelope field insertion during signing', () => {
     expect(dateField.inserted).toBe(true);
     expect(dateField.customText).toBeTruthy();
 
-    // The calendar picker records the day the signer chose, normalised to midday, where
+    // The signer's date is recorded as the day they chose, normalised to midday, where
     // upstream's auto-insert wrote a live timestamp. The day is what a date field means,
     // so that is what is asserted; a to-the-minute comparison would only be testing that
     // the picker had stamped a clock reading it has no reason to carry.
@@ -145,7 +151,7 @@ test.describe('V2 envelope field insertion during signing', () => {
     }).toPass();
   });
 
-  test('email is auto-inserted and date is picked when completing a V2 envelope with multiple field types', async ({
+  test('email is auto-inserted and date is typed when completing a V2 envelope with multiple field types', async ({
     page,
     request,
   }) => {
@@ -251,7 +257,7 @@ test.describe('V2 envelope field insertion during signing', () => {
       throw new Error('Date field not found');
     }
 
-    await signDateFieldViaDialog(page, canvas, dateFieldToSign);
+    await signDateFieldInPlace(page, dateFieldToSign.id);
 
     await expect(page.getByText('0 Fields Remaining').first()).toBeVisible({ timeout: 10_000 });
 

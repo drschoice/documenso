@@ -495,8 +495,7 @@ export const upsertVisibilityStripes = (args: {
 }) => upsertFieldStripes(args);
 
 /** @deprecated use removeFieldStripes — kept for existing conditional-visibility call sites. */
-export const removeVisibilityStripes = (fieldGroup: Konva.Group) =>
-  removeFieldStripes(fieldGroup);
+export const removeVisibilityStripes = (fieldGroup: Konva.Group) => removeFieldStripes(fieldGroup);
 
 export const createSpinner = ({
   fieldWidth,
@@ -556,10 +555,21 @@ type CreateFieldHoverInteractionOptions = {
 };
 
 /**
+ * Namespace for the hover listeners, so a re-render can remove the ones it added last time.
+ */
+const HOVER_EVENT_NAMESPACE = '.fieldHover';
+
+/**
  * Adds smooth transition-like behavior for hover effects to the field group and rectangle.
+ *
+ * Fields are re-rendered onto the same group, so the listeners from the previous render are
+ * removed first. Otherwise every render adds another set, and each hover plays one tween per render
+ * the field has had.
  */
 export const createFieldHoverInteraction = ({ options, fieldGroup, fieldRect }: CreateFieldHoverInteractionOptions) => {
   const { mode } = options;
+
+  fieldGroup.off(HOVER_EVENT_NAMESPACE);
 
   if (mode === 'export' || !options.color) {
     return;
@@ -573,7 +583,7 @@ export const createFieldHoverInteraction = ({ options, fieldGroup, fieldRect }: 
     options.color,
   );
 
-  fieldGroup.on('mouseover', () => {
+  fieldGroup.on(`mouseover${HOVER_EVENT_NAMESPACE}`, () => {
     const layer = fieldRect.getLayer();
     if (!layer) {
       return;
@@ -586,7 +596,7 @@ export const createFieldHoverInteraction = ({ options, fieldGroup, fieldRect }: 
     }).play();
   });
 
-  fieldGroup.on('mouseout', () => {
+  fieldGroup.on(`mouseout${HOVER_EVENT_NAMESPACE}`, () => {
     const layer = fieldRect.getLayer();
     if (!layer) {
       return;
@@ -599,7 +609,7 @@ export const createFieldHoverInteraction = ({ options, fieldGroup, fieldRect }: 
     }).play();
   });
 
-  fieldGroup.on('transformstart', () => {
+  fieldGroup.on(`transformstart${HOVER_EVENT_NAMESPACE}`, () => {
     const layer = fieldRect.getLayer();
     if (!layer) {
       return;
@@ -612,7 +622,7 @@ export const createFieldHoverInteraction = ({ options, fieldGroup, fieldRect }: 
     }).play();
   });
 
-  fieldGroup.on('transformend', () => {
+  fieldGroup.on(`transformend${HOVER_EVENT_NAMESPACE}`, () => {
     const layer = fieldRect.getLayer();
     if (!layer) {
       return;
