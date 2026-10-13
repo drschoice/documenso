@@ -10,6 +10,8 @@ import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
 
+import { WEBAPP_ORIGIN_HEADERS } from './authentication';
+
 const WEBAPP = NEXT_PUBLIC_WEBAPP_URL();
 
 const EXAMPLE_PDF_PATH = path.join(__dirname, '../../../../assets/example.pdf');
@@ -335,7 +337,7 @@ export const signV2FieldViaTrpc = async (
 ) => {
   const response = await page.request.post(`${WEBAPP}/api/trpc/envelope.field.sign?batch=1`, {
     data: { 0: { json: { token, fieldId, fieldValue } } },
-    headers: { 'content-type': 'application/json' },
+    headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
   });
 
   const body: unknown = await response.json();
@@ -388,7 +390,7 @@ export const completeV2SigningViaTrpc = async (
     `${WEBAPP}/api/trpc/recipient.completeDocumentWithToken?batch=1`,
     {
       data: { 0: { json: { token, documentId } } },
-      headers: { 'content-type': 'application/json' },
+      headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
     },
   );
 

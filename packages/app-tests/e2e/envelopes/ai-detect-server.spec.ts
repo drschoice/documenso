@@ -31,7 +31,7 @@ import { prisma } from '@documenso/prisma';
 import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 
-import { apiSignin } from '../fixtures/authentication';
+import { apiSignin, WEBAPP_ORIGIN_HEADERS } from '../fixtures/authentication';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -127,6 +127,7 @@ type StreamEvent = {
  */
 const detectFields = async (request: APIRequestContext, body: Record<string, unknown>) => {
   const response = await request.post(`${NEXT_PUBLIC_WEBAPP_URL()}/api/ai/detect-fields`, {
+    headers: WEBAPP_ORIGIN_HEADERS,
     data: body,
     timeout: 100_000,
   });
