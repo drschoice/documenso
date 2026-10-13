@@ -9,6 +9,7 @@ import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { getRecipientsWithMissingFields } from '../../utils/recipients';
 import { extractFieldAutoInsertValues } from '../document/send-document';
 import { getTeamSettings } from '../team/get-team-settings';
+import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 import type { EnvelopeForSigningResponse } from './get-envelope-for-recipient-signing';
 import { ZEnvelopeForSigningResponse } from './get-envelope-for-recipient-signing';
 
@@ -98,6 +99,8 @@ export const getEnvelopeForDirectTemplateSigning = async ({
       message: 'Envelope has no items',
     });
   }
+
+  await assertSenderNotDisabled({ userId: envelope.userId });
 
   // Currently not using this since for direct templates "User" access means they just need to be
   // logged in.

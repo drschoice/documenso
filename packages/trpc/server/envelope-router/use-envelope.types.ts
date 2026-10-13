@@ -16,7 +16,11 @@ import {
 } from '@documenso/lib/types/document-meta';
 import { ZEnvelopeAttachmentTypeSchema } from '@documenso/lib/types/envelope-attachment';
 import { ZFieldMetaPrefillFieldsSchema } from '@documenso/lib/types/field-meta';
-import { ZRecipientEmailSchema, ZRecipientNamePartsRequestSchema } from '@documenso/lib/types/recipient';
+import {
+  ZRecipientEmailSchema,
+  ZRecipientNamePartsRequestSchema,
+  ZRecipientSigningOrderSchema,
+} from '@documenso/lib/types/recipient';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';
 
@@ -46,7 +50,7 @@ export const ZUseEnvelopePayloadSchema = z.object({
         email: ZRecipientEmailSchema,
         name: z.string().max(255).optional(),
         ...ZRecipientNamePartsRequestSchema,
-        signingOrder: z.number().optional(),
+        signingOrder: ZRecipientSigningOrderSchema.optional(),
       }),
     )
     .describe('The information of the recipients to create the document with.')

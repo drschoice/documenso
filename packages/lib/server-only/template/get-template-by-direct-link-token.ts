@@ -5,6 +5,7 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import { resolveLiveDocumentMeta } from '../../utils/document';
 import { mapSecondaryIdToTemplateId } from '../../utils/envelope';
 import { getTeamSettings } from '../team/get-team-settings';
+import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 
 export interface GetTemplateByDirectLinkTokenOptions {
   token: string;
@@ -43,6 +44,8 @@ export const getTemplateByDirectLinkToken = async ({ token }: GetTemplateByDirec
   if (!directLink || !firstDocumentData) {
     throw new AppError(AppErrorCode.NOT_FOUND);
   }
+
+  await assertSenderNotDisabled({ userId: envelope.userId });
 
   // A direct-link template is signed against the organisation/team settings as they are now rather
   // than the ones snapshotted when the template was created.

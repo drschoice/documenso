@@ -190,6 +190,7 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
   const {
     branding,
     emailLanguage,
+    settings,
     organisationType,
     senderEmail,
     replyToEmail,
@@ -278,6 +279,7 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
         selfSigner,
         organisationType,
         senderName: senderDisplayName,
+        includeSenderDetails: settings.includeSenderDetails,
         reportUrl,
       });
 

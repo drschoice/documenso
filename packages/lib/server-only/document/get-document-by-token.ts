@@ -6,6 +6,7 @@ import type { TDocumentAuthMethods } from '../../types/document-auth';
 import { resolveLiveDocumentMeta } from '../../utils/document';
 import { mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { getTeamSettings } from '../team/get-team-settings';
+import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 import { isRecipientAuthorized } from './is-recipient-authorized';
 
 export interface GetDocumentAndSenderByTokenOptions {
@@ -129,6 +130,8 @@ export const getDocumentAndSenderByToken = async ({
   if (!recipient) {
     throw new Error('Missing recipient');
   }
+
+  await assertSenderNotDisabled({ userId: result.userId });
 
   let documentAccessValid = true;
 

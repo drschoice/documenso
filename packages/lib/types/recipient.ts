@@ -139,6 +139,17 @@ export const ZRecipientEmailSchema = z.union([
 ]);
 
 /**
+ * Signing order for a recipient, for use in request schemas.
+ *
+ * Response schemas intentionally do not use this: existing rows may hold values
+ * that predate the constraint, and reads must not fail because of it.
+ */
+export const ZRecipientSigningOrderSchema = z
+  .number()
+  .int('Signing order must be an integer')
+  .min(0, 'Signing order must be equal to or greater than 0');
+
+/**
  * The individual name parts accepted on recipient write requests.
  *
  * These are optional everywhere: callers that only send `name` (the public API, CSV bulk send,

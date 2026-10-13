@@ -1,5 +1,10 @@
 import { ZRecipientAccessAuthTypesSchema, ZRecipientActionAuthTypesSchema } from '@documenso/lib/types/document-auth';
-import { ZRecipientEmailSchema, ZRecipientLiteSchema, ZRecipientNamePartsRequestSchema } from '@documenso/lib/types/recipient';
+import {
+  ZRecipientEmailSchema,
+  ZRecipientLiteSchema,
+  ZRecipientNamePartsRequestSchema,
+  ZRecipientSigningOrderSchema,
+} from '@documenso/lib/types/recipient';
 import { RecipientRole } from '@prisma/client';
 import { z } from 'zod';
 
@@ -21,7 +26,7 @@ export const ZUpdateEnvelopeRecipientSchema = z.object({
   name: z.string().max(255).optional(),
   ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole).optional(),
-  signingOrder: z.number().optional(),
+  signingOrder: ZRecipientSigningOrderSchema.optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
   actionAuth: z.array(ZRecipientActionAuthTypesSchema).default([]).optional(),
 });

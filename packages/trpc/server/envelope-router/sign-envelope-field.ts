@@ -3,6 +3,7 @@ import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { validateFieldAuth } from '@documenso/lib/server-only/document/validate-field-auth';
 import { getTeamSettings } from '@documenso/lib/server-only/team/get-team-settings';
+import { assertSenderNotDisabled } from '@documenso/lib/server-only/user/assert-user-not-disabled';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { getLinkGroupId } from '@documenso/lib/universal/field-linking';
@@ -10,6 +11,7 @@ import { evaluateAllVisibility } from '@documenso/lib/universal/field-visibility
 import { resolveLiveDocumentMeta } from '@documenso/lib/utils/document';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
+import { getRecipientFieldsWhereInput } from '@documenso/lib/utils/recipient-queries';
 import { assertRecipientNotExpired } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, FieldType, RecipientRole, SigningStatus } from '@prisma/client';
@@ -45,20 +47,10 @@ export const signEnvelopeFieldRoute = procedure
     const field = await prisma.field.findFirst({
       where: {
         id: fieldId,
-        recipient:
-          recipient.role === RecipientRole.ASSISTANT
-            ? {
-                signingStatus: {
-                  not: SigningStatus.SIGNED,
-                },
-                signingOrder: {
-                  gte: recipient.signingOrder ?? 0,
-                },
-                envelopeId: recipient.envelopeId,
-              }
-            : {
-                id: recipient.id,
-              },
+        recipient: getRecipientFieldsWhereInput({
+          recipient,
+          allowAssistantAccessToOtherRecipients: true,
+        }),
       },
       include: {
         envelope: {
@@ -84,6 +76,8 @@ export const signEnvelopeFieldRoute = procedure
     const settings = await getTeamSettings({ teamId: envelope.teamId });
 
     const documentMeta = resolveLiveDocumentMeta(settings, envelope.documentMeta, envelope.status);
+
+    await assertSenderNotDisabled({ userId: envelope.userId });
 
     if (envelope.internalVersion !== 2) {
       throw new AppError(AppErrorCode.NOT_FOUND, {

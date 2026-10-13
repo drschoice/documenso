@@ -26,6 +26,7 @@ import { z } from 'zod';
 
 import PDFViewerLazy from '~/components/general/pdf-viewer/pdf-viewer-lazy';
 import { useCurrentTeam } from '~/providers/team';
+import { useCspNonce } from '~/utils/nonce';
 
 export type TemplateEditFormProps = {
   className?: string;
@@ -39,6 +40,7 @@ const EditTemplateSteps: EditTemplateStep[] = ['settings', 'signers', 'fields'];
 export const TemplateEditForm = ({ initialTemplate, className, templateRootPath }: TemplateEditFormProps) => {
   const { _ } = useLingui();
   const { toast } = useToast();
+  const cspNonce = useCspNonce();
 
   const navigate = useNavigate();
   const team = useCurrentTeam();
@@ -341,6 +343,7 @@ export const TemplateEditForm = ({ initialTemplate, className, templateRootPath 
               onSubmit={onAddTemplatePlaceholderFormSubmit}
               onAutoSave={onAddTemplatePlaceholderFormAutoSave}
               isDocumentPdfLoaded={isDocumentPdfLoaded}
+              nonce={cspNonce}
             />
 
             <AddTemplateFieldsFormPartial

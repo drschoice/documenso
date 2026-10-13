@@ -44,6 +44,15 @@ export const SignaturePadDialog = ({
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signature, setSignature] = useState<string>(value ?? '');
 
+  const onOpenChange = (open: boolean) => {
+    if (disabled) {
+      return;
+    }
+
+    setSignature(value ?? '');
+    setShowSignatureModal(open);
+  };
+
   return (
     <div
       className={cn(
@@ -65,7 +74,7 @@ export const SignaturePadDialog = ({
         type="button"
         disabled={disabled}
         className="absolute inset-0 flex items-center justify-center bg-transparent"
-        onClick={() => setShowSignatureModal(true)}
+        onClick={() => onOpenChange(true)}
         whileHover="onHover"
       >
         {!value && !disableAnimation && (
@@ -112,7 +121,7 @@ export const SignaturePadDialog = ({
         )}
       </motion.button>
 
-      <Dialog open={showSignatureModal} onOpenChange={disabled ? undefined : setShowSignatureModal}>
+      <Dialog open={showSignatureModal} onOpenChange={onOpenChange}>
         <DialogContent hideClose={true} className="p-6 pt-4">
           <DialogTitle className="sr-only">
             <Trans>Signature</Trans>
@@ -142,7 +151,7 @@ export const SignaturePadDialog = ({
               disabled={!signature}
               onClick={() => {
                 onChange(signature);
-                setShowSignatureModal(false);
+                onOpenChange(false);
               }}
             >
               {dialogConfirmText ? parseMessageDescriptor(i18n._, dialogConfirmText) : <Trans>Next</Trans>}
