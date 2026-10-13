@@ -1,17 +1,19 @@
-import { data } from 'react-router';
-import { match } from 'ts-pattern';
-
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import { EnvelopeRenderProvider } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { captureServerEvent } from '@documenso/lib/server-only/analytics/capture-server-event';
 import { getEnvelopeForDirectTemplateSigning } from '@documenso/lib/server-only/envelope/get-envelope-for-direct-template-signing';
 import { getEnvelopeRequiredAccessData } from '@documenso/lib/server-only/envelope/get-envelope-required-access-data';
 import { getOrganisationClaimByTeamId } from '@documenso/lib/server-only/organisation/get-organisation-claims';
 import { getTemplateByDirectLinkToken } from '@documenso/lib/server-only/template/get-template-by-direct-link-token';
+import { assertSenderNotDisabled } from '@documenso/lib/server-only/user/assert-user-not-disabled';
 import { DocumentAccessAuth } from '@documenso/lib/types/document-auth';
+import { fireAndForget } from '@documenso/lib/universal/fire-and-forget';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
 import { prisma } from '@documenso/prisma';
+import { data } from 'react-router';
+import { match } from 'ts-pattern';
 
 import { EmbedDirectTemplateClientPage } from '~/components/embed/embed-direct-template-client-page';
 import { EmbedSignDocumentV2ClientPage } from '~/components/embed/embed-document-signing-page-v2';
@@ -76,7 +78,6 @@ async function handleV1Loader({ params, request }: Route.LoaderArgs) {
     throw data(
       {
         type: 'embed-authentication-required',
-        returnTo: `/embed/direct/${token}`,
       },
       {
         status: 401,
@@ -86,15 +87,37 @@ async function handleV1Loader({ params, request }: Route.LoaderArgs) {
 
   const { directTemplateRecipientId } = template.directLink;
 
-  const recipient = template.recipients.find(
-    (recipient) => recipient.id === directTemplateRecipientId,
-  );
+  const recipient = template.recipients.find((recipient) => recipient.id === directTemplateRecipientId);
 
   if (!recipient) {
     throw new Response('Not found', { status: 404 });
   }
 
   const fields = template.fields.filter((field) => field.recipientId === directTemplateRecipientId);
+
+  fireAndForget(async () => {
+    const team = await prisma.team.findFirst({
+      where: {
+        id: template.teamId,
+      },
+      select: {
+        organisationId: true,
+      },
+    });
+
+    captureServerEvent({
+      event: 'App: Embed Session Started',
+      userId: user?.id,
+      organisationId: team?.organisationId,
+      teamId: template.teamId,
+      properties: {
+        type: 'signing',
+        version: 'v0',
+        recipientId: recipient.id,
+        envelopeId: template.envelopeId,
+      },
+    });
+  });
 
   return {
     token,
@@ -146,7 +169,6 @@ async function handleV2Loader({ params, request }: Route.LoaderArgs) {
       {
         type: 'embed-authentication-required',
         email: envelopeForSigning.recipientEmail,
-        returnTo: `/embed/direct/${token}`,
       },
       {
         status: 401,
@@ -188,14 +210,37 @@ async function handleV2Loader({ params, request }: Route.LoaderArgs) {
     throw data(
       {
         type: 'embed-authentication-required',
-        email: user?.email || recipient.email,
-        returnTo: `/embed/direct/${token}`,
+        email: recipient.email,
       },
       {
         status: 401,
       },
     );
   }
+
+  fireAndForget(async () => {
+    const team = await prisma.team.findFirst({
+      where: {
+        id: envelope.teamId,
+      },
+      select: {
+        organisationId: true,
+      },
+    });
+
+    captureServerEvent({
+      event: 'App: Embed Session Started',
+      userId: user?.id,
+      organisationId: team?.organisationId,
+      teamId: envelope.teamId,
+      properties: {
+        type: 'signing',
+        version: 'v0',
+        recipientId: recipient.id,
+        envelopeId: envelope.id,
+      },
+    });
+  });
 
   return {
     token,
@@ -222,6 +267,7 @@ export async function loader(loaderArgs: Route.LoaderArgs) {
       envelope: {
         select: {
           internalVersion: true,
+          userId: true,
         },
       },
     },
@@ -229,6 +275,23 @@ export async function loader(loaderArgs: Route.LoaderArgs) {
 
   if (!foundDirectLink) {
     throw new Response('Not Found', { status: 404 });
+  }
+
+  try {
+    await assertSenderNotDisabled({ userId: foundDirectLink.envelope.userId });
+  } catch (e) {
+    if (AppError.parseError(e).code === AppErrorCode.SENDER_DISABLED) {
+      throw data(
+        {
+          type: 'embed-sender-disabled',
+        },
+        {
+          status: 403,
+        },
+      );
+    }
+
+    throw e;
   }
 
   if (foundDirectLink.envelope.internalVersion === 2) {
@@ -258,13 +321,8 @@ export default function EmbedDirectTemplatePage() {
   return <EmbedDirectTemplatePageV2 data={payload} />;
 }
 
-const EmbedDirectTemplatePageV1 = ({
-  data,
-}: {
-  data: Awaited<ReturnType<typeof handleV1Loader>>;
-}) => {
-  const { token, user, template, recipient, fields, hidePoweredBy, allowEmbedSigningWhitelabel } =
-    data;
+const EmbedDirectTemplatePageV1 = ({ data }: { data: Awaited<ReturnType<typeof handleV1Loader>> }) => {
+  const { token, user, template, recipient, fields, hidePoweredBy, allowEmbedSigningWhitelabel } = data;
 
   return (
     <DocumentSigningProvider
@@ -275,11 +333,7 @@ const EmbedDirectTemplatePageV1 = ({
       uploadSignatureEnabled={template.templateMeta?.uploadSignatureEnabled}
       drawSignatureEnabled={template.templateMeta?.drawSignatureEnabled}
     >
-      <DocumentSigningAuthProvider
-        documentAuthOptions={template.authOptions}
-        recipient={recipient}
-        user={user}
-      >
+      <DocumentSigningAuthProvider documentAuthOptions={template.authOptions} recipient={recipient} user={user}>
         <DocumentSigningRecipientProvider recipient={recipient}>
           <EmbedDirectTemplateClientPage
             token={token}
@@ -298,11 +352,7 @@ const EmbedDirectTemplatePageV1 = ({
   );
 };
 
-const EmbedDirectTemplatePageV2 = ({
-  data,
-}: {
-  data: Awaited<ReturnType<typeof handleV2Loader>>;
-}) => {
+const EmbedDirectTemplatePageV2 = ({ data }: { data: Awaited<ReturnType<typeof handleV2Loader>> }) => {
   const { token, user, envelopeForSigning, hidePoweredBy, allowEmbedSigningWhitelabel } = data;
 
   const { envelope, recipient } = envelopeForSigning;

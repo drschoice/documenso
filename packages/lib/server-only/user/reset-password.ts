@@ -1,7 +1,6 @@
+import { prisma } from '@documenso/prisma';
 import { compare, hash } from '@node-rs/bcrypt';
 import { UserSecurityAuditLogType } from '@prisma/client';
-
-import { prisma } from '@documenso/prisma';
 
 import { SALT_ROUNDS } from '../../constants/auth';
 import { AppError, AppErrorCode } from '../../errors/app-error';
@@ -48,7 +47,7 @@ export const resetPassword = async ({ token, password, requestMetadata }: ResetP
   const isSamePassword = await compare(password, foundToken.user.password || '');
 
   if (isSamePassword) {
-    throw new AppError('SAME_PASSWORD');
+    throw new AppError(AppErrorCode.SAME_PASSWORD);
   }
 
   const hashedPassword = await hash(password, SALT_ROUNDS);
@@ -83,6 +82,7 @@ export const resetPassword = async ({ token, password, requestMetadata }: ResetP
     name: 'send.password.reset.success.email',
     payload: {
       userId: foundToken.userId,
+      source: 'RESET',
     },
   });
 

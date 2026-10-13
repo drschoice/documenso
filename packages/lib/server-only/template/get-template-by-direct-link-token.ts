@@ -1,19 +1,17 @@
-import { EnvelopeType } from '@prisma/client';
-
 import { prisma } from '@documenso/prisma';
+import { EnvelopeType } from '@prisma/client';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { resolveLiveDocumentMeta } from '../../utils/document';
 import { mapSecondaryIdToTemplateId } from '../../utils/envelope';
 import { getTeamSettings } from '../team/get-team-settings';
+import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 
 export interface GetTemplateByDirectLinkTokenOptions {
   token: string;
 }
 
-export const getTemplateByDirectLinkToken = async ({
-  token,
-}: GetTemplateByDirectLinkTokenOptions) => {
+export const getTemplateByDirectLinkToken = async ({ token }: GetTemplateByDirectLinkTokenOptions) => {
   const envelope = await prisma.envelope.findFirst({
     where: {
       type: EnvelopeType.TEMPLATE,
@@ -46,6 +44,8 @@ export const getTemplateByDirectLinkToken = async ({
   if (!directLink || !firstDocumentData) {
     throw new AppError(AppErrorCode.NOT_FOUND);
   }
+
+  await assertSenderNotDisabled({ userId: envelope.userId });
 
   // A direct-link template is signed against the organisation/team settings as they are now rather
   // than the ones snapshotted when the template was created.

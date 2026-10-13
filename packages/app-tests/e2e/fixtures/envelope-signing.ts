@@ -1,16 +1,6 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 import { type Page, expect } from '@playwright/test';
-import {
-  DocumentDataType,
-  DocumentSource,
-  DocumentStatus,
-  EnvelopeType,
-  type FieldType,
-  Prisma,
-  ReadStatus,
-  RecipientRole,
-  SendStatus,
-  SigningStatus,
-} from '@prisma/client';
+import { DocumentDataType, DocumentSource, DocumentStatus, EnvelopeType, Prisma, ReadStatus, RecipientRole, SendStatus, SigningStatus, type FieldType } from '@prisma/client';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -19,6 +9,8 @@ import { incrementDocumentId } from '@documenso/lib/server-only/envelope/increme
 import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { prisma } from '@documenso/prisma';
+
+import { WEBAPP_ORIGIN_HEADERS } from './authentication';
 
 const WEBAPP = NEXT_PUBLIC_WEBAPP_URL();
 
@@ -114,6 +106,7 @@ export const seedV2PendingEnvelope = async ({
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
       internalVersion: 2,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,
@@ -420,7 +413,7 @@ export const signV2FieldViaTrpc = async (
 ) => {
   const response = await page.request.post(`${WEBAPP}/api/trpc/envelope.field.sign?batch=1`, {
     data: { 0: { json: { token, fieldId, fieldValue } } },
-    headers: { 'content-type': 'application/json' },
+    headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
   });
 
   const body: unknown = await response.json();
@@ -473,7 +466,7 @@ export const completeV2SigningViaTrpc = async (
     `${WEBAPP}/api/trpc/recipient.completeDocumentWithToken?batch=1`,
     {
       data: { 0: { json: { token, documentId } } },
-      headers: { 'content-type': 'application/json' },
+      headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
     },
   );
 

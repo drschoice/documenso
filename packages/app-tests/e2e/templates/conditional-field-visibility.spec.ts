@@ -1,3 +1,4 @@
+import { SignatureLevel } from '@documenso/lib/types/signature-level';
 /**
  * Conditional field visibility on the *legacy* (`internalVersion: 1`) signer.
  *
@@ -32,7 +33,7 @@ import { prisma } from '@documenso/prisma';
 import { DocumentDataType, DocumentSource, EnvelopeType, Prisma } from '@documenso/prisma/client';
 import { seedUser } from '@documenso/prisma/seed/users';
 
-import { apiSignin } from '../fixtures/authentication';
+import { apiSignin, WEBAPP_ORIGIN_HEADERS } from '../fixtures/authentication';
 import { completeV2SigningViaTrpc } from '../fixtures/envelope-signing';
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ async function seedConditionalDocument(ownerUserId: number, teamId: number, sign
       id: prefixedId('envelope'),
       secondaryId: documentId.formattedDocumentId,
       internalVersion: 1,
+      signatureLevel: SignatureLevel.SES,
       type: EnvelopeType.DOCUMENT,
       documentMetaId: documentMeta.id,
       source: DocumentSource.DOCUMENT,
@@ -234,7 +236,7 @@ test.describe('Conditional field visibility', () => {
         data: {
           0: { json: { token: recipient.token, fieldId: textField.id, value: 'Jane Doe' } },
         },
-        headers: { 'content-type': 'application/json' },
+        headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
       },
     );
 
@@ -279,7 +281,7 @@ test.describe('Conditional field visibility', () => {
         data: {
           0: { json: { token: recipient.token, fieldId: textField.id, value: 'Jane Doe' } },
         },
-        headers: { 'content-type': 'application/json' },
+        headers: { ...WEBAPP_ORIGIN_HEADERS, 'content-type': 'application/json' },
       },
     );
 

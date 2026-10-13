@@ -1,9 +1,7 @@
 import { useState } from 'react';
-
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { CalendarIcon } from 'lucide-react';
 import { DateTime } from 'luxon';
-
 import type {
   TEnvelopeExpirationDurationPeriod,
   TEnvelopeExpirationPeriod,
@@ -16,14 +14,8 @@ import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Calendar } from '@documenso/ui/primitives/calendar';
 import { Input } from '@documenso/ui/primitives/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@documenso/ui/primitives/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
 
 type ExpirationMode = 'duration' | 'date' | 'disabled' | 'inherit';
 
@@ -51,9 +43,7 @@ const getAmount = (value: TEnvelopeExpirationPeriod | null | undefined): number 
   return DEFAULT_ENVELOPE_EXPIRATION_PERIOD.amount;
 };
 
-const getUnit = (
-  value: TEnvelopeExpirationPeriod | null | undefined,
-): TEnvelopeExpirationDurationPeriod['unit'] => {
+const getUnit = (value: TEnvelopeExpirationPeriod | null | undefined): TEnvelopeExpirationDurationPeriod['unit'] => {
   if (value && 'unit' in value) {
     return value.unit;
   }
@@ -167,7 +157,7 @@ export const ExpirationPeriodPicker = ({
   return (
     <div className="flex flex-col gap-2">
       <Select value={mode} onValueChange={onModeChange} disabled={disabled}>
-        <SelectTrigger className="bg-background">
+        <SelectTrigger className="bg-background" data-testid="envelope-expiration-mode">
           <SelectValue />
         </SelectTrigger>
 
@@ -196,13 +186,14 @@ export const ExpirationPeriodPicker = ({
             type="number"
             min={1}
             className="w-20 bg-background"
+            data-testid="envelope-expiration-amount"
             value={amount}
             onChange={(e) => onAmountChange(Number(e.target.value))}
             disabled={disabled}
           />
 
           <Select value={unit} onValueChange={onUnitChange} disabled={disabled}>
-            <SelectTrigger className="flex-1 bg-background">
+            <SelectTrigger className="flex-1 bg-background" data-testid="envelope-expiration-unit">
               <SelectValue />
             </SelectTrigger>
 

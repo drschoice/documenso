@@ -42,8 +42,7 @@ export const isRequiredField = (field: Field) => {
 /**
  * Whether the provided field is required and not inserted.
  */
-export const isFieldUnsignedAndRequired = (field: Field) =>
-  isRequiredField(field) && !field.inserted;
+export const isFieldUnsignedAndRequired = (field: Field) => isRequiredField(field) && !field.inserted;
 
 /**
  * Whether the provided fields contains a field that is required to be inserted.

@@ -1,6 +1,3 @@
-import { z } from 'zod';
-import { zfd } from 'zod-form-data';
-
 import { ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
 import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
 import { ZDocumentFormValuesSchema } from '@documenso/lib/types/document-form-values';
@@ -22,7 +19,10 @@ import { ZFieldMetaPrefillFieldsSchema } from '@documenso/lib/types/field-meta';
 import {
   ZRecipientEmailSchema,
   ZRecipientNamePartsRequestSchema,
+  ZRecipientSigningOrderSchema,
 } from '@documenso/lib/types/recipient';
+import { z } from 'zod';
+import { zfd } from 'zod-form-data';
 
 import { zfdFile, zodFormData } from '../../utils/zod-form-data';
 import type { TrpcRouteMeta } from '../trpc';
@@ -50,7 +50,7 @@ export const ZUseEnvelopePayloadSchema = z.object({
         email: ZRecipientEmailSchema,
         name: z.string().max(255).optional(),
         ...ZRecipientNamePartsRequestSchema,
-        signingOrder: z.number().optional(),
+        signingOrder: ZRecipientSigningOrderSchema.optional(),
       }),
     )
     .describe('The information of the recipients to create the document with.')
@@ -72,9 +72,7 @@ export const ZUseEnvelopePayloadSchema = z.object({
           .describe('The envelope item ID from the template to replace with the uploaded file.'),
       }),
     )
-    .describe(
-      'Map uploaded files to specific envelope items in the template. If not provided, files will be ignored.',
-    )
+    .describe('Map uploaded files to specific envelope items in the template. If not provided, files will be ignored.')
     .optional(),
   folderId: z
     .string()

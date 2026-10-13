@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
 import type { Signature } from '@prisma/client';
 import { animate, motion, useMotionTemplate, useMotionValue, useTransform } from 'framer-motion';
-import { P, match } from 'ts-pattern';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { match, P } from 'ts-pattern';
 
 import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
 
@@ -34,9 +33,7 @@ export const SigningCard = ({
     <div className={cn('relative w-full max-w-sm md:max-w-md', className)}>
       <SigningCardContent name={name} signature={signature} fontFamily={signatureFontFamily} />
 
-      {signingCelebrationImage && (
-        <SigningCardImage signingCelebrationImage={signingCelebrationImage} />
-      )}
+      {signingCelebrationImage && <SigningCardImage signingCelebrationImage={signingCelebrationImage} />}
     </div>
   );
 };
@@ -56,7 +53,7 @@ export const SigningCard3D = ({
 
   const [trackMouse, setTrackMouse] = useState(false);
 
-  const timeoutRef = useRef<number | undefined>();
+  const timeoutRef = useRef<number | undefined>(undefined);
 
   const cardX = useMotionValue(0);
   const cardY = useMotionValue(0);
@@ -135,12 +132,9 @@ export const SigningCard3D = ({
   }, [onMouseMove]);
 
   return (
-    <div
-      className={cn('relative w-full max-w-sm md:max-w-md', className)}
-      style={{ perspective: 800 }}
-    >
+    <div className={cn('relative w-full max-w-sm md:max-w-md', className)} style={{ perspective: 800 }}>
       <motion.div
-        className="bg-background w-full rounded-lg [--sheen-color:180_180_180] dark:[--sheen-color:200_200_200]"
+        className="w-full rounded-lg bg-background [--sheen-color:180_180_180] dark:[--sheen-color:200_200_200]"
         ref={cardRef}
         style={{
           perspective: '800',
@@ -158,9 +152,7 @@ export const SigningCard3D = ({
         />
       </motion.div>
 
-      {signingCelebrationImage && (
-        <SigningCardImage signingCelebrationImage={signingCelebrationImage} />
-      )}
+      {signingCelebrationImage && <SigningCardImage signingCelebrationImage={signingCelebrationImage} />}
     </div>
   );
 };
@@ -175,15 +167,12 @@ type SigningCardContentProps = {
 const SigningCardContent = ({ className, name, signature, fontFamily }: SigningCardContentProps) => {
   return (
     <Card
-      className={cn(
-        'group z-10 mx-auto flex aspect-[21/9] w-full items-center justify-center',
-        className,
-      )}
+      className={cn('group z-10 mx-auto flex aspect-[21/9] w-full items-center justify-center', className)}
       degrees={-145}
       gradient
     >
       <CardContent
-        className="font-signature p-6 text-center"
+        className="p-6 text-center font-signature"
         style={{
           container: 'main',
           ...(fontFamily ? { fontFamily: getSignatureFontFamilyString(fontFamily) } : {}),
@@ -191,19 +180,13 @@ const SigningCardContent = ({ className, name, signature, fontFamily }: SigningC
       >
         {match(signature)
           .with({ signatureImageAsBase64: P.string }, (signature) => (
-            <img
-              src={signature.signatureImageAsBase64}
-              alt="signature"
-              className="h-full max-w-[100%] dark:invert"
-            />
+            <img src={signature.signatureImageAsBase64} alt="signature" className="h-full max-w-[100%] dark:invert" />
           ))
           .with({ typedSignature: P.string }, (signature) => (
             <span
-              className="text-muted-foreground/60 group-hover:text-primary/80 break-all font-semibold duration-300"
+              className="break-all font-semibold text-muted-foreground/60 duration-300 group-hover:text-primary/80"
               style={{
-                fontSize: `max(min(4rem, ${(100 / signature.typedSignature.length / 2).toFixed(
-                  4,
-                )}cqw), 1.875rem)`,
+                fontSize: `max(min(4rem, ${(100 / signature.typedSignature.length / 2).toFixed(4)}cqw), 1.875rem)`,
               }}
             >
               {signature.typedSignature}
@@ -211,7 +194,7 @@ const SigningCardContent = ({ className, name, signature, fontFamily }: SigningC
           ))
           .otherwise(() => (
             <span
-              className="text-muted-foreground/60 group-hover:text-primary/80 break-all font-semibold duration-300"
+              className="break-all font-semibold text-muted-foreground/60 duration-300 group-hover:text-primary/80"
               style={{
                 fontSize: `max(min(4rem, ${(100 / name.length / 2).toFixed(4)}cqw), 1.875rem)`,
               }}

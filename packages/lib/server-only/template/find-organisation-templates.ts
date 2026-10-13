@@ -1,17 +1,18 @@
+import { prisma } from '@documenso/prisma';
 import { EnvelopeType, type Prisma, TemplateType } from '@prisma/client';
 
-import { prisma } from '@documenso/prisma';
-
 import { TEAM_DOCUMENT_VISIBILITY_MAP } from '../../constants/teams';
-import { type FindResultResponse } from '../../types/search-params';
+import type { FindResultResponse } from '../../types/search-params';
 import { getMemberRoles } from '../team/get-member-roles';
 import { getTeamById } from '../team/get-team';
+import { buildTemplateSearchFilter } from './build-template-search-filter';
 
 export type FindOrganisationTemplatesOptions = {
   userId: number;
   teamId: number;
   page?: number;
   perPage?: number;
+  query?: string;
 };
 
 export const findOrganisationTemplates = async ({
@@ -19,6 +20,7 @@ export const findOrganisationTemplates = async ({
   teamId,
   page = 1,
   perPage = 10,
+  query,
 }: FindOrganisationTemplatesOptions) => {
   const [team, { teamRole }] = await Promise.all([
     getTeamById({ teamId, userId }),
@@ -31,6 +33,8 @@ export const findOrganisationTemplates = async ({
     }),
   ]);
 
+  const searchFilter = buildTemplateSearchFilter(query);
+
   const where: Prisma.EnvelopeWhereInput = {
     type: EnvelopeType.TEMPLATE,
     templateType: TemplateType.ORGANISATION,
@@ -40,6 +44,7 @@ export const findOrganisationTemplates = async ({
     team: {
       organisationId: team.organisationId,
     },
+    AND: searchFilter ? [searchFilter] : undefined,
   };
 
   const templateInclude = {

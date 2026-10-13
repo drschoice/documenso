@@ -312,14 +312,14 @@ test.describe('the date field on the v2 signer', () => {
           type: FieldType.DATE,
           width: 30,
           height: 10,
-          fieldMeta: { type: 'date', label: 'Date of signature' },
+          fieldMeta: { type: 'date', overflow: 'auto', label: 'Date of signature' },
         },
         {
           type: FieldType.DATE,
           positionY: 40,
           width: 30,
           height: 10,
-          fieldMeta: { type: 'date', label: 'Date of birth' },
+          fieldMeta: { type: 'date', overflow: 'auto', label: 'Date of birth' },
         },
       ],
     });
@@ -375,7 +375,7 @@ test.describe('the date field on the v2 signer', () => {
       teamId: team.id,
       recipients: [{ email: `v2-date-cancel-${user.id}@example.com`, name: 'V2 Signer' }],
       documentMeta: { dateFormat: 'MM/dd/yyyy', timezone: 'Etc/UTC' },
-      fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date' } }],
+      fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date', overflow: 'auto' } }],
     });
 
     const [recipient] = seeded.recipients;
@@ -421,7 +421,7 @@ test.describe('the date field on the v2 signer', () => {
         teamId: team.id,
         recipients: [{ email: `v2-date-tz-${user.id}@example.com`, name: 'V2 Signer' }],
         documentMeta: { dateFormat: 'yyyy-MM-dd', timezone },
-        fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date' } }],
+        fields: [{ type: FieldType.DATE, width: 30, height: 10, fieldMeta: { type: 'date', overflow: 'auto' } }],
       });
 
       const [recipient] = seeded.recipients;

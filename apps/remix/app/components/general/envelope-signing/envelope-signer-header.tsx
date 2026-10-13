@@ -1,9 +1,3 @@
-import { Plural, Trans } from '@lingui/react/macro';
-import { EnvelopeType, RecipientRole } from '@prisma/client';
-import { BanIcon, DownloadCloudIcon } from 'lucide-react';
-import { Link } from 'react-router';
-import { match } from 'ts-pattern';
-
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
@@ -14,10 +8,16 @@ import {
   DropdownMenuTrigger,
 } from '@documenso/ui/primitives/dropdown-menu';
 import { Separator } from '@documenso/ui/primitives/separator';
+import { Plural, Trans } from '@lingui/react/macro';
+import { EnvelopeType, RecipientRole } from '@prisma/client';
+import { BanIcon, DownloadCloudIcon } from 'lucide-react';
+import { Link } from 'react-router';
+import { match } from 'ts-pattern';
 
 import { EnvelopeDownloadDialog } from '~/components/dialogs/envelope-download-dialog';
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { BrandingLogo } from '~/components/general/branding-logo';
+import { PublicLegalLinksDropdownMenuItems } from '~/components/general/public-legal-links';
 
 import { BrandingLogoIcon } from '../branding-logo-icon';
 import { DocumentSigningRejectDialog } from '../document-signing/document-signing-reject-dialog';
@@ -34,41 +34,34 @@ export const EnvelopeSignerHeader = () => {
   } = useRequiredEnvelopeSigningContext();
 
   const isEmbedSigning = useEmbedSigningContext() !== null;
+  const hasCustomBrandingLogo = envelopeData.settings.brandingEnabled && Boolean(envelopeData.settings.brandingLogo);
 
   return (
-    <nav className="embed--DocumentWidgetHeader max-w-screen flex flex-row justify-between border-b border-border bg-background px-4 py-3 md:px-6">
+    <nav className="embed--DocumentWidgetHeader flex max-w-screen flex-row justify-between border-border border-b bg-background px-4 py-3 md:px-6">
       {/* Left side - Logo and title */}
       <div className="flex min-w-0 flex-1 items-center space-x-2 md:w-auto md:flex-none">
-        {!isEmbedSigning && (
-          <Link to="/" className="flex-shrink-0">
-            {envelopeData.settings.brandingEnabled && envelopeData.settings.brandingLogo ? (
-              <img
-                src={`/api/branding/logo/team/${envelope.teamId}`}
-                alt={`${envelope.team.name}'s Logo`}
-                className="h-6 w-auto"
-              />
-            ) : (
-              <>
-                <BrandingLogo className="hidden h-6 w-auto md:block" />
-                <BrandingLogoIcon className="h-6 w-auto md:hidden" />
-              </>
-            )}
-          </Link>
-        )}
+        {!isEmbedSigning &&
+          (hasCustomBrandingLogo ? (
+            <img
+              src={`/api/branding/logo/team/${envelope.teamId}`}
+              alt={`${envelope.team.name}'s Logo`}
+              className="h-6 w-auto flex-shrink-0"
+            />
+          ) : (
+            <Link to="/" className="flex-shrink-0">
+              <BrandingLogo className="hidden h-6 w-auto md:block" />
+              <BrandingLogoIcon className="h-6 w-auto md:hidden" />
+            </Link>
+          ))}
 
-        <h1
-          title={envelope.title}
-          className="min-w-0 truncate text-base font-semibold text-foreground md:hidden"
-        >
+        <h1 title={envelope.title} className="min-w-0 truncate font-semibold text-base text-foreground md:hidden">
           {envelope.title}
         </h1>
 
         {!isEmbedSigning && <Separator orientation="vertical" className="hidden h-6 md:block" />}
 
         <div className="hidden items-center space-x-2 md:flex">
-          <h1 className="whitespace-nowrap text-sm font-medium text-foreground">
-            {envelope.title}
-          </h1>
+          <h1 className="whitespace-nowrap font-medium text-foreground text-sm">{envelope.title}</h1>
 
           <Badge>
             {match(recipient.role)
@@ -105,7 +98,10 @@ export const EnvelopeSignerHeader = () => {
 const MobileDropdownMenu = () => {
   const { envelope, recipient } = useRequiredEnvelopeSigningContext();
 
-  const { allowDocumentRejection } = useEmbedSigningContext() || {};
+  const embedSigningContext = useEmbedSigningContext();
+
+  const isEmbedSigning = embedSigningContext !== null;
+  const { allowDocumentRejection } = embedSigningContext || {};
 
   return (
     <DropdownMenu>
@@ -145,6 +141,8 @@ const MobileDropdownMenu = () => {
             }
           />
         )}
+
+        {!isEmbedSigning && <PublicLegalLinksDropdownMenuItems />}
       </DropdownMenuContent>
     </DropdownMenu>
   );

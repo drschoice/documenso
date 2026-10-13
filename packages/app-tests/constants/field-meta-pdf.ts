@@ -1,10 +1,9 @@
-import { FieldType } from '@prisma/client';
-
 import { toCheckboxCustomText } from '@documenso/lib/utils/fields';
 import {
   CheckboxValidationRules,
   numberFormatValues,
 } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
+import { FieldType } from '@prisma/client';
 
 import type { FieldTestData } from './field-alignment-pdf';
 import { signatureBase64Demo } from './field-alignment-pdf';
@@ -33,7 +32,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(0, 0),
@@ -43,7 +42,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(1, 0),
@@ -53,7 +52,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(2, 0),
@@ -63,7 +62,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
     },
     page: 2,
     ...calculatePosition(3, 0),
@@ -502,7 +501,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'left',
     },
     page: 2,
@@ -513,7 +512,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'center',
     },
     page: 2,
@@ -524,7 +523,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       textAlign: 'right',
     },
     page: 2,
@@ -535,7 +534,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       fontSize: 12,
     },
     page: 2,
@@ -546,7 +545,7 @@ export const FIELD_META_TEST_FIELDS: FieldTestData[] = [
   {
     type: FieldType.SIGNATURE,
     fieldMeta: {
-      type: 'signature',
+      type: 'signature', overflow: 'auto',
       fontSize: 32,
     },
     page: 2,

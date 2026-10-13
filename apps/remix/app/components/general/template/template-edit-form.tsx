@@ -1,16 +1,6 @@
-import { useEffect, useState } from 'react';
-
-import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react';
-import { useNavigate } from 'react-router';
-import { z } from 'zod';
-
 import { DocumentSignatureType } from '@documenso/lib/constants/document';
 import { isValidLanguageCode } from '@documenso/lib/constants/i18n';
-import {
-  DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
-  SKIP_QUERY_BATCH_META,
-} from '@documenso/lib/constants/trpc';
+import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION, SKIP_QUERY_BATCH_META } from '@documenso/lib/constants/trpc';
 import { ZDocumentAccessAuthTypesSchema } from '@documenso/lib/types/document-auth';
 import type { TTemplate } from '@documenso/lib/types/template';
 import { getDocumentDataUrlForPdfViewer } from '@documenso/lib/utils/envelope-download';
@@ -28,9 +18,15 @@ import type { TAddTemplatePlacholderRecipientsFormSchema } from '@documenso/ui/p
 import { AddTemplateSettingsFormPartial } from '@documenso/ui/primitives/template-flow/add-template-settings';
 import type { TAddTemplateSettingsFormSchema } from '@documenso/ui/primitives/template-flow/add-template-settings.types';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { z } from 'zod';
 
 import PDFViewerLazy from '~/components/general/pdf-viewer/pdf-viewer-lazy';
 import { useCurrentTeam } from '~/providers/team';
+import { useCspNonce } from '~/utils/nonce';
 
 export type TemplateEditFormProps = {
   className?: string;
@@ -41,13 +37,10 @@ export type TemplateEditFormProps = {
 type EditTemplateStep = 'settings' | 'signers' | 'fields';
 const EditTemplateSteps: EditTemplateStep[] = ['settings', 'signers', 'fields'];
 
-export const TemplateEditForm = ({
-  initialTemplate,
-  className,
-  templateRootPath,
-}: TemplateEditFormProps) => {
+export const TemplateEditForm = ({ initialTemplate, className, templateRootPath }: TemplateEditFormProps) => {
   const { _ } = useLingui();
   const { toast } = useToast();
+  const cspNonce = useCspNonce();
 
   const navigate = useNavigate();
   const team = useCurrentTeam();
@@ -129,9 +122,7 @@ export const TemplateEditForm = ({
   const saveSettingsData = async (data: TAddTemplateSettingsFormSchema) => {
     const { signatureTypes } = data.meta;
 
-    const parsedGlobalAccessAuth = z
-      .array(ZDocumentAccessAuthTypesSchema)
-      .safeParse(data.globalAccessAuth);
+    const parsedGlobalAccessAuth = z.array(ZDocumentAccessAuthTypesSchema).safeParse(data.globalAccessAuth);
 
     return updateTemplateSettings({
       templateId: template.id,
@@ -206,9 +197,7 @@ export const TemplateEditForm = ({
     return recipients;
   };
 
-  const onAddTemplatePlaceholderFormSubmit = async (
-    data: TAddTemplatePlacholderRecipientsFormSchema,
-  ) => {
+  const onAddTemplatePlaceholderFormSubmit = async (data: TAddTemplatePlacholderRecipientsFormSchema) => {
     try {
       await saveTemplatePlaceholderData(data);
 
@@ -222,9 +211,7 @@ export const TemplateEditForm = ({
     }
   };
 
-  const onAddTemplatePlaceholderFormAutoSave = async (
-    data: TAddTemplatePlacholderRecipientsFormSchema,
-  ) => {
+  const onAddTemplatePlaceholderFormAutoSave = async (data: TAddTemplatePlacholderRecipientsFormSchema) => {
     try {
       return await saveTemplatePlaceholderData(data);
     } catch (err) {
@@ -283,9 +270,7 @@ export const TemplateEditForm = ({
         duration: 5000,
       });
 
-      const templatePath = template.folderId
-        ? `${templateRootPath}/f/${template.folderId}`
-        : templateRootPath;
+      const templatePath = template.folderId ? `${templateRootPath}/f/${template.folderId}` : templateRootPath;
 
       await navigate(templatePath);
     } catch (err) {
@@ -310,10 +295,7 @@ export const TemplateEditForm = ({
 
   return (
     <div className={cn('grid w-full grid-cols-12 gap-8', className)}>
-      <Card
-        className="relative col-span-12 rounded-xl before:rounded-xl lg:col-span-6 xl:col-span-7"
-        gradient
-      >
+      <Card className="relative col-span-12 rounded-xl before:rounded-xl lg:col-span-6 xl:col-span-7" gradient>
         <CardContent className="p-2">
           <PDFViewerLazy
             key={template.envelopeItems[0]?.id}
@@ -332,10 +314,7 @@ export const TemplateEditForm = ({
       </Card>
 
       <div className="col-span-12 lg:col-span-6 xl:col-span-5">
-        <DocumentFlowFormContainer
-          className="lg:h-[calc(100vh-6rem)]"
-          onSubmit={(e) => e.preventDefault()}
-        >
+        <DocumentFlowFormContainer className="lg:h-[calc(100vh-6rem)]" onSubmit={(e) => e.preventDefault()}>
           <Stepper
             currentStep={currentDocumentFlow.stepIndex}
             setCurrentStep={(step) => setStep(EditTemplateSteps[step - 1])}
@@ -364,6 +343,7 @@ export const TemplateEditForm = ({
               onSubmit={onAddTemplatePlaceholderFormSubmit}
               onAutoSave={onAddTemplatePlaceholderFormAutoSave}
               isDocumentPdfLoaded={isDocumentPdfLoaded}
+              nonce={cspNonce}
             />
 
             <AddTemplateFieldsFormPartial

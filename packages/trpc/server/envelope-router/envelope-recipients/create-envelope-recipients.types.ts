@@ -1,15 +1,12 @@
-import { RecipientRole } from '@prisma/client';
-import { z } from 'zod';
-
-import {
-  ZRecipientAccessAuthTypesSchema,
-  ZRecipientActionAuthTypesSchema,
-} from '@documenso/lib/types/document-auth';
+import { ZRecipientAccessAuthTypesSchema, ZRecipientActionAuthTypesSchema } from '@documenso/lib/types/document-auth';
 import {
   ZEnvelopeRecipientLiteSchema,
   ZRecipientEmailSchema,
   ZRecipientNamePartsRequestSchema,
+  ZRecipientSigningOrderSchema,
 } from '@documenso/lib/types/recipient';
+import { RecipientRole } from '@prisma/client';
+import { z } from 'zod';
 
 import type { TrpcRouteMeta } from '../../trpc';
 
@@ -28,7 +25,7 @@ export const ZCreateEnvelopeRecipientSchema = z.object({
   name: z.string().max(255),
   ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole),
-  signingOrder: z.number().optional(),
+  signingOrder: ZRecipientSigningOrderSchema.optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
   actionAuth: z.array(ZRecipientActionAuthTypesSchema).default([]).optional(),
 });
@@ -42,9 +39,5 @@ export const ZCreateEnvelopeRecipientsResponseSchema = z.object({
   data: ZEnvelopeRecipientLiteSchema.array(),
 });
 
-export type TCreateEnvelopeRecipientsRequest = z.infer<
-  typeof ZCreateEnvelopeRecipientsRequestSchema
->;
-export type TCreateEnvelopeRecipientsResponse = z.infer<
-  typeof ZCreateEnvelopeRecipientsResponseSchema
->;
+export type TCreateEnvelopeRecipientsRequest = z.infer<typeof ZCreateEnvelopeRecipientsRequestSchema>;
+export type TCreateEnvelopeRecipientsResponse = z.infer<typeof ZCreateEnvelopeRecipientsResponseSchema>;

@@ -1,8 +1,7 @@
-import { z } from 'zod';
-
 import { RecipientSchema } from '@documenso/prisma/generated/zod/modelSchema/RecipientSchema';
 import { TeamSchema } from '@documenso/prisma/generated/zod/modelSchema/TeamSchema';
 import { UserSchema } from '@documenso/prisma/generated/zod/modelSchema/UserSchema';
+import { z } from 'zod';
 
 import { zEmail } from '../utils/zod';
 import { ZFieldSchema } from './field';
@@ -127,10 +126,28 @@ export const ZEnvelopeRecipientManySchema = ZRecipientManySchema.omit({
   templateId: true,
 });
 
+export type TRecipientSchema = z.infer<typeof ZRecipientSchema>;
+export type TRecipientLite = z.infer<typeof ZRecipientLiteSchema>;
+export type TRecipientMany = z.infer<typeof ZRecipientManySchema>;
+export type TEnvelopeRecipientSchema = z.infer<typeof ZEnvelopeRecipientSchema>;
+export type TEnvelopeRecipientLite = z.infer<typeof ZEnvelopeRecipientLiteSchema>;
+export type TEnvelopeRecipientMany = z.infer<typeof ZEnvelopeRecipientManySchema>;
+
 export const ZRecipientEmailSchema = z.union([
   z.literal(''),
   zEmail('Invalid email').trim().toLowerCase().max(254),
 ]);
+
+/**
+ * Signing order for a recipient, for use in request schemas.
+ *
+ * Response schemas intentionally do not use this: existing rows may hold values
+ * that predate the constraint, and reads must not fail because of it.
+ */
+export const ZRecipientSigningOrderSchema = z
+  .number()
+  .int('Signing order must be an integer')
+  .min(0, 'Signing order must be equal to or greater than 0');
 
 /**
  * The individual name parts accepted on recipient write requests.

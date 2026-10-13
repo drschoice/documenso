@@ -15,6 +15,8 @@ type RateLimitConfig = {
 type CheckParams = {
   ip: string;
   identifier?: string;
+  /** Number of units to consume in this check. Defaults to 1. */
+  count?: number;
 };
 
 export type RateLimitCheckResult = {
@@ -147,7 +149,8 @@ export const createRateLimit = (config: RateLimitConfig) => {
       const windowMs = parseWindow(resolved.window);
       const bucket = getBucket(windowMs);
       const reset = new Date(bucket.getTime() + windowMs);
-      const ipLimit = resolved.globalMax ?? resolved.max;
+        const ipLimit = resolved.globalMax ?? resolved.max;
+        const count = params.count ?? 1;
 
       if (process.env.DANGEROUS_BYPASS_RATE_LIMITS === 'true') {
         return {
@@ -172,10 +175,10 @@ export const createRateLimit = (config: RateLimitConfig) => {
             key: `ip:${params.ip}`,
             action: config.action,
             bucket,
-            count: 1,
+            count,
           },
           update: {
-            count: { increment: 1 },
+            count: { increment: count },
           },
         });
 
@@ -218,10 +221,10 @@ export const createRateLimit = (config: RateLimitConfig) => {
               key: `id:${params.identifier}`,
               action: config.action,
               bucket,
-              count: 1,
+              count,
             },
             update: {
-              count: { increment: 1 },
+              count: { increment: count },
             },
           });
 

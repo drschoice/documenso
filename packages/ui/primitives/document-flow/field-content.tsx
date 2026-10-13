@@ -1,17 +1,13 @@
+import { convertToLocalSystemFormat, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
+import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
+import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import type { DocumentMeta, Signature } from '@prisma/client';
 import { FieldType } from '@prisma/client';
 import { ChevronDown } from 'lucide-react';
 
-import {
-  DEFAULT_DOCUMENT_DATE_FORMAT,
-  convertToLocalSystemFormat,
-} from '@documenso/lib/constants/date-formats';
 import { getSignatureFontFamilyString } from '@documenso/lib/constants/signature-fonts';
-import type { TFieldMetaSchema } from '@documenso/lib/types/field-meta';
-import { fromCheckboxValue } from '@documenso/lib/universal/field-checkbox';
-
 import { cn } from '../../lib/utils';
 import { Checkbox } from '../checkbox';
 import { Label } from '../label';
@@ -63,7 +59,7 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
         >
           <div className="flex items-center">
             <Checkbox className="h-3 w-3" disabled />
-            <Label className="ml-1.5 text-xs font-normal text-foreground opacity-50">
+            <Label className="ml-1.5 font-normal text-foreground text-xs opacity-50">
               <Trans>Checkbox option</Trans>
             </Label>
           </div>
@@ -89,10 +85,7 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
             />
 
             {item.value && (
-              <Label
-                htmlFor={`checkbox-${index}`}
-                className="ml-1.5 text-xs font-normal text-foreground"
-              >
+              <Label htmlFor={`checkbox-${index}`} className="ml-1.5 font-normal text-foreground text-xs">
                 {item.value}
               </Label>
             )}
@@ -111,20 +104,12 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
   ) {
     return (
       <div className="flex flex-col gap-y-2 py-0.5">
-        <RadioGroup className="gap-y-1">
+        <RadioGroup value={field.customText ?? ''} className="gap-y-1">
           {field.fieldMeta.values.map((item, index) => (
             <div key={index} className="flex items-center">
-              <RadioGroupItem
-                className="pointer-events-none h-3 w-3"
-                value={item.value}
-                id={`option-${index}`}
-                checked={item.value === field.customText}
-              />
+              <RadioGroupItem className="pointer-events-none h-3 w-3" value={item.value} id={`option-${index}`} />
               {item.value && (
-                <Label
-                  htmlFor={`option-${index}`}
-                  className="ml-1.5 text-xs font-normal text-foreground"
-                >
+                <Label htmlFor={`option-${index}`} className="ml-1.5 font-normal text-foreground text-xs">
                   {item.value}
                 </Label>
               )}
@@ -135,13 +120,9 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
     );
   }
 
-  if (
-    field.type === FieldType.DROPDOWN &&
-    field.fieldMeta?.type === 'dropdown' &&
-    !field.inserted
-  ) {
+  if (field.type === FieldType.DROPDOWN && field.fieldMeta?.type === 'dropdown' && !field.inserted) {
     return (
-      <div className="flex flex-row items-center py-0.5 text-[clamp(0.07rem,25cqw,0.825rem)] text-sm text-field-card-foreground">
+      <div className="flex flex-row items-center py-0.5 text-[clamp(0.07rem,25cqw,0.825rem)] text-field-card-foreground text-sm">
         <p>
           <Trans>Select</Trans>
         </p>
@@ -172,8 +153,7 @@ export const FieldContent = ({ field, documentMeta }: FieldIconProps) => {
   const labelToDisplay = fieldMeta?.label || _(FRIENDLY_FIELD_TYPE[type]) || '';
   let textToDisplay: string | undefined;
 
-  const isSignatureField =
-    field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
+  const isSignatureField = field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
 
   if (field.type === FieldType.TEXT && field.fieldMeta?.type === 'text' && field.fieldMeta?.text) {
     textToDisplay = field.fieldMeta.text;

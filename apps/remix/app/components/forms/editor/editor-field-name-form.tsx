@@ -1,10 +1,8 @@
 import { useEffect } from 'react';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
-
 import {
   DEFAULT_FIELD_FONT_SIZE,
   FIELD_DEFAULT_GENERIC_ALIGN,
@@ -12,26 +10,10 @@ import {
   type TNameFieldMeta as NameFieldMeta,
   ZNameFieldMeta,
 } from '@documenso/lib/types/field-meta';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@documenso/ui/primitives/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 
-import {
-  EditorGenericFontSizeField,
-  EditorGenericTextAlignField,
-} from './editor-field-generic-field-forms';
+import { EditorGenericFontSizeField, EditorGenericTextAlignField } from './editor-field-generic-field-forms';
 
 const ZNameFieldFormSchema = ZNameFieldMeta.pick({
   fontSize: true,

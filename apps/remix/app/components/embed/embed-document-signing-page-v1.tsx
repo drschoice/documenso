@@ -1,15 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react';
-
-import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react';
-import { Trans } from '@lingui/react/macro';
-import type { DocumentMeta, EnvelopeItem } from '@prisma/client';
-import { type Field, RecipientRole, SigningStatus } from '@prisma/client';
-import { LucideChevronDown, LucideChevronUp } from 'lucide-react';
-
+import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { useThrottleFn } from '@documenso/lib/client-only/hooks/use-throttle-fn';
 import { APP_I18N_OPTIONS } from '@documenso/lib/constants/i18n';
 import { PDF_VIEWER_PAGE_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
+import { AppError } from '@documenso/lib/errors/app-error';
 import { ZSignDocumentEmbedDataSchema } from '@documenso/lib/types/embed-document-sign-schema';
 import { isFieldUnsignedAndRequired } from '@documenso/lib/utils/advanced-fields-helpers';
 import { getDocumentDataUrlForPdfViewer } from '@documenso/lib/utils/envelope-download';
@@ -30,10 +23,18 @@ import { Label } from '@documenso/ui/primitives/label';
 import { RadioGroup, RadioGroupItem } from '@documenso/ui/primitives/radio-group';
 import { SignaturePadDialog } from '@documenso/ui/primitives/signature-pad/signature-pad-dialog';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
+import type { DocumentMeta, EnvelopeItem } from '@prisma/client';
+import { type Field, RecipientRole, SigningStatus } from '@prisma/client';
+import { LucideChevronDown, LucideChevronUp } from 'lucide-react';
+import { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react';
 
 import { BrandingLogo } from '~/components/general/branding-logo';
 import PDFViewerLazy from '~/components/general/pdf-viewer/pdf-viewer-lazy';
 import { injectCss } from '~/utils/css-vars';
+import { getSigningCompletionErrorMessage } from '~/utils/toast-error-messages';
 
 import { DocumentSigningAttachmentsPopover } from '../general/document-signing/document-signing-attachments-popover';
 import { useRequiredDocumentSigningContext } from '../general/document-signing/document-signing-provider';
@@ -54,6 +55,7 @@ export type EmbedSignDocumentV1ClientPageProps = {
   completedFields: DocumentField[];
   metadata?: DocumentMeta | null;
   isCompleted?: boolean;
+  isRejected?: boolean;
   hidePoweredBy?: boolean;
   allowWhitelabelling?: boolean;
   allRecipients?: RecipientWithFields[];
@@ -69,21 +71,22 @@ export const EmbedSignDocumentV1ClientPage = ({
   completedFields,
   metadata,
   isCompleted,
+  isRejected,
   hidePoweredBy = false,
   allowWhitelabelling = false,
   allRecipients = [],
 }: EmbedSignDocumentV1ClientPageProps) => {
   const { _ } = useLingui();
   const { toast } = useToast();
+  const analytics = useAnalytics();
 
-  const { fullName, email, signature, setFullName, setEmail, setSignature } =
-    useRequiredDocumentSigningContext();
+  const { fullName, email, signature, setFullName, setEmail, setSignature } = useRequiredDocumentSigningContext();
 
   const [hasFinishedInit, setHasFinishedInit] = useState(false);
   const [hasDocumentLoaded, setHasDocumentLoaded] = useState(false);
   const [hasCompletedDocument, setHasCompletedDocument] = useState(isCompleted);
   const [hasRejectedDocument, setHasRejectedDocument] = useState(
-    recipient.signingStatus === SigningStatus.REJECTED,
+    isRejected ?? recipient.signingStatus === SigningStatus.REJECTED,
   );
   const [selectedSignerId, setSelectedSignerId] = useState<number | null>(
     allRecipients.length > 0 ? allRecipients[0].id : null,
@@ -93,8 +96,7 @@ export const EmbedSignDocumentV1ClientPage = ({
   const [isNameLocked, setIsNameLocked] = useState(false);
   const [isEmailLocked, setIsEmailLocked] = useState(!!email);
   const [showPendingFieldTooltip, setShowPendingFieldTooltip] = useState(false);
-  const [_showOtherRecipientsCompletedFields, setShowOtherRecipientsCompletedFields] =
-    useState(false);
+  const [_showOtherRecipientsCompletedFields, setShowOtherRecipientsCompletedFields] = useState(false);
 
   const [allowDocumentRejection, setAllowDocumentRejection] = useState(false);
 
@@ -105,9 +107,7 @@ export const EmbedSignDocumentV1ClientPage = ({
 
   const [pendingFields, _completedFields] = [
     sortFieldsByPosition(
-      fields.filter(
-        (field) => field.recipientId === recipient.id && isFieldUnsignedAndRequired(field),
-      ),
+      fields.filter((field) => field.recipientId === recipient.id && isFieldUnsignedAndRequired(field)),
     ),
     fields.filter((field) => field.inserted),
   ];
@@ -115,10 +115,7 @@ export const EmbedSignDocumentV1ClientPage = ({
   const { mutateAsync: completeDocumentWithToken, isPending: isSubmitting } =
     trpc.recipient.completeDocumentWithToken.useMutation();
 
-  const fieldsRequiringValidation = useMemo(
-    () => fields.filter(isFieldUnsignedAndRequired),
-    [fields],
-  );
+  const fieldsRequiringValidation = useMemo(() => fields.filter(isFieldUnsignedAndRequired), [fields]);
 
   const hasSignatureField = fields.some((field) => isSignatureFieldType(field.type));
 
@@ -142,10 +139,31 @@ export const EmbedSignDocumentV1ClientPage = ({
         return;
       }
 
-      await completeDocumentWithToken({
+      const result = await completeDocumentWithToken({
         documentId,
         token,
       });
+
+      // TSP envelopes return a CSC authorize URL that only the v2 embed can run.
+      if (result.status === 'REDIRECT') {
+        if (window.parent) {
+          window.parent.postMessage(
+            {
+              action: 'document-error',
+              data: null,
+            },
+            '*',
+          );
+        }
+
+        toast({
+          title: _(msg`Unable to sign document`),
+          description: _(msg`Qualified electronic signatures are not supported in this embed.`),
+          variant: 'destructive',
+        });
+
+        return;
+      }
 
       if (window.parent) {
         window.parent.postMessage(
@@ -163,6 +181,14 @@ export const EmbedSignDocumentV1ClientPage = ({
 
       setHasCompletedDocument(true);
     } catch (err) {
+      analytics.captureException(err, {
+        source: 'embed',
+        location: 'complete_document',
+        recipientId: recipient.id,
+        documentId,
+        envelopeId,
+      });
+
       if (window.parent) {
         window.parent.postMessage(
           {
@@ -173,11 +199,12 @@ export const EmbedSignDocumentV1ClientPage = ({
         );
       }
 
+      const error = AppError.parseError(err);
+      const toastMessage = getSigningCompletionErrorMessage(error.code);
+
       toast({
-        title: _(msg`Something went wrong`),
-        description: _(
-          msg`We were unable to submit this document at this time. Please try again later.`,
-        ),
+        title: _(toastMessage.title),
+        description: _(toastMessage.description),
         variant: 'destructive',
       });
     }
@@ -244,11 +271,58 @@ export const EmbedSignDocumentV1ClientPage = ({
       }
     } catch (err) {
       console.error(err);
+
+      analytics.captureException(err, {
+        source: 'embed',
+        location: 'embed_init',
+        recipientId: recipient.id,
+        documentId,
+        envelopeId,
+      });
+
       setHasFinishedInit(true);
     }
 
     // !: While the two setters are stable we still want to ensure we're avoiding
     // !: re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!window.parent) {
+      return;
+    }
+
+    if (hasRejectedDocument) {
+      window.parent.postMessage(
+        {
+          action: 'document-rejected',
+          data: {
+            token,
+            documentId,
+            recipientId: recipient.id,
+          },
+        },
+        '*',
+      );
+
+      return;
+    }
+
+    if (hasCompletedDocument) {
+      window.parent.postMessage(
+        {
+          action: 'document-completed',
+          data: {
+            token,
+            documentId,
+            recipientId: recipient.id,
+          },
+        },
+        '*',
+      );
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -293,11 +367,7 @@ export const EmbedSignDocumentV1ClientPage = ({
           <DocumentSigningAttachmentsPopover envelopeId={envelopeId} token={token} />
 
           {allowDocumentRejection && (
-            <DocumentSigningRejectDialog
-              documentId={documentId}
-              token={token}
-              onRejected={onDocumentRejected}
-            />
+            <DocumentSigningRejectDialog documentId={documentId} token={token} onRejected={onDocumentRejected} />
           )}
         </div>
 
@@ -321,19 +391,15 @@ export const EmbedSignDocumentV1ClientPage = ({
           {/* Widget */}
           <div
             key={isExpanded ? 'expanded' : 'collapsed'}
-            className="embed--DocumentWidgetContainer group/document-widget fixed bottom-8 left-0 z-50 h-fit max-h-[calc(100dvh-2rem)] w-full flex-shrink-0 px-6 md:sticky md:bottom-[unset] md:top-4 md:z-auto md:w-[350px] md:px-0"
+            className="embed--DocumentWidgetContainer group/document-widget fixed bottom-8 left-0 z-50 h-fit max-h-[calc(100dvh-2rem)] w-full flex-shrink-0 px-6 md:sticky md:top-4 md:bottom-[unset] md:z-auto md:w-[350px] md:px-0"
             data-expanded={isExpanded || undefined}
           >
             <div className="embed--DocumentWidget flex w-full flex-col rounded-xl border border-border bg-widget px-4 py-4 md:py-6">
               {/* Header */}
               <div className="embed--DocumentWidgetHeader">
                 <div className="flex items-center justify-between gap-x-2">
-                  <h3 className="text-xl font-semibold text-foreground md:text-2xl">
-                    {isAssistantMode ? (
-                      <Trans>Assist with signing</Trans>
-                    ) : (
-                      <Trans>Sign document</Trans>
-                    )}
+                  <h3 className="font-semibold text-foreground text-xl md:text-2xl">
+                    {isAssistantMode ? <Trans>Assist with signing</Trans> : <Trans>Sign document</Trans>}
                   </h3>
 
                   {isExpanded ? (
@@ -357,9 +423,7 @@ export const EmbedSignDocumentV1ClientPage = ({
                       variant="default"
                       size="sm"
                       className="md:hidden"
-                      disabled={
-                        isThrottled || (!isAssistantMode && hasSignatureField && !signatureValid)
-                      }
+                      disabled={isThrottled || (!isAssistantMode && hasSignatureField && !signatureValid)}
                       loading={isSubmitting}
                       onClick={() => throttledOnCompleteClick()}
                     >
@@ -370,7 +434,7 @@ export const EmbedSignDocumentV1ClientPage = ({
               </div>
 
               <div className="embed--DocumentWidgetContent hidden group-data-[expanded]/document-widget:block md:block">
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-muted-foreground text-sm">
                   {isAssistantMode ? (
                     <Trans>Help complete the document for other signers.</Trans>
                   ) : (
@@ -378,7 +442,7 @@ export const EmbedSignDocumentV1ClientPage = ({
                   )}
                 </p>
 
-                <hr className="mb-8 mt-4 border-border" />
+                <hr className="mt-4 mb-8 border-border" />
               </div>
 
               {/* Form */}
@@ -419,15 +483,13 @@ export const EmbedSignDocumentV1ClientPage = ({
                                         {r.name}
 
                                         {r.id === recipient.id && (
-                                          <span className="ml-2 text-muted-foreground">
-                                            {_(msg`(You)`)}
-                                          </span>
+                                          <span className="ml-2 text-muted-foreground">{_(msg`(You)`)}</span>
                                         )}
                                       </Label>
-                                      <p className="text-xs text-muted-foreground">{r.email}</p>
+                                      <p className="text-muted-foreground text-xs">{r.email}</p>
                                     </div>
                                   </div>
-                                  <div className="text-xs leading-[inherit] text-muted-foreground">
+                                  <div className="text-muted-foreground text-xs leading-[inherit]">
                                     {r.fields.length} {r.fields.length === 1 ? 'field' : 'fields'}
                                   </div>
                                 </div>
@@ -517,9 +579,7 @@ export const EmbedSignDocumentV1ClientPage = ({
           </div>
 
           {showPendingFieldTooltip && pendingFields.length > 0 && (
-            <ElementVisible
-              target={`${PDF_VIEWER_PAGE_SELECTOR}[data-page-number="${pendingFields[0].page}"]`}
-            >
+            <ElementVisible target={`${PDF_VIEWER_PAGE_SELECTOR}[data-page-number="${pendingFields[0].page}"]`}>
               <FieldToolTip key={pendingFields[0].id} field={pendingFields[0]} color="warning">
                 <Trans>Click to insert field</Trans>
               </FieldToolTip>
@@ -534,7 +594,7 @@ export const EmbedSignDocumentV1ClientPage = ({
         </div>
 
         {!hidePoweredBy && (
-          <div className="fixed bottom-0 left-0 z-40 rounded-tr bg-primary px-2 py-1 text-xs font-medium text-primary-foreground opacity-60 hover:opacity-100">
+          <div className="fixed bottom-0 left-0 z-40 rounded-tr bg-primary px-2 py-1 font-medium text-primary-foreground text-xs opacity-60 hover:opacity-100">
             <span>
               <Trans>Powered by</Trans>
             </span>

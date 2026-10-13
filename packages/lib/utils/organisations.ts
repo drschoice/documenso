@@ -1,15 +1,10 @@
-import type { Organisation, OrganisationGlobalSettings, Prisma } from '@prisma/client';
-import {
-  DocumentVisibility,
-  EmailSenderNameMode,
-  type OrganisationGroup,
-  type OrganisationMemberRole,
-} from '@prisma/client';
-
 import type { ORGANISATION_MEMBER_ROLE_MAP } from '@documenso/lib/constants/organisations-translations';
+import type { Organisation, OrganisationGlobalSettings, Prisma } from '@prisma/client';
+import { DocumentVisibility, EmailSenderNameMode, type OrganisationGroup, OrganisationMemberRole } from '@prisma/client';
 
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '../constants/date-formats';
 import { DEFAULT_ENVELOPE_EXPIRATION_PERIOD } from '../constants/envelope-expiration';
+import { DEFAULT_ENVELOPE_REMINDER_SETTINGS } from '../constants/envelope-reminder';
 import {
   LOWEST_ORGANISATION_ROLE,
   ORGANISATION_MEMBER_ROLE_HIERARCHY,
@@ -38,6 +33,18 @@ export const canExecuteOrganisationAction = (
 };
 
 /**
+ * Organisation analytics are restricted to organisation admins, unlike organisation
+ * settings which managers can also access.
+ */
+export const canAccessOrganisationAnalytics = (role: keyof typeof ORGANISATION_MEMBER_ROLE_MAP) => {
+  return role === OrganisationMemberRole.ADMIN;
+};
+
+export const formatOrganisationAnalyticsPath = (organisationUrl: string) => {
+  return `/o/${organisationUrl}/analytics`;
+};
+
+/**
  * Compares the provided `currentUserRole` with the provided `roleToCheck` to determine
  * whether the `currentUserRole` has permission to modify the `roleToCheck`.
  *
@@ -59,8 +66,7 @@ export const getHighestOrganisationRoleInGroup = (
 
   groups.forEach((group) => {
     const currentRolePriority = ORGANISATION_MEMBER_ROLE_HIERARCHY[group.organisationRole].length;
-    const highestOrganisationRolePriority =
-      ORGANISATION_MEMBER_ROLE_HIERARCHY[highestOrganisationRole].length;
+    const highestOrganisationRolePriority = ORGANISATION_MEMBER_ROLE_HIERARCHY[highestOrganisationRole].length;
 
     if (currentRolePriority > highestOrganisationRolePriority) {
       highestOrganisationRole = group.organisationRole;
@@ -112,10 +118,7 @@ export const buildOrganisationWhereQuery = ({
   };
 };
 
-export const generateDefaultOrganisationSettings = (): Omit<
-  OrganisationGlobalSettings,
-  'id' | 'organisation'
-> => {
+export const generateDefaultOrganisationSettings = (): Omit<OrganisationGlobalSettings, 'id' | 'organisation'> => {
   return {
     documentVisibility: DocumentVisibility.EVERYONE,
     documentLanguage: 'en',
@@ -137,6 +140,8 @@ export const generateDefaultOrganisationSettings = (): Omit<
     brandingLogo: '',
     brandingUrl: '',
     brandingCompanyDetails: '',
+    brandingColors: null,
+    brandingCss: '',
 
     emailId: null,
     emailReplyTo: null,
@@ -149,6 +154,8 @@ export const generateDefaultOrganisationSettings = (): Omit<
     defaultRecipients: null,
 
     envelopeExpirationPeriod: DEFAULT_ENVELOPE_EXPIRATION_PERIOD,
+
+    reminderSettings: DEFAULT_ENVELOPE_REMINDER_SETTINGS,
 
     aiFeaturesEnabled: false,
   };

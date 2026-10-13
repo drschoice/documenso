@@ -1,14 +1,13 @@
-import { sValidator } from '@hono/standard-validator';
-import type { DocumentData, EnvelopeItem } from '@prisma/client';
-import { type Context, Hono } from 'hono';
-import { z } from 'zod';
-
-import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
+import { getOptionalNonEmbedSession } from '@documenso/auth/server/lib/session/embed-session-restrictions';
 import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embedding-presign/verify-embedding-presign-token';
 import type { DocumentDataVersion } from '@documenso/lib/types/document';
 import { sha256 } from '@documenso/lib/universal/crypto';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
 import { prisma } from '@documenso/prisma';
+import { sValidator } from '@hono/standard-validator';
+import type { DocumentData, EnvelopeItem } from '@prisma/client';
+import { type Context, Hono } from 'hono';
+import { z } from 'zod';
 
 import type { HonoEnv } from '../../../router';
 import { checkEnvelopeFileAccess } from '../files.helpers';
@@ -38,7 +37,7 @@ route.get(
 
     const { presignToken } = c.req.valid('query');
 
-    const session = await getOptionalSession(c);
+    const session = await getOptionalNonEmbedSession(c);
 
     let userId = session.user?.id;
 

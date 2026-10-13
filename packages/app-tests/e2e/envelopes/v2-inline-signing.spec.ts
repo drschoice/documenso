@@ -508,7 +508,7 @@ test.describe('moving between fields on the v2 signer', () => {
           type: FieldType.SIGNATURE,
           positionX: 10,
           positionY: 40,
-          fieldMeta: { type: 'signature' },
+          fieldMeta: { type: 'signature', overflow: 'auto' },
         },
         {
           type: FieldType.TEXT,
@@ -712,7 +712,7 @@ test.describe('picking a date on the v2 signer', () => {
       recipients: [{ email: `v2-inline-date-${user.id}@example.com`, name: 'Inline Signer' }],
       documentMeta: { dateFormat: 'yyyy-MM-dd', timezone: 'Etc/UTC' },
       fields: [
-        { type: FieldType.DATE, width: 30, height: 6, fieldMeta: { type: 'date', label: 'Born' } },
+        { type: FieldType.DATE, width: 30, height: 6, fieldMeta: { type: 'date', overflow: 'auto', label: 'Born' } },
       ],
     });
 

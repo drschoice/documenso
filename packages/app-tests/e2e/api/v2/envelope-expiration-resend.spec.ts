@@ -60,7 +60,7 @@ const seedEnvelopeWithRecipient = async (request: APIRequestContext) => {
             positionY: 10,
             width: 10,
             height: 5,
-            fieldMeta: { type: 'signature' },
+            fieldMeta: { type: 'signature', overflow: 'auto' },
           },
         ],
       },

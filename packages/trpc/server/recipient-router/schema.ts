@@ -1,6 +1,3 @@
-import { RecipientRole } from '@prisma/client';
-import { z } from 'zod';
-
 import { isTemplateRecipientEmailPlaceholder } from '@documenso/lib/constants/template';
 import {
   ZRecipientAccessAuthSchema,
@@ -12,8 +9,11 @@ import {
   ZRecipientLiteSchema,
   ZRecipientNamePartsRequestSchema,
   ZRecipientSchema,
+  ZRecipientSigningOrderSchema,
 } from '@documenso/lib/types/recipient';
 import { zEmail } from '@documenso/lib/utils/zod';
+import { RecipientRole } from '@prisma/client';
+import { z } from 'zod';
 
 export const ZGetRecipientRequestSchema = z.object({
   recipientId: z.number(),
@@ -33,7 +33,7 @@ export const ZCreateRecipientSchema = z.object({
   name: z.string().max(255),
   ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole),
-  signingOrder: z.number().optional(),
+  signingOrder: ZRecipientSigningOrderSchema.optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
   actionAuth: z.array(ZRecipientActionAuthTypesSchema).default([]).optional(),
 });
@@ -44,7 +44,7 @@ export const ZUpdateRecipientSchema = z.object({
   name: z.string().max(255).optional(),
   ...ZRecipientNamePartsRequestSchema,
   role: z.nativeEnum(RecipientRole).optional(),
-  signingOrder: z.number().optional(),
+  signingOrder: ZRecipientSigningOrderSchema.optional(),
   accessAuth: z.array(ZRecipientAccessAuthTypesSchema).default([]).optional(),
   actionAuth: z.array(ZRecipientActionAuthTypesSchema).default([]).optional(),
 });
@@ -94,7 +94,7 @@ export const ZSetDocumentRecipientsRequestSchema = z.object({
       name: z.string().max(255),
       ...ZRecipientNamePartsRequestSchema,
       role: z.nativeEnum(RecipientRole),
-      signingOrder: z.number().optional(),
+      signingOrder: ZRecipientSigningOrderSchema.optional(),
       actionAuth: z.array(ZRecipientActionAuthTypesSchema).optional().default([]),
     }),
   ),
@@ -157,7 +157,7 @@ export const ZSetTemplateRecipientsRequestSchema = z.object({
       name: z.string(),
       ...ZRecipientNamePartsRequestSchema,
       role: z.nativeEnum(RecipientRole),
-      signingOrder: z.number().optional(),
+      signingOrder: ZRecipientSigningOrderSchema.optional(),
       actionAuth: z.array(ZRecipientActionAuthTypesSchema).optional().default([]),
     }),
   ),
@@ -185,9 +185,25 @@ export const ZCompleteDocumentWithTokenMutationSchema = z.object({
     .optional(),
 });
 
-export type TCompleteDocumentWithTokenMutationSchema = z.infer<
-  typeof ZCompleteDocumentWithTokenMutationSchema
->;
+export type TCompleteDocumentWithTokenMutationSchema = z.infer<typeof ZCompleteDocumentWithTokenMutationSchema>;
+
+/**
+ * Discriminated response: SES envelopes return `{ status: 'SIGNED' }` after
+ * the in-place completion; TSP (AES/QES) envelopes return
+ * `{ status: 'REDIRECT', redirectUrl, sessionId }` pointing at the credential-scope
+ * OAuth authorize endpoint for the given `CscSession`. `{ status: 'ALREADY_SIGNED' }` is returned when
+ * the recipient had already signed prior to this request (retries, stale
+ * tabs, concurrent submissions) so callers can notify the user instead of
+ * erroring. Frontend callers can branch on `status` — existing callers
+ * ignored the response and remain compatible.
+ */
+export const ZCompleteDocumentWithTokenResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('REDIRECT'), redirectUrl: z.string(), sessionId: z.string() }),
+  z.object({ status: z.literal('SIGNED') }),
+  z.object({ status: z.literal('ALREADY_SIGNED') }),
+]);
+
+export type TCompleteDocumentWithTokenResponseSchema = z.infer<typeof ZCompleteDocumentWithTokenResponseSchema>;
 
 export const ZRejectDocumentWithTokenMutationSchema = z.object({
   token: z.string(),
@@ -196,6 +212,4 @@ export const ZRejectDocumentWithTokenMutationSchema = z.object({
   authOptions: ZRecipientActionAuthSchema.optional(),
 });
 
-export type TRejectDocumentWithTokenMutationSchema = z.infer<
-  typeof ZRejectDocumentWithTokenMutationSchema
->;
+export type TRejectDocumentWithTokenMutationSchema = z.infer<typeof ZRejectDocumentWithTokenMutationSchema>;

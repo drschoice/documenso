@@ -1,20 +1,17 @@
+import { BRANDING_CSS_MAX_LENGTH } from '@documenso/lib/constants/branding';
 import { EmailSenderNameMode } from '@prisma/client';
-import { z } from 'zod';
-
 import { ZEnvelopeExpirationPeriod } from '@documenso/lib/constants/envelope-expiration';
+import { ZEnvelopeReminderSettings } from '@documenso/lib/constants/envelope-reminder';
 import { SUPPORTED_LANGUAGE_CODES } from '@documenso/lib/constants/i18n';
-import {
-  ZSignatureFontFamilySchema,
-  ZSignatureFontSizeSchema,
-} from '@documenso/lib/constants/signature-fonts';
+import { ZCssVarsSchema } from '@documenso/lib/types/css-vars';
+import { ZSignatureFontFamilySchema, ZSignatureFontSizeSchema } from '@documenso/lib/constants/signature-fonts';
 import { ZDefaultRecipientsSchema } from '@documenso/lib/types/default-recipients';
 import { ZDocumentEmailSettingsSchema } from '@documenso/lib/types/document-email';
-import {
-  ZDocumentMetaDateFormatSchema,
-  ZDocumentMetaTimezoneSchema,
-} from '@documenso/lib/types/document-meta';
+import { ZDocumentMetaDateFormatSchema, ZDocumentMetaTimezoneSchema } from '@documenso/lib/types/document-meta';
 import { DocumentVisibility } from '@documenso/lib/types/document-visibility';
+import { ZSanitizeBrandingCssWarningSchema } from '@documenso/lib/utils/sanitize-branding-css';
 import { zEmail } from '@documenso/lib/utils/zod';
+import { z } from 'zod';
 
 /**
  * Null = Inherit from organisation.
@@ -38,12 +35,14 @@ export const ZUpdateTeamSettingsRequestSchema = z.object({
     signatureFontSize: ZSignatureFontSizeSchema.nullish(),
     delegateDocumentOwnership: z.boolean().nullish(),
     envelopeExpirationPeriod: ZEnvelopeExpirationPeriod.nullish(),
+    reminderSettings: ZEnvelopeReminderSettings.nullish(),
 
     // Branding related settings.
     brandingEnabled: z.boolean().nullish(),
-    brandingLogo: z.string().nullish(),
     brandingUrl: z.string().nullish(),
     brandingCompanyDetails: z.string().nullish(),
+    brandingColors: ZCssVarsSchema.nullish(),
+    brandingCss: z.string().max(BRANDING_CSS_MAX_LENGTH).nullish(),
 
     // Null = inherit from the organisation.
     emailSenderNameMode: z.nativeEnum(EmailSenderNameMode).nullish(),
@@ -62,4 +61,6 @@ export const ZUpdateTeamSettingsRequestSchema = z.object({
   }),
 });
 
-export const ZUpdateTeamSettingsResponseSchema = z.void();
+export const ZUpdateTeamSettingsResponseSchema = z.object({
+  cssWarnings: z.array(ZSanitizeBrandingCssWarningSchema).optional(),
+});

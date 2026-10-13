@@ -1,9 +1,3 @@
-import { plural } from '@lingui/core/macro';
-import { Plural, useLingui } from '@lingui/react/macro';
-import { Trans } from '@lingui/react/macro';
-import { EnvelopeType } from '@prisma/client';
-import type * as DialogPrimitive from '@radix-ui/react-dialog';
-
 import { trpc } from '@documenso/trpc/react';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
@@ -16,6 +10,10 @@ import {
   DialogTitle,
 } from '@documenso/ui/primitives/dialog';
 import { useToast } from '@documenso/ui/primitives/use-toast';
+import { plural } from '@lingui/core/macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
+import { EnvelopeType } from '@prisma/client';
+import type * as DialogPrimitive from '@radix-ui/react-dialog';
 
 export type EnvelopesBulkDeleteDialogProps = {
   envelopeIds: string[];
@@ -46,7 +44,10 @@ export const EnvelopesBulkDeleteDialog = ({
       if (isDocument) {
         await trpcUtils.document.findDocumentsInternal.invalidate();
       } else {
-        await trpcUtils.template.findTemplates.invalidate();
+        await Promise.all([
+          trpcUtils.template.findTemplates.invalidate(),
+          trpcUtils.template.findTemplatesInternal.invalidate(),
+        ]);
       }
 
       if (result.failedIds.length > 0) {
@@ -88,9 +89,7 @@ export const EnvelopesBulkDeleteDialog = ({
     <Dialog {...props} open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {isDocument ? <Trans>Delete Documents</Trans> : <Trans>Delete Templates</Trans>}
-          </DialogTitle>
+          <DialogTitle>{isDocument ? <Trans>Delete Documents</Trans> : <Trans>Delete Templates</Trans>}</DialogTitle>
 
           <DialogDescription>
             {isDocument ? (
@@ -149,12 +148,7 @@ export const EnvelopesBulkDeleteDialog = ({
         </Alert>
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            disabled={isPending}
-          >
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isPending}>
             <Trans>Cancel</Trans>
           </Button>
 

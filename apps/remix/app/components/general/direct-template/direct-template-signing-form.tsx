@@ -1,11 +1,3 @@
-import { useEffect, useMemo, useState } from 'react';
-
-import { Trans } from '@lingui/react/macro';
-import type { Field, Recipient, Signature } from '@prisma/client';
-import { FieldType } from '@prisma/client';
-import { DateTime } from 'luxon';
-import { match } from 'ts-pattern';
-
 import { DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { PDF_VIEWER_PAGE_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
 import { DEFAULT_DOCUMENT_TIME_ZONE } from '@documenso/lib/constants/time-zones';
@@ -19,6 +11,7 @@ import {
 import type { TTemplate } from '@documenso/lib/types/template';
 import { isFieldUnsignedAndRequired } from '@documenso/lib/utils/advanced-fields-helpers';
 import { sortFieldsByPosition, validateFieldsInserted } from '@documenso/lib/utils/fields';
+import { getNextDictatableRecipient } from '@documenso/lib/utils/recipient-groups';
 import type {
   TRemovedSignedFieldWithTokenMutationSchema,
   TSignFieldWithTokenMutationSchema,
@@ -37,6 +30,12 @@ import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
 import { SignaturePadDialog } from '@documenso/ui/primitives/signature-pad/signature-pad-dialog';
 import { useStep } from '@documenso/ui/primitives/stepper';
+import { Trans } from '@lingui/react/macro';
+import type { Field, Recipient, Signature } from '@prisma/client';
+import { FieldType } from '@prisma/client';
+import { DateTime } from 'luxon';
+import { useEffect, useMemo, useState } from 'react';
+import { match } from 'ts-pattern';
 
 import { DocumentSigningCheckboxField } from '~/components/general/document-signing/document-signing-checkbox-field';
 import { DocumentSigningCompleteDialog } from '~/components/general/document-signing/document-signing-complete-dialog';
@@ -58,10 +57,7 @@ export type DirectTemplateSigningFormProps = {
   directRecipient: Pick<Recipient, 'authOptions' | 'email' | 'role' | 'name' | 'token' | 'id'>;
   directRecipientFields: Field[];
   template: Omit<TTemplate, 'user'>;
-  onSubmit: (
-    _data: DirectTemplateLocalField[],
-    _nextSigner?: { name: string; email: string },
-  ) => Promise<void>;
+  onSubmit: (_data: DirectTemplateLocalField[], _nextSigner?: { name: string; email: string }) => Promise<void>;
 };
 
 export type DirectTemplateLocalField = Field & {
@@ -231,19 +227,10 @@ export const DirectTemplateSigningForm = ({
       return undefined;
     }
 
-    const sortedRecipients = template.recipients.sort((a, b) => {
-      // Sort by signingOrder first (nulls last), then by id
-      if (a.signingOrder === null && b.signingOrder === null) return a.id - b.id;
-      if (a.signingOrder === null) return 1;
-      if (b.signingOrder === null) return -1;
-      if (a.signingOrder === b.signingOrder) return a.id - b.id;
-      return a.signingOrder - b.signingOrder;
+    return getNextDictatableRecipient({
+      recipients: template.recipients,
+      currentRecipientId: directRecipient.id,
     });
-
-    const currentIndex = sortedRecipients.findIndex((r) => r.id === directRecipient.id);
-    return currentIndex !== -1 && currentIndex < sortedRecipients.length - 1
-      ? sortedRecipients[currentIndex + 1]
-      : undefined;
   }, [template.templateMeta?.signingOrder, template.recipients, directRecipient.id]);
 
   return (
@@ -307,9 +294,7 @@ export const DirectTemplateSigningForm = ({
                 />
               ))
               .with(FieldType.TEXT, () => {
-                const parsedFieldMeta = field.fieldMeta
-                  ? ZTextFieldMeta.parse(field.fieldMeta)
-                  : null;
+                const parsedFieldMeta = field.fieldMeta ? ZTextFieldMeta.parse(field.fieldMeta) : null;
 
                 return (
                   <DocumentSigningTextField
@@ -324,9 +309,7 @@ export const DirectTemplateSigningForm = ({
                 );
               })
               .with(FieldType.NUMBER, () => {
-                const parsedFieldMeta = field.fieldMeta
-                  ? ZNumberFieldMeta.parse(field.fieldMeta)
-                  : null;
+                const parsedFieldMeta = field.fieldMeta ? ZNumberFieldMeta.parse(field.fieldMeta) : null;
 
                 return (
                   <DocumentSigningNumberField
@@ -341,9 +324,7 @@ export const DirectTemplateSigningForm = ({
                 );
               })
               .with(FieldType.DROPDOWN, () => {
-                const parsedFieldMeta = field.fieldMeta
-                  ? ZDropdownFieldMeta.parse(field.fieldMeta)
-                  : null;
+                const parsedFieldMeta = field.fieldMeta ? ZDropdownFieldMeta.parse(field.fieldMeta) : null;
 
                 return (
                   <DocumentSigningDropdownField
@@ -358,9 +339,7 @@ export const DirectTemplateSigningForm = ({
                 );
               })
               .with(FieldType.RADIO, () => {
-                const parsedFieldMeta = field.fieldMeta
-                  ? ZRadioFieldMeta.parse(field.fieldMeta)
-                  : null;
+                const parsedFieldMeta = field.fieldMeta ? ZRadioFieldMeta.parse(field.fieldMeta) : null;
 
                 return (
                   <DocumentSigningRadioField
@@ -375,9 +354,7 @@ export const DirectTemplateSigningForm = ({
                 );
               })
               .with(FieldType.CHECKBOX, () => {
-                const parsedFieldMeta = field.fieldMeta
-                  ? ZCheckboxFieldMeta.parse(field.fieldMeta)
-                  : null;
+                const parsedFieldMeta = field.fieldMeta ? ZCheckboxFieldMeta.parse(field.fieldMeta) : null;
 
                 return (
                   <DocumentSigningCheckboxField
@@ -402,11 +379,7 @@ export const DirectTemplateSigningForm = ({
                 <Trans>Full Name</Trans>
               </Label>
 
-              <Input
-                id="full-name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value.trimStart())}
-              />
+              <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value.trimStart())} />
             </div>
 
             <div>
@@ -451,10 +424,8 @@ export const DirectTemplateSigningForm = ({
             fields={localFields}
             fieldsValidated={fieldsValidated}
             recipient={directRecipient}
-            allowDictateNextSigner={nextRecipient && template.templateMeta?.allowDictateNextSigner}
-            defaultNextSigner={
-              nextRecipient ? { name: nextRecipient.name, email: nextRecipient.email } : undefined
-            }
+            allowDictateNextSigner={Boolean(nextRecipient && template.templateMeta?.allowDictateNextSigner)}
+            defaultNextSigner={nextRecipient ? { name: nextRecipient.name, email: nextRecipient.email } : undefined}
           />
         </div>
       </DocumentFlowFormContainerFooter>

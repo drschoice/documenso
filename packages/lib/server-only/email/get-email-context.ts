@@ -1,5 +1,4 @@
-import { P, match } from 'ts-pattern';
-
+import { mailer } from '@documenso/email/mailer';
 import type { BrandingSettings } from '@documenso/email/providers/branding';
 import { prisma } from '@documenso/prisma';
 import type {
@@ -9,20 +8,21 @@ import type {
   OrganisationEmail,
   OrganisationType,
 } from '@documenso/prisma/client';
-import {
-  EmailDomainStatus,
-  type OrganisationClaim,
-  type OrganisationGlobalSettings,
-} from '@documenso/prisma/client';
+import { EmailDomainStatus, type OrganisationClaim, type OrganisationGlobalSettings } from '@documenso/prisma/client';
+import type { Transporter } from 'nodemailer';
+import { match, P } from 'ts-pattern';
 
+import { IS_BILLING_ENABLED } from '../../constants/app';
 import { DOCUMENSO_INTERNAL_EMAIL } from '../../constants/email';
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { logger } from '../../utils/logger';
 import { resolveEmailSenderName } from '../../utils/email-sender-name';
 import {
   organisationGlobalSettingsToBranding,
   teamGlobalSettingsToBranding,
 } from '../../utils/team-global-settings-to-branding';
 import { extractDerivedTeamSettings } from '../../utils/teams';
+import { resolveEmailTransport } from './resolve-email-transport';
 
 type EmailMetaOption = Partial<Pick<DocumentMeta, 'emailId' | 'emailReplyTo' | 'language'>>;
 
@@ -67,12 +67,20 @@ type RecipientGetEmailContextOptions = BaseGetEmailContextOptions & {
 
 type GetEmailContextOptions = InternalGetEmailContextOptions | RecipientGetEmailContextOptions;
 
-type EmailContextResponse = {
+export type EmailContextResponse = {
   allowedEmails: OrganisationEmail[];
   branding: BrandingSettings;
   settings: Omit<OrganisationGlobalSettings, 'id'>;
   claims: OrganisationClaim;
+  /**
+   * Whether the organisation is prevented from sending emails.
+   *
+   * When true, ALL emails sent on behalf of this organisation must be skipped.
+   */
+  emailsDisabled: boolean;
+  organisationId: string;
   organisationType: OrganisationType;
+  emailTransport: Transporter;
 
   /**
    * The name envelope emails should speak as, resolved from the organisation/team sender name
@@ -87,12 +95,10 @@ type EmailContextResponse = {
   emailLanguage: string;
 };
 
-export const getEmailContext = async (
-  options: GetEmailContextOptions,
-): Promise<EmailContextResponse> => {
+export const getEmailContext = async (options: GetEmailContextOptions): Promise<EmailContextResponse> => {
   const { source, meta } = options;
 
-  let emailContext: Omit<EmailContextResponse, 'senderEmail' | 'replyToEmail' | 'emailLanguage'>;
+  let emailContext: Omit<EmailContextResponse, 'senderEmail' | 'replyToEmail' | 'emailLanguage' | 'emailTransport'>;
 
   if (source.type === 'organisation') {
     emailContext = await handleOrganisationEmailContext(source.organisationId);
@@ -102,13 +108,44 @@ export const getEmailContext = async (
 
   const emailLanguage = meta?.language || emailContext.settings.documentLanguage;
 
+  const transportResolution = emailContext.claims.emailTransportId
+    ? await resolveEmailTransport(emailContext.claims.emailTransportId)
+    : null;
+
+  // A configured transport that fails to resolve is an operational problem, not
+  // "no transport". Surface it (alertable) before silently falling back to the
+  // system mailer + Documenso sender, so the degraded organisation is findable.
+  if (emailContext.claims.emailTransportId && !transportResolution) {
+    logger.error({
+      msg: 'Configured email transport could not be resolved; falling back to the system mailer',
+      emailTransportId: emailContext.claims.emailTransportId,
+      organisationId: emailContext.organisationId,
+    });
+  }
+
+  const resolvedTransportData = transportResolution
+    ? {
+        name: transportResolution.row.fromName,
+        address: transportResolution.row.fromAddress,
+        transport: transportResolution.transporter,
+      }
+    : {
+        name: DOCUMENSO_INTERNAL_EMAIL.name,
+        address: DOCUMENSO_INTERNAL_EMAIL.address,
+        transport: mailer,
+      };
+
   // Immediate return for internal emails.
   if (options.emailType === 'INTERNAL') {
     return {
       ...emailContext,
-      senderEmail: DOCUMENSO_INTERNAL_EMAIL,
+      emailTransport: resolvedTransportData.transport,
+      senderEmail: {
+        name: resolvedTransportData.name,
+        address: resolvedTransportData.address,
+      },
       replyToEmail: undefined,
-      emailLanguage, // Not sure if we want to use this for internal emails.
+      emailLanguage,
     };
   }
 
@@ -127,16 +164,29 @@ export const getEmailContext = async (
     emailContext.settings.emailId = null;
   }
 
-  const senderEmail = foundSenderEmail
-    ? {
+  // Custom-domain sender (emailDomains): always use the env mailer (SES) and the
+  // custom sender; the per-plan transport is ignored entirely here.
+  if (foundSenderEmail) {
+    return {
+      ...emailContext,
+      emailTransport: mailer,
+      senderEmail: {
         name: foundSenderEmail.emailName,
         address: foundSenderEmail.email,
-      }
-    : DOCUMENSO_INTERNAL_EMAIL;
+      },
+      replyToEmail,
+      emailLanguage,
+    };
+  }
 
+  // No custom-domain sender → per-plan transport (if any) supplies transport + from-address.
   return {
     ...emailContext,
-    senderEmail,
+    emailTransport: resolvedTransportData.transport,
+    senderEmail: {
+      name: resolvedTransportData.name,
+      address: resolvedTransportData.address,
+    },
     replyToEmail,
     emailLanguage,
   };
@@ -148,6 +198,11 @@ const handleOrganisationEmailContext = async (organisationId: string) => {
       id: organisationId,
     },
     include: {
+      owner: {
+        select: {
+          disabled: true,
+        },
+      },
       organisationClaim: true,
       organisationGlobalSettings: true,
       emailDomains: {
@@ -169,15 +224,25 @@ const handleOrganisationEmailContext = async (organisationId: string) => {
 
   const allowedEmails = getAllowedEmails(organisation);
 
+  const branding = organisationGlobalSettingsToBranding(
+    organisation.organisationGlobalSettings,
+    organisation.id,
+    claims.flags.hidePoweredBy ?? false,
+  );
+
+  const allowBrandedEmailColors = !IS_BILLING_ENABLED() || claims.flags.embedSigningWhiteLabel === true;
+
+  if (!allowBrandedEmailColors) {
+    branding.brandingColors = undefined;
+  }
+
   return {
     allowedEmails,
-    branding: organisationGlobalSettingsToBranding(
-      organisation.organisationGlobalSettings,
-      organisation.id,
-      claims.flags.hidePoweredBy ?? false,
-    ),
+    branding,
     settings: organisation.organisationGlobalSettings,
     claims,
+    emailsDisabled: organisation.owner.disabled || claims.flags.disableEmails === true,
+    organisationId: organisation.id,
     organisationType: organisation.type,
     senderDisplayName: resolveEmailSenderName({
       settings: organisation.organisationGlobalSettings,
@@ -198,6 +263,12 @@ const handleTeamEmailContext = async (teamId: number) => {
       teamGlobalSettings: true,
       organisation: {
         include: {
+          owner: {
+            select: {
+              id: true,
+              disabled: true,
+            },
+          },
           organisationClaim: true,
           organisationGlobalSettings: true,
           emailDomains: {
@@ -222,20 +293,23 @@ const handleTeamEmailContext = async (teamId: number) => {
 
   const allowedEmails = getAllowedEmails(organisation);
 
-  const teamSettings = extractDerivedTeamSettings(
-    organisation.organisationGlobalSettings,
-    team.teamGlobalSettings,
-  );
+  const teamSettings = extractDerivedTeamSettings(organisation.organisationGlobalSettings, team.teamGlobalSettings);
+
+  const branding = teamGlobalSettingsToBranding(teamSettings, teamId, claims.flags.hidePoweredBy ?? false);
+
+  const allowBrandedEmailColors = !IS_BILLING_ENABLED() || claims.flags.embedSigningWhiteLabel === true;
+
+  if (!allowBrandedEmailColors) {
+    branding.brandingColors = undefined;
+  }
 
   return {
     allowedEmails,
-    branding: teamGlobalSettingsToBranding(
-      teamSettings,
-      teamId,
-      claims.flags.hidePoweredBy ?? false,
-    ),
+    branding,
     settings: teamSettings,
     claims,
+    emailsDisabled: organisation.owner.disabled || claims.flags.disableEmails === true,
+    organisationId: organisation.id,
     organisationType: organisation.type,
     senderDisplayName: resolveEmailSenderName({
       settings: teamSettings,

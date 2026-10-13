@@ -1,12 +1,9 @@
+import { isBase64Image, SIGNATURE_CANVAS_DPI } from '@documenso/lib/constants/signatures';
 import { useEffect, useRef } from 'react';
 
-import {
-  DEFAULT_SIGNATURE_FONT_FAMILY,
-  getSignatureFont,
-} from '@documenso/lib/constants/signature-fonts';
-import { SIGNATURE_CANVAS_DPI, isBase64Image } from '@documenso/lib/constants/signatures';
-
+import { DEFAULT_SIGNATURE_FONT_FAMILY, getSignatureFont } from '@documenso/lib/constants/signature-fonts';
 import { cn } from '../../lib/utils';
+
 
 export type SignatureRenderProps = {
   className?: string;
@@ -28,6 +25,11 @@ export const SignatureRender = ({
   const $el = useRef<HTMLCanvasElement>(null);
   const $imageData = useRef<ImageData | null>(null);
 
+  // The org/team signature font, resolved once: both the canvas draws and the
+  // `document.fonts.load` wait below must ask for the same family, or the wait
+  // resolves against a font that is never used.
+  const fontFamily = getSignatureFont(fontFamilyProp ?? DEFAULT_SIGNATURE_FONT_FAMILY).family;
+
   const renderTypedSignature = () => {
     if (!$el.current) {
       return;
@@ -43,7 +45,6 @@ export const SignatureRender = ({
 
     const canvasWidth = $el.current.width;
     const canvasHeight = $el.current.height;
-    const fontFamily = getSignatureFont(fontFamilyProp ?? DEFAULT_SIGNATURE_FONT_FAMILY).family;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.textAlign = 'center';
@@ -123,11 +124,28 @@ export const SignatureRender = ({
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (isBase64Image(value)) {
       renderImageSignature();
-    } else {
-      renderTypedSignature();
+      return;
     }
+
+    const renderWhenFontIsReady = async () => {
+      try {
+        await document.fonts?.load(`18px ${fontFamily}`);
+      } finally {
+        if (isMounted) {
+          renderTypedSignature();
+        }
+      }
+    };
+
+    void renderWhenFontIsReady();
+
+    return () => {
+      isMounted = false;
+    };
   }, [value, fontFamilyProp]);
 
   return (

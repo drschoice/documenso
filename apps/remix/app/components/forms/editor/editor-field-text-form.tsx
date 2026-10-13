@@ -1,10 +1,3 @@
-import { useEffect } from 'react';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Trans, useLingui } from '@lingui/react/macro';
-import { useForm, useWatch } from 'react-hook-form';
-import type { z } from 'zod';
-
 import {
   DEFAULT_FIELD_FONT_SIZE,
   FIELD_DEFAULT_GENERIC_ALIGN,
@@ -16,16 +9,14 @@ import {
   type TTextFieldMeta as TextFieldMeta,
   ZTextFieldMeta,
 } from '@documenso/lib/types/field-meta';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@documenso/ui/primitives/form/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
 import { Textarea } from '@documenso/ui/primitives/textarea';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { useEffect, useRef } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import type { z } from 'zod';
 
 import {
   EditorGenericCellCountField,
@@ -126,6 +117,19 @@ export const EditorFieldTextForm = ({
   });
 
   /**
+   * Set when the effect below copies an incoming meta into this form, and cleared by the
+   * push-up effect at the bottom when it skips the resulting change.
+   *
+   * Without it the two effects sit permanently one step out of phase. They run in the same
+   * commit, so on the render where the overlay delivers a new value the resync calls
+   * `setValue` while the push-up effect still holds the *previous* `formValues` - and
+   * pushes that stale value straight back into the meta. The overlay corrects it, which
+   * re-runs the resync, which re-runs the push... Each pass re-arms the editor's 2s
+   * autosave debounce, so it never elapses and the field is never saved at all.
+   */
+  const isResyncingRef = useRef(false);
+
+  /**
    * The inline "select the field and type" overlay writes the value, `readOnly`
    * and `required` straight into the field meta without going through this form.
    * React Hook Form seeds itself from `value` once, at mount, so its copy then
@@ -142,14 +146,17 @@ export const EditorFieldTextForm = ({
 
     if (form.getValues('text') !== nextText) {
       form.setValue('text', nextText);
+      isResyncingRef.current = true;
     }
 
     if (form.getValues('readOnly') !== nextReadOnly) {
       form.setValue('readOnly', nextReadOnly);
+      isResyncingRef.current = true;
     }
 
     if (form.getValues('required') !== nextRequired) {
       form.setValue('required', nextRequired);
+      isResyncingRef.current = true;
     }
   }, [value.text, value.readOnly, value.required]);
 
@@ -172,6 +179,13 @@ export const EditorFieldTextForm = ({
 
   // Dupecode/Inefficient: Done because native isValid won't work for our usecase.
   useEffect(() => {
+    // A resync just wrote the incoming meta into this form. Pushing now would send back
+    // the snapshot from before it landed; the next render carries the settled values.
+    if (isResyncingRef.current) {
+      isResyncingRef.current = false;
+      return;
+    }
+
     const validatedFormValues = ZTextFieldFormSchema.safeParse(formValues);
 
     if (formValues.readOnly && !formValues.text) {
@@ -249,11 +263,7 @@ export const EditorFieldTextForm = ({
                   <Trans>Placeholder</Trans>
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    data-testid="field-form-placeholder"
-                    placeholder={t`Field placeholder`}
-                    {...field}
-                  />
+                  <Input data-testid="field-form-placeholder" placeholder={t`Field placeholder`} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
