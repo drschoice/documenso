@@ -5,7 +5,7 @@ import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-reques
 import { nanoid } from '@documenso/lib/universal/id';
 import { createDocumentAuditLogData, diffRecipientChanges } from '@documenso/lib/utils/document-audit-logs';
 import { createRecipientAuthOptions } from '@documenso/lib/utils/document-auth';
-import { resolveRecipientNameOnCreate } from '@documenso/lib/utils/recipient-formatter';
+import { getRecipientNameParts, resolveRecipientNameOnCreate } from '@documenso/lib/utils/recipient-formatter';
 import { prisma } from '@documenso/prisma';
 import type { Recipient } from '@prisma/client';
 import { EnvelopeType, RecipientRole, SendStatus, SigningStatus } from '@prisma/client';
@@ -360,14 +360,19 @@ const hasRecipientBeenChanged = (recipient: Recipient, newRecipientData: Recipie
   const newRecipientAccessAuth = newRecipientData.accessAuth || [];
   const newRecipientActionAuth = newRecipientData.actionAuth || [];
 
-  const newRecipientName = resolveRecipientNameOnCreate(newRecipientData);
+  // Compare names as parts on both sides, falling back to splitting the full name where no parts
+  // were stored or sent. A recipient created name-only (API, CSV, direct link) has empty part
+  // columns, but the editor seeds its inputs by splitting the name and sends those parts back -
+  // comparing raw columns made that look like an edit, and for a recipient who has already signed
+  // the whole save was rejected.
+  const persistedNameParts = getRecipientNameParts(recipient);
+  const newNameParts = getRecipientNameParts(resolveRecipientNameOnCreate(newRecipientData));
 
   return (
     recipient.email !== newRecipientData.email ||
-    recipient.name !== newRecipientName.name ||
-    recipient.firstName !== newRecipientName.firstName ||
-    recipient.middleName !== newRecipientName.middleName ||
-    recipient.lastName !== newRecipientName.lastName ||
+    persistedNameParts.firstName !== newNameParts.firstName ||
+    persistedNameParts.middleName !== newNameParts.middleName ||
+    persistedNameParts.lastName !== newNameParts.lastName ||
     recipient.role !== newRecipientData.role ||
     // Null and undefined both mean "no order": the request schema cannot
     // carry null, so a persisted null arrives as undefined
