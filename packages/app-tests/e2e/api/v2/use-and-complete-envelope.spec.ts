@@ -205,6 +205,54 @@ test.describe('Envelope use-and-complete API v2', () => {
     expect(emailsSent).toBe(0);
   });
 
+  /**
+   * The scripted integration's client sends the key bare - `Authorization: api_...`, no
+   * `Bearer` prefix - from a server, so with no `Origin` header either. Upstream's CSRF
+   * middleware (v2.20.0) rejects header-less mutations under `/api/v2*` unless the
+   * `Authorization` value looks like an API token, so this is the shape that has to keep
+   * getting through. `APIRequestContext` never sends `Origin`, which is what we want here.
+   */
+  for (const apiPath of ['v2', 'v2-beta']) {
+    test(`accepts a bare API key with no Origin header on /api/${apiPath}`, async ({ request }) => {
+      const { user, team } = await seedUser();
+
+      const { token } = await createApiToken({
+        userId: user.id,
+        teamId: team.id,
+        tokenName: `use-and-complete-bare-key-${apiPath}`,
+        expiresIn: null,
+      });
+
+      const { template, recipient, fields } = await seedTemplateWithEveryFieldType(user, team.id);
+
+      const response = await request.post(`${WEBAPP_BASE_URL}/api/${apiPath}/envelope/use-and-complete`, {
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        data: {
+          envelopeId: template.id,
+          recipients: [{ id: recipient.id, email: 'signer@example.com', name: 'Grace Hopper' }],
+          fieldValues: [
+            { id: fields.signature.id, type: 'signature', value: 'Grace Hopper' },
+            { id: fields.text.id, type: 'text', value: 'Filled by the API' },
+            { id: fields.number.id, type: 'number', value: '1' },
+            { id: fields.radio.id, type: 'radio', value: 'Yes' },
+            { id: fields.checkbox.id, type: 'checkbox', value: ['Alpha'] },
+            { id: fields.dropdown.id, type: 'dropdown', value: 'Red' },
+          ],
+        },
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body = await response.json();
+
+      await expect(async () => {
+        const envelope = await prisma.envelope.findFirstOrThrow({ where: { id: body.id } });
+
+        expect(envelope.status).toBe(DocumentStatus.COMPLETED);
+      }).toPass({ timeout: 60_000 });
+    });
+  }
+
   test('rejects a signature field with no explicit value', async ({ request }) => {
     const { user, team } = await seedUser();
 
