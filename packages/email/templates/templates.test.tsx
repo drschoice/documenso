@@ -114,6 +114,19 @@ const TEMPLATES: { name: string; element: ReactElement }[] = [
     element: <DocumentInviteEmailTemplate role={RecipientRole.SIGNER} />,
   },
   {
+    // The invite that arrived blank in production. Whether a NUL lands in the
+    // output depends on where React's 2 KB stream chunks fall in the preview
+    // padding, so this pins props known to put one there.
+    name: 'document-invite (preview padding across a chunk boundary)',
+    element: (
+      <DocumentInviteEmailTemplate
+        role={RecipientRole.SIGNER}
+        inviterName="Doctor's Choice"
+        documentName="Scope of Appointment"
+      />
+    ),
+  },
+  {
     // The on-behalf-of arm: the same template takes a different preview line
     // when the sender is an organisation, which is fork behaviour (`c0ee54f81`).
     name: 'document-invite (organisation sender)',
@@ -294,6 +307,19 @@ describe('email templates', () => {
       expect(html).not.toContain('undefined');
       expect(html).not.toContain('[object Object]');
       expect(html).not.toContain('NaN');
+    });
+
+    it('contains no NUL bytes', async () => {
+      const [html, text] = await Promise.all([
+        renderWithI18N(element, { i18n }),
+        renderWithI18N(element, { i18n, plainText: true }),
+      ]);
+
+      // A NUL is illegal in a mail body. SendGrid drops it and cuts the HTML
+      // part short, so the email arrives blank with only the plain-text part
+      // intact.
+      expect(html).not.toContain('\0');
+      expect(text).not.toContain('\0');
     });
   });
 });
