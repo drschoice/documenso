@@ -15,36 +15,19 @@ export type RenderOptions = ReactEmail.Options & {
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 const colors = (config.theme?.extend?.colors || {}) as Record<string, string>;
 
+/**
+ * React 18's streaming renderer flushes its whole 2 KB buffer when a multi-byte character doesn't
+ * fit at the end, so the unfilled tail goes out as NUL bytes. The preview padding is all multi-byte
+ * characters and often straddles that boundary. SendGrid cuts the HTML part short at the NUL, and
+ * the email arrives blank. react-email only strips these in `pretty` mode.
+ */
+const stripNulBytes = (output: string) => output.replaceAll('\0', '');
+
 export const render = async (element: React.ReactNode, options?: RenderOptions) => {
   const { branding, ...otherOptions } = options ?? {};
 
-  return ReactEmail.render(
-    <BrandingProvider branding={branding}>
-      <Tailwind
-        config={{
-          theme: {
-            extend: {
-              colors,
-            },
-          },
-        }}
-      >
-        {element}
-      </Tailwind>
-    </BrandingProvider>,
-    otherOptions,
-  );
-};
-
-export const renderWithI18N = async (element: React.ReactNode, options?: RenderOptions) => {
-  const { branding, i18n, ...otherOptions } = options ?? {};
-
-  if (!i18n) {
-    throw new Error('i18n is required');
-  }
-
-  return ReactEmail.render(
-    <I18nProvider i18n={i18n}>
+  return stripNulBytes(
+    await ReactEmail.render(
       <BrandingProvider branding={branding}>
         <Tailwind
           config={{
@@ -57,8 +40,37 @@ export const renderWithI18N = async (element: React.ReactNode, options?: RenderO
         >
           {element}
         </Tailwind>
-      </BrandingProvider>
-    </I18nProvider>,
-    otherOptions,
+      </BrandingProvider>,
+      otherOptions,
+    ),
+  );
+};
+
+export const renderWithI18N = async (element: React.ReactNode, options?: RenderOptions) => {
+  const { branding, i18n, ...otherOptions } = options ?? {};
+
+  if (!i18n) {
+    throw new Error('i18n is required');
+  }
+
+  return stripNulBytes(
+    await ReactEmail.render(
+      <I18nProvider i18n={i18n}>
+        <BrandingProvider branding={branding}>
+          <Tailwind
+            config={{
+              theme: {
+                extend: {
+                  colors,
+                },
+              },
+            }}
+          >
+            {element}
+          </Tailwind>
+        </BrandingProvider>
+      </I18nProvider>,
+      otherOptions,
+    ),
   );
 };
