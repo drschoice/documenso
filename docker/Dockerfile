@@ -3,6 +3,10 @@
 ###########################
 FROM node:22-alpine3.22 AS base
 
+# Pick up Alpine security fixes published after the node image was built
+# (2026-11: musl CVE-2026-107891, zlib CVE-2026-4738 / CVE-2026-85091; devops#14).
+RUN apk upgrade --no-cache
+
 RUN apk add --no-cache openssl
 RUN apk add --no-cache font-freefont
 
