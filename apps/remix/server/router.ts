@@ -20,6 +20,12 @@ import {
 import { TelemetryClient } from '@documenso/lib/server-only/telemetry/telemetry-client';
 import { migrateDeletedAccountServiceAccount } from '@documenso/lib/server-only/user/service-accounts/deleted-account';
 import { migrateLegacyServiceAccount } from '@documenso/lib/server-only/user/service-accounts/legacy-service-account';
+import {
+  accessLine,
+  clientIp,
+  isHealthCheck,
+  trustedProxyHops,
+} from '@documenso/lib/utils/access-log';
 import { env } from '@documenso/lib/utils/env';
 import { logger } from '@documenso/lib/utils/logger';
 import { openApiDocument } from '@documenso/trpc/server/open-api';
@@ -49,6 +55,36 @@ const apiV2RateLimitMiddleware = createRateLimitMiddleware(apiV2RateLimit);
 const aiRateLimitMiddleware = createRateLimitMiddleware(aiRateLimit);
 const trpcRateLimitMiddleware = createRateLimitMiddleware(apiTrpcRateLimit);
 const fileRateLimitMiddleware = createRateLimitMiddleware(fileUploadRateLimit);
+
+/**
+ * One access line per request on stdout (drschoice/devops README, "Every new
+ * service needs"): behind the ALB it is the only record of requests. First, so
+ * it times and sees the final status of every route, the React Router app and
+ * static files included.
+ */
+const proxyHops = trustedProxyHops(process.env.TRUSTED_PROXY_HOPS);
+
+app.use('*', async (c, next) => {
+  if (isHealthCheck(c.req.header('user-agent'))) {
+    return next();
+  }
+
+  const start = performance.now();
+
+  try {
+    await next();
+  } finally {
+    console.log(
+      accessLine(
+        c.req.method,
+        c.req.path,
+        c.res?.status ?? 500,
+        performance.now() - start,
+        clientIp(c.req.header('x-forwarded-for'), proxyHops),
+      ),
+    );
+  }
+});
 
 /**
  * Attach session and context to requests.

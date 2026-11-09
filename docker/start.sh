@@ -28,4 +28,6 @@ printf "🗄️  Running database migrations...\n"
 npx prisma migrate deploy --schema ../../packages/prisma/schema.prisma
 
 printf "🌟 Starting Documenso server...\n"
-HOSTNAME=0.0.0.0 node build/server/main.js
+# exec, so node is PID 1 and gets SIGTERM when the task stops, instead of being
+# killed after the stop timeout.
+HOSTNAME=0.0.0.0 exec node build/server/main.js

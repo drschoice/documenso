@@ -40,10 +40,11 @@ const httpServer = serve({ fetch: handler.fetch, port });
  * it and see ECONNRESET, through no fault of the request.
  *
  * The convention is to keep this above the idle timeout of whatever sits in
- * front of the process - an AWS ALB, for instance, defaults to 60s - so the
- * proxy is always the side that retires a connection. `headersTimeout` must
- * exceed `keepAliveTimeout`, or Node can close a connection while it is still
- * waiting for the request headers of a reused socket.
+ * front of the process, so the proxy is always the side that retires a
+ * connection. On ECS Express the ALB's idle timeout is 300 s (drschoice/devops,
+ * ecs-express-base), so 310 s here. `headersTimeout` must exceed
+ * `keepAliveTimeout`, or Node can close a connection while it is still waiting
+ * for the request headers of a reused socket.
  */
-httpServer.keepAliveTimeout = 65_000;
-httpServer.headersTimeout = 66_000;
+httpServer.keepAliveTimeout = 310_000;
+httpServer.headersTimeout = 311_000;
