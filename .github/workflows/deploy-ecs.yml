@@ -1,30 +1,22 @@
-name: Build and push image to ECR (App Runner auto-deploys)
+name: Build, push and deploy to ECS (documenso stack)
 
-# On every push to `production` (or manual dispatch): build the Docker image and
-# push it to ECR under TWO tags —
-#   :<git-sha>    immutable, for traceability and rollback
-#   :production   moving tag that App Runner watches
-# App Runner is configured with Deployment trigger = Automatic against the
-# `:production` tag, so it redeploys itself whenever this workflow pushes a new
-# image. There is deliberately NO deploy step here — App Runner owns the rollout.
+# On every push to `production` (or manual dispatch): build the Docker image,
+# push it to ECR as :<git-sha>, then deploy it with an image-only update of the
+# `documenso` CloudFormation stack in drschoice/devops (its README, "Deploying a
+# new image"). Never deploy with update-express-gateway-service or the ECS
+# deploy action: the next stack update would silently revert it.
 #
 # Auth is via GitHub OIDC (no stored AWS keys). Account-specific values are kept
-# OUT of this public repo and come from a GitHub Actions repository secret
-# (Settings → Secrets and variables → Actions):
-#   AWS_DEPLOY_ROLE_ARN  — CloudFormation output GitHubDeployRoleArn (needs ECR push)
-# The old ECS_SERVICE_ARN / APP_SECRET_ARN secrets are no longer used here (App
-# Runner holds the container config); they can be removed.
+# out of this public repo, in repository secrets:
+#   AWS_DEPLOY_ROLE_ARN        ECR push role (github-documenso-deploy)
+#   AWS_STACK_DEPLOY_ROLE_ARN  stack update role (gha-deploy-documenso-production,
+#                              drschoice/devops stacks/ci-deploy, devops#55);
+#                              it trusts pushes to `production` only
 
 on:
   push:
     branches: [production]
   workflow_dispatch: {}
-
-concurrency:
-  group: build-push-ecr
-  # A newer push supersedes an older queued/running build — no value in pushing a
-  # stale image after a fresher commit landed.
-  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -32,22 +24,24 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
   ECR_REPOSITORY: documenso
-  # The moving tag App Runner is configured to watch for automatic deployments.
-  DEPLOY_TAG: production
+  STACK: documenso
 
 jobs:
   build:
     name: Build and push image
     runs-on: ubuntu-latest
+    # A newer push supersedes an older build: no value in pushing a stale image.
+    concurrency:
+      group: build-push-ecr
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -60,14 +54,59 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: . # repo root — docker/Dockerfile does `COPY . .`
+          context: . # repo root: docker/Dockerfile does `COPY . .`
           file: ./docker/Dockerfile
-          platforms: linux/amd64 # App Runner service is X86_64
+          platforms: linux/amd64 # the ECS task is X86_64
           push: true
-          # Push both the immutable SHA tag and the moving tag App Runner watches.
-          # A push to :production is what triggers App Runner's automatic deploy.
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.DEPLOY_TAG }}
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Every other stack parameter keeps its value (update-stack would reset an
+  # omitted one to its default, e.g. a live Weight of 100 to 0). The job fails
+  # if the stack rolls back. A push of an image the stack already runs is a
+  # no-op.
+  ecs:
+    name: Deploy to the documenso stack
+    needs: build
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    # One update at a time, never cancelled: a cancelled job would leave the
+    # stack updating, and the next push would fail on UPDATE_IN_PROGRESS.
+    concurrency:
+      group: ecs-deploy-documenso
+      cancel-in-progress: false
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STACK_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update the stack's ImageUri
+        run: |
+          set -euo pipefail
+          account=$(aws sts get-caller-identity --query Account --output text)
+          image="$account.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$GITHUB_SHA"
+          params=("ParameterKey=ImageUri,ParameterValue=$image")
+          for key in $(aws cloudformation describe-stacks --stack-name "$STACK" \
+              --query "Stacks[0].Parameters[?ParameterKey!='ImageUri'].ParameterKey" --output text); do
+            params+=("ParameterKey=$key,UsePreviousValue=true")
+          done
+          if ! out=$(aws cloudformation update-stack --stack-name "$STACK" --use-previous-template \
+              --capabilities CAPABILITY_NAMED_IAM --parameters "${params[@]}" 2>&1); then
+            if grep -q 'No updates are to be performed' <<<"$out"; then
+              echo "$STACK already runs $ECR_REPOSITORY:$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "$out" >&2
+            exit 1
+          fi
+          if ! aws cloudformation wait stack-update-complete --stack-name "$STACK"; then
+            aws cloudformation describe-stack-events --stack-name "$STACK" --max-items 30 \
+              --query "StackEvents[?contains(ResourceStatus, 'FAILED')].[LogicalResourceId, ResourceStatusReason]" \
+              --output text >&2
+            exit 1
+          fi
+          echo "Deployed $ECR_REPOSITORY:$GITHUB_SHA to $STACK" | tee -a "$GITHUB_STEP_SUMMARY"
