@@ -63,17 +63,19 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Every other stack parameter keeps its value (update-stack would reset an
-  # omitted one to its default, e.g. a live Weight of 100 to 0). The job fails
-  # if the stack rolls back. A push of an image the stack already runs is a
-  # no-op.
+  # omitted one to its default, e.g. a live Weight of 100 to 0). It starts the
+  # update and ends rather than paying for the ~10-minute rollout
+  # (drschoice/devops#81): a rollback is posted to Slack #uptime by devops
+  # stacks/monitoring, not shown in this run. A push of an image the stack
+  # already runs is a no-op.
   ecs:
     name: Deploy to the documenso stack
     needs: build
     if: github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
-    timeout-minutes: 70
-    # One update at a time, never cancelled: a cancelled job would leave the
-    # stack updating, and the next push would fail on UPDATE_IN_PROGRESS.
+    timeout-minutes: 30
+    # One run at a time, never cancelled. The job doesn't outlive its update,
+    # so the step also waits out one an earlier run left in progress.
     concurrency:
       group: ecs-deploy-documenso
       cancel-in-progress: false
@@ -89,6 +91,17 @@ jobs:
           set -euo pipefail
           account=$(aws sts get-caller-identity --query Account --output text)
           image="$account.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$GITHUB_SHA"
+          # CloudFormation refuses an update while another is running.
+          while :; do
+            status=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+                --query 'Stacks[0].StackStatus' --output text)
+            [[ $status == *_IN_PROGRESS ]] || break
+            echo "$STACK is $status; waiting for it to finish"
+            sleep 20
+          done
+          if [[ $status == UPDATE_ROLLBACK_COMPLETE ]]; then
+            echo "::warning::$STACK's previous update rolled back; deploying $ECR_REPOSITORY:$GITHUB_SHA anyway."
+          fi
           params=("ParameterKey=ImageUri,ParameterValue=$image")
           for key in $(aws cloudformation describe-stacks --stack-name "$STACK" \
               --query "Stacks[0].Parameters[?ParameterKey!='ImageUri'].ParameterKey" --output text); do
@@ -103,10 +116,5 @@ jobs:
             echo "$out" >&2
             exit 1
           fi
-          if ! aws cloudformation wait stack-update-complete --stack-name "$STACK"; then
-            aws cloudformation describe-stack-events --stack-name "$STACK" --max-items 30 \
-              --query "StackEvents[?contains(ResourceStatus, 'FAILED')].[LogicalResourceId, ResourceStatusReason]" \
-              --output text >&2
-            exit 1
-          fi
-          echo "Deployed $ECR_REPOSITORY:$GITHUB_SHA to $STACK" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Started deploying $ECR_REPOSITORY:$GITHUB_SHA to $STACK. A rollback is posted to Slack #uptime, not shown here." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
