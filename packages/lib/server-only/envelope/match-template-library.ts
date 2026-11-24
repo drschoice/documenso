@@ -7,9 +7,9 @@ import {
 } from '../../utils/fuzzy-text';
 
 /**
- * Finding templates deep in a folder library from a free-text query that may
- * name the folders a template sits in and words of its title, among words
- * that name nothing. "Initech Inc. (renewal) EU Europe Sales" should find
+ * Finding templates (or documents) deep in a folder library from a free-text
+ * query that may name the folders one sits in and words of its title, among
+ * words that name nothing. "Initech Inc. (renewal) EU Europe Sales" should find
  * `EU / Sales / Initech / <title>`.
  *
  * - Each folder on a template's path, and its title, scores 0 to 1 by how much

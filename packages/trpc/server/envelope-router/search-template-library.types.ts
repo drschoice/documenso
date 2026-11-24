@@ -1,3 +1,4 @@
+import { EnvelopeType } from '@prisma/client';
 import { z } from 'zod';
 
 import {
@@ -11,9 +12,9 @@ export const searchTemplateLibraryMeta: TrpcRouteMeta = {
   openapi: {
     method: 'GET',
     path: '/envelope/search-templates',
-    summary: 'Search a template library',
+    summary: 'Search templates or documents in a folder tree',
     description:
-      'Finds the templates at any depth under a folder whose folder names and title a free-text query names, best first. Typos are allowed ("Globex" names a folder called "GOLBEX") and query words that name nothing are ignored, so the query can carry everything the caller knows about the template it wants.',
+      'Finds the templates (or, with `type=DOCUMENT`, documents) at any depth under a folder whose folder names and title a free-text query names, best first. Typos are allowed ("Globex" names a folder called "GOLBEX") and query words that name nothing are ignored, so the query can carry everything the caller knows about what it wants.',
     tags: ['Envelope'],
   },
 };
@@ -22,22 +23,24 @@ export const ZSearchTemplateLibraryRequestSchema = z.object({
   folderId: z
     .string()
     .min(1)
-    .describe(
-      'The folder the library sits under. Every template below it, at any depth, is searched.',
-    ),
+    .describe('The folder to search under. Everything below it, at any depth, is searched.'),
   query: z
     .string()
     .min(1)
     .describe(
-      'Free text that may name folders on a template’s path and words of its title, e.g. "Initech Inc. EU Europe Sales".',
+      'Free text that may name folders on a template’s (or document’s) path and words of its title, e.g. "Initech Inc. EU Europe Sales".',
     ),
+  type: z
+    .nativeEnum(EnvelopeType)
+    .optional()
+    .describe('What to search for: TEMPLATE (the default) or DOCUMENT.'),
   limit: z.coerce
     .number()
     .int()
     .min(1)
     .max(100)
     .optional()
-    .describe(`The most templates to return. Defaults to ${TEMPLATE_SEARCH_DEFAULT_LIMIT}.`),
+    .describe(`The most results to return. Defaults to ${TEMPLATE_SEARCH_DEFAULT_LIMIT}.`),
   threshold: z.coerce
     .number()
     .min(0)
@@ -51,11 +54,11 @@ export const ZSearchTemplateLibraryRequestSchema = z.object({
 export const ZTemplateLibraryMatchSchema = z.object({
   id: z.string(),
   title: z.string(),
-  folderId: z.string().describe('The folder the template sits in.'),
+  folderId: z.string().describe('The folder the template or document sits in.'),
   path: z
     .string()
     .array()
-    .describe('Folder names below `folderId` down to the template’s folder, outermost first.'),
+    .describe('Folder names below `folderId` down to its folder, outermost first.'),
   score: z.number().describe('The sum of `pathScores` and `titleScore`. Higher is better.'),
   pathScores: z
     .number()
@@ -66,7 +69,9 @@ export const ZTemplateLibraryMatchSchema = z.object({
 
 export const ZSearchTemplateLibraryResponseSchema = z.object({
   data: ZTemplateLibraryMatchSchema.array(),
-  count: z.number().describe('How many templates the query named anything of, before `limit`.'),
+  count: z
+    .number()
+    .describe('How many templates or documents the query named anything of, before `limit`.'),
 });
 
 export type TSearchTemplateLibraryRequest = z.infer<typeof ZSearchTemplateLibraryRequestSchema>;

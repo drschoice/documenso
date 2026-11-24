@@ -5,6 +5,7 @@ import { createApiToken } from '@documenso/lib/server-only/public-api/create-api
 import { prisma } from '@documenso/prisma';
 import type { User } from '@documenso/prisma/client';
 import { DocumentVisibility, FolderType, TeamMemberRole } from '@documenso/prisma/client';
+import { seedBlankDocument } from '@documenso/prisma/seed/documents';
 import { seedBlankFolder } from '@documenso/prisma/seed/folders';
 import { seedTeam, seedTeamMember } from '@documenso/prisma/seed/teams';
 import { seedBlankTemplate } from '@documenso/prisma/seed/templates';
@@ -82,8 +83,9 @@ const seedLibrary = async (user: User, teamId: number) => {
 };
 
 /**
- * `GET /envelope/search-templates` finds templates at any depth under a folder
- * from a free-text query that names their folders, with typos allowed.
+ * `GET /envelope/search-templates` finds templates (or documents) at any depth
+ * under a folder from a free-text query that names their folders, with typos
+ * allowed.
  */
 test.describe('Template library search API v2', () => {
   test('finds templates deep in the tree through a misspelt folder', async ({ request }) => {
@@ -119,6 +121,52 @@ test.describe('Template library search API v2', () => {
     });
 
     expect(single.status()).toBe(200);
+  });
+
+  test('searches documents when asked, and templates otherwise', async ({ request }) => {
+    const { user, team } = await seedUser();
+    const token = await tokenFor(user.id, team.id);
+
+    // Signed contracts filed by region and client, with a template filed
+    // among them.
+    const folder = async (name: string, parentId: string | null) =>
+      seedBlankFolder(user, team.id, {
+        createFolderOptions: { name, parentId, type: FolderType.DOCUMENT },
+      });
+
+    const signed = await folder('Signed', null);
+    const eu = await folder('EU', signed.id);
+    const client = await folder('Globex', eu.id);
+
+    const document = await seedBlankDocument(user, team.id, {
+      createDocumentOptions: { title: 'Globex signed contract', folderId: client.id },
+    });
+
+    await seedBlankTemplate(user, team.id, {
+      createTemplateOptions: { title: 'Globex contract template', folderId: client.id },
+    });
+
+    const search = async (params: Record<string, string>) => {
+      const response = await searchTemplates(request, token, {
+        folderId: signed.id,
+        query: 'Globex EU',
+        ...params,
+      });
+
+      expect(response.status()).toBe(200);
+
+      return ZSearchTemplateLibraryResponseSchema.parse(await response.json());
+    };
+
+    const documents = await search({ type: 'DOCUMENT' });
+
+    expect(documents.data.map((row) => row.id)).toEqual([document.id]);
+    expect(documents.data[0].path).toEqual(['EU', 'Globex']);
+
+    // Without a type, templates only.
+    const templates = await search({});
+
+    expect(templates.data.map((row) => row.title)).toEqual(['Globex contract template']);
   });
 
   test('a manager does not see folders or templates kept for admins', async ({ request }) => {
