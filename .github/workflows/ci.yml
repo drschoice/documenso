@@ -14,7 +14,7 @@ concurrency:
 jobs:
   unit_tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
 
   typecheck:
     name: Typecheck (packages/lib)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
 
   build_app:
     name: Build App
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
