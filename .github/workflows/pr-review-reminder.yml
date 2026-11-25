@@ -10,7 +10,7 @@ permissions:
 jobs:
   checkPRs:
     if: ${{ github.event.pull_request.user.login }} && github.event.action == ('opened' || 'ready_for_review')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -23,7 +23,7 @@ jobs:
     # hours, which is why the work is split across shards below rather than run
     # in one job. Point this at a larger runner if one is configured for the org;
     # the shard count can then come down.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     strategy:
       # A red shard says nothing about the other five, and finding out which
       # other areas broke is the entire point of running them.
@@ -147,7 +147,7 @@ jobs:
     name: 'E2E Report'
     if: always()
     needs: [e2e_tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     steps:
       - uses: actions/checkout@v4
 
