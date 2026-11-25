@@ -10,7 +10,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.56 can't install on ubuntu-latest (26.04)
     permissions:
       actions: read
       contents: read
